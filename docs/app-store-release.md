@@ -141,6 +141,16 @@ The link belongs in **two** places, and both are in the repository:
 Editing the description in App Store Connect alone would be undone by the next release, which
 overwrites the listing from `fastlane/metadata/`.
 
+## The Firebase plist, which the archive must contain
+
+`ios/Shuhari/GoogleService-Info.plist` is **committed** — it ships inside every distributed
+`.ipa`, so it is public by construction, and the pipeline archives from a clean checkout: while
+the file was gitignored, every CI build (12 through 15) left the archive without it and
+`FirebaseApp.configure()` aborted at first launch. 1.0 (15) was refused on it, on 2026-07-26,
+under guideline 2.1(a) "crash on launch" — a crash no dev machine could reproduce, since the
+file exists on all of them. If a resource is required at runtime, it is committed or the
+release workflow materializes it; there is no third state.
+
 ## Account deletion, which review checks
 
 Guideline 5.1.1(v) requires any app that creates accounts to let them be deleted from within the

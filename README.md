@@ -136,15 +136,16 @@ reporting entirely.
 
 **What it does:** tells the app which Firebase project to authenticate against.
 
-**How to get it:** `bun run bootstrap` generates a `GoogleService-Info.plist` (see
-[Deployment](#deployment)); you can also download it from the Firebase console under **Project
-settings** → **Your apps**.
+**Where it lives:** committed, at `ios/Shuhari/GoogleService-Info.plist` — unlike the secrets
+above, this file is not one: it ships inside every distributed `.ipa`, so it is public by
+construction (the same reasoning as the Sentry DSN hardcoded in `ShuhariApp.swift`). It must be
+committed: the release pipeline archives from a clean checkout, and an archive built without it
+crashes at launch on `FirebaseApp.configure()`. To regenerate it, run `bun run bootstrap` (see
+[Deployment](#deployment)) or download it from the Firebase console under **Project settings** →
+**Your apps**.
 
-**Where to put it:** drop it into the `Shuhari` target in Xcode (it belongs at
-`ios/Shuhari/GoogleService-Info.plist`).
-
-In production, none of these live in a file: they are stored in GCP Secret Manager (project
-`shuhari-polyforms`) and wired in by the infrastructure. Never commit a key.
+In production, none of the secrets above live in a file: they are stored in GCP Secret Manager
+(project `shuhari-polyforms`) and wired in by the infrastructure. Never commit a key.
 
 ## Running the project
 
