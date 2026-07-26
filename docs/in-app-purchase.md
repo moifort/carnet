@@ -94,6 +94,8 @@ Credential-gated; none of it is scriptable.
    needs it.
 9. Submit both products **with the app build** that contains the paywall: Apple reviews
    subscriptions alongside a build, and rejects them if the reviewer cannot reach the purchase.
+   The submission also needs the Terms of Use link, in the description and on the paywall —
+   [app-store-release.md](./app-store-release.md#the-terms-of-use-link-which-subscriptions-demand).
 
 ### Done on 2026-07-20
 

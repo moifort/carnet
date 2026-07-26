@@ -123,6 +123,24 @@ A privacy URL and a support URL are mandatory. Both are served by GitHub Pages f
 `docs/pages/`, deployed by `.github/workflows/pages.yml`. **The privacy page and the App Store
 Connect privacy questionnaire must agree** — a divergence is a common rejection.
 
+## The Terms of Use link, which subscriptions demand
+
+Guideline 3.1.2 requires an app selling auto-renewable subscriptions to carry a **functional link
+to the Terms of Use (EULA)** in its metadata, and Apple checks it before anything else — 1.0 was
+refused on it, on 2026-07-21, with every subscription in the same submission left stuck at "ready
+for review" behind the refused version. Shuhari links Apple's standard EULA rather than writing
+one: nothing here departs from it.
+
+The link belongs in **two** places, and both are in the repository:
+
+- the description, at the end of `fastlane/metadata/fr-FR/description.txt`, alongside the privacy
+  policy — this is the metadata Apple's automated check reads;
+- the paywall, under the subscribe button (`SubscriptionLinks`, shown by `PremiumSheet`) — a
+  reviewer who cannot reach the terms from the purchase flow refuses on the same guideline.
+
+Editing the description in App Store Connect alone would be undone by the next release, which
+overwrites the listing from `fastlane/metadata/`.
+
 ## Account deletion, which review checks
 
 Guideline 5.1.1(v) requires any app that creates accounts to let them be deleted from within the

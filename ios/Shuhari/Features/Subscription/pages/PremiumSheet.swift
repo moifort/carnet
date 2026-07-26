@@ -193,6 +193,15 @@ struct PremiumSheet: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
+
+            // Guideline 3.1.2 wants both documents reachable from the purchase
+            // itself, not only from the store listing. Below the CTA, where a cook
+            // looks for the small print, and quiet enough not to compete with it.
+            HStack(spacing: Theme.Spacing.m) {
+                Link("Conditions d’utilisation", destination: SubscriptionLinks.terms)
+                Link("Confidentialité", destination: SubscriptionLinks.privacy)
+            }
+            .font(.caption2)
         }
         .padding(.horizontal, Theme.Spacing.xl)
         .padding(.vertical, Theme.Spacing.m)
