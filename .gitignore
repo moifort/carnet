@@ -32,8 +32,11 @@ firestore-debug.log
 ui-debug.log
 .emulators/
 
-# iOS Firebase + Apollo
-ios/Shuhari/GoogleService-Info.plist
+# iOS Apollo
+# Note: ios/Shuhari/GoogleService-Info.plist IS committed — it ships inside every
+# distributed .ipa, so it is public by construction (same reasoning as the Sentry
+# DSN in ShuhariApp.swift). Ignoring it made the CI archive build without it, and
+# FirebaseApp.configure() then crashed every App Store build at launch.
 # Ignore generated Apollo output, but KEEP the custom-scalar overrides
 # (Rating/VersionNumber → Int). Apollo never overwrites an existing custom-scalar
 # file, so these hand-typed aliases must be committed or a clean regen would
