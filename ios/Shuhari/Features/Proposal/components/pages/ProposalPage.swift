@@ -123,10 +123,20 @@ struct ProposalPage: View {
     var body: some View {
         List {
             ChangeSummaryCard(summary: proposal.changeSummary, rationale: proposal.rationale)
+            // A coffee is proposed as parameters — read-only here, since the one
+            // dial that moved is named in the summary above. Without them, an
+            // espresso proposal (which has no steps) would be an empty page.
+            if let parameters = proposal.content.coffeeParameters {
+                CoffeeParametersSection(parameters: parameters)
+            }
             if !ingredients.isEmpty {
                 ingredientsSection
             }
-            stepsSection
+            // Same rule as the recipe sheet: no empty steps section on a drink
+            // whose parameters say everything.
+            if !steps.isEmpty || !baseSteps.isEmpty {
+                stepsSection
+            }
             // Nothing on either side means the recipe has no tips at all: no empty
             // section on a proposal that changes none.
             if !tips.isEmpty || !baseTips.isEmpty {
