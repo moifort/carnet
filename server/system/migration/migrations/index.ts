@@ -1,6 +1,7 @@
 import { migration0001 } from '~/system/migration/migrations/0001-rename-version-count'
+import { migration0002 } from '~/system/migration/migrations/0002-coffee-parameters'
 import type { Migration } from '~/system/migration/types'
 
 // Forward-only migrations, applied in order by the runner. Register new
 // migrations here, in ascending version order.
-export const migrations: Migration[] = [migration0001]
+export const migrations: Migration[] = [migration0001, migration0002]
