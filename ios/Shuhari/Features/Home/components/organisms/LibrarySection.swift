@@ -62,6 +62,7 @@ struct LibrarySection: View {
                 title: recipe.title,
                 type: recipe.type,
                 category: recipe.category,
+                method: recipe.method,
                 versionCount: recipe.versionCount,
                 toTestCount: recipe.toTestCount,
                 bestRating: recipe.bestRating,

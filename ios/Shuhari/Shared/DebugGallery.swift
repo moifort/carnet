@@ -31,6 +31,10 @@ struct DebugGallery: View {
             CuisineGalleryScreen(sort: .dishCategory)
         case "cuisine-favorites":
             CuisineGalleryScreen(lens: .favorites)
+        case "coffee":
+            CoffeeGalleryScreen()
+        case "coffee-recent":
+            CoffeeGalleryScreen(sort: .lastModified)
         case "cuisine-loading":
             NavigationStack {
                 HomePage(
@@ -42,7 +46,7 @@ struct DebugGallery: View {
                     title: "Cuisine",
                     lensPicker: nil,
                     sort: .constant(.lastModified),
-                    categoryFilter: .constant(nil),
+                    facet: .course(selection: .constant(nil)),
                     onSettings: {}
                 )
             }
@@ -326,8 +330,37 @@ private struct CuisineGalleryScreen: View {
                 libraryLoadMoreFailed: false,
                 title: lens.label,
                 lensPicker: .init(options: [.all, .favorites], selection: $lens),
+                sortOptions: RecipeSortOption.cooking,
                 sort: $sort,
-                categoryFilter: .constant(nil),
+                facet: .course(selection: .constant(nil)),
+                onSettings: {}
+            )
+        }
+    }
+}
+
+/// The coffee tab, offline: the library grouped by brewing method, or by month
+/// under the "Dernière modification" sort.
+private struct CoffeeGalleryScreen: View {
+    @State private var sort: RecipeSortOption
+
+    init(sort: RecipeSortOption = .brewMethod) {
+        self._sort = State(initialValue: sort)
+    }
+
+    var body: some View {
+        NavigationStack {
+            HomePage(
+                library: Fixtures.coffeeRecipes,
+                libraryGrouping: sort == .lastModified ? .month : .method,
+                libraryLoading: false,
+                libraryHasMore: false,
+                libraryLoadMoreFailed: false,
+                title: "Café",
+                lensPicker: nil,
+                sortOptions: RecipeSortOption.coffee,
+                sort: $sort,
+                facet: .method(selection: .constant(nil)),
                 onSettings: {}
             )
         }

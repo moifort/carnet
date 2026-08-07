@@ -1,14 +1,20 @@
 import SwiftUI
 
-/// A library row: the course icon, the title, a subtitle with the version count closed
-/// by the recipe type as an icon-only chip, the recipe's best rating ("the
+/// A library row: the filing icon, the title, a subtitle with the version count
+/// closed by the recipe type as an icon-only chip, the recipe's best rating ("the
 /// highest star" across every version it ever cooked) as trailing stars, and the
 /// favourite heart closing the line. The icon, the stars and the heart sit on the
 /// title's line. Designed as a List row — the List provides insets and separators.
+///
+/// The leading icon is what the recipe is filed by: its course for a dish, its
+/// brew method for a coffee — every coffee is a `drink`, so the course icon would
+/// say the same thing on every row of the coffee tab.
 struct LibraryRow: View {
     let title: String
     let type: RecipeType
     let category: DishCategory
+    /// Set on a coffee and on nothing else.
+    var method: BrewMethod? = nil
     let versionCount: Int
     /// How many of those versions are waiting to be cooked — `0` drops the count from
     /// the subtitle rather than writing "0 essai".
@@ -18,11 +24,11 @@ struct LibraryRow: View {
 
     var body: some View {
         HStack(spacing: Theme.Spacing.m) {
-            category.iconImage
+            (method?.iconImage ?? category.iconImage)
                 .font(.body)
                 .foregroundStyle(.secondary)
                 .frame(maxHeight: .infinity, alignment: .top)
-                .accessibilityLabel(category.label)
+                .accessibilityLabel(method?.label ?? category.label)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
@@ -70,5 +76,7 @@ struct LibraryRow: View {
         LibraryRow(title: "Bœuf bourguignon", type: .dish, category: .main, versionCount: 4, toTestCount: 1, bestRating: 5, favorite: true)
         LibraryRow(title: "Tarte au citron meringuée", type: .thermomix, category: .dessert, versionCount: 1, toTestCount: 1, bestRating: 3)
         LibraryRow(title: "Velouté de courge", type: .thermomix, category: .soup, versionCount: 2, toTestCount: 0, bestRating: nil, favorite: true)
+        LibraryRow(title: "V60 Éthiopie Guji", type: .coffee, category: .drink, method: .v60, versionCount: 2, toTestCount: 0, bestRating: 5, favorite: true)
+        LibraryRow(title: "Bialetti 3 tasses", type: .coffee, category: .drink, method: .moka, versionCount: 1, toTestCount: 0, bestRating: 3)
     }
 }

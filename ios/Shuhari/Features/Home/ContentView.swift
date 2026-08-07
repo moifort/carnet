@@ -1,25 +1,32 @@
 import SwiftUI
 
-/// Root once authenticated. A single content tab, "Carnet" (all cooking recipes —
-/// dishes & Thermomix), plus an "Importer" entry pinned to the trailing side of the
-/// tab bar (`.search`/`.prominent` role — the only system affordance that keeps a
-/// tab separated and visible while the bar minimises). Selecting it opens the
-/// camera-first import full-screen; closing that cover restores the notebook tab, so
-/// the tab bar never lingers on the import entry's empty content. On success the
-/// new recipe is routed to the notebook, which navigates to its recipe sheet.
+/// Root once authenticated. Two content tabs — "Carnet" (cooking: dishes &
+/// Thermomix) and "Café" — plus an "Importer" entry pinned to the trailing side of
+/// the tab bar (`.search`/`.prominent` role — the only system affordance that keeps
+/// a tab separated and visible while the bar minimises). Selecting it opens the
+/// camera-first import full-screen; closing that cover restores the content tab, so
+/// the tab bar never lingers on the import entry's empty content. The one import
+/// serves both tabs: on success the new recipe is routed to the tab its detected
+/// type belongs to, which navigates to its recipe sheet.
 struct ContentView: View {
     enum RootTab: Hashable {
-        case notebook, importEntry
+        case notebook, coffee, importEntry
     }
 
     @State private var selectedTab: RootTab = .notebook
+    /// The tab to restore when the import cover closes — where a cancelled import
+    /// puts the user back.
+    @State private var lastContentTab: RootTab = .notebook
     @State private var showImport = false
     /// Set when the camera hands off a picked photo / capture / text: it closes
     /// the camera cover, then `onDismiss` presents the review sheet over the
     /// content tab (so the camera is gone, not lingering behind the sheet).
     @State private var pendingImport: ImportInput?
     @State private var reviewJob: ImportJob?
+    /// The imported recipe, handed to whichever tab owns its type — the other tab
+    /// must not navigate to a recipe it does not list.
     @State private var importedRecipe: ImportedRecipe?
+    @State private var importedCoffee: ImportedRecipe?
 
     /// The trailing "Importer" entry must stay detached from the content tabs.
     /// iOS 26 separates the `.search` role; iOS 27 folded `.search` back into the
@@ -43,6 +50,11 @@ struct ContentView: View {
             }
             .accessibilityIdentifier("tab-notebook")
 
+            Tab("Café", systemImage: "cup.and.saucer", value: RootTab.coffee) {
+                CoffeeView(importedRecipe: $importedCoffee)
+            }
+            .accessibilityIdentifier("tab-coffee")
+
             Tab(value: RootTab.importEntry, role: importerTabRole) {
                 Color.clear
             } label: {
@@ -54,6 +66,8 @@ struct ContentView: View {
         .onChange(of: selectedTab) { _, newValue in
             if newValue == .importEntry {
                 showImport = true
+            } else {
+                lastContentTab = newValue
             }
         }
         .fullScreenCover(isPresented: $showImport, onDismiss: onImportCoverDismiss) {
@@ -65,9 +79,18 @@ struct ContentView: View {
         .sheet(item: $reviewJob) { job in
             ImportReviewSheet(
                 input: job.input,
-                onCreated: { recipeId, _ in
-                    importedRecipe = ImportedRecipe(id: recipeId)
-                    selectedTab = .notebook
+                onCreated: { recipeId, type in
+                    // The detected type decides where the recipe lands: a coffee
+                    // photographed from the notebook still opens in the coffee tab,
+                    // which is the only one that lists it.
+                    let imported = ImportedRecipe(id: recipeId)
+                    if type == .coffee {
+                        importedCoffee = imported
+                        selectedTab = .coffee
+                    } else {
+                        importedRecipe = imported
+                        selectedTab = .notebook
+                    }
                     reviewJob = nil
                 },
                 onCancel: { reviewJob = nil }
@@ -76,11 +99,11 @@ struct ContentView: View {
         }
     }
 
-    /// When the camera cover closes: restore the notebook tab, then — if the user
-    /// picked a photo / captured / typed — present the review sheet over it, so
-    /// the camera is fully gone rather than lingering behind the sheet.
+    /// When the camera cover closes: restore the content tab the user came from,
+    /// then — if they picked a photo / captured / typed — present the review sheet
+    /// over it, so the camera is fully gone rather than lingering behind the sheet.
     private func onImportCoverDismiss() {
-        if selectedTab == .importEntry { selectedTab = .notebook }
+        if selectedTab == .importEntry { selectedTab = lastContentTab }
         if let input = pendingImport {
             pendingImport = nil
             reviewJob = ImportJob(input: input)

@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// The notebook home screen: the paginated recipe library. Pure presentation —
-/// navigation, pagination and API calls are owned by `HomeView`. The library is a
-/// server-sorted, infinitely scrolling page (`library` + the `library*` flags and
-/// callbacks).
+/// A library home screen: the paginated recipe library. Pure presentation —
+/// navigation, pagination and API calls are owned by `HomeView` (cooking) and
+/// `CoffeeView`. The library is a server-sorted, infinitely scrolling page
+/// (`library` + the `library*` flags and callbacks).
 struct HomePage: View {
     /// The lens picker of the notebook toolbar, rendered as round glass buttons —
     /// the whole library, then the favourites. `nil` hides the selector (loading
@@ -13,18 +13,39 @@ struct HomePage: View {
         let selection: Binding<LibraryLens>
     }
 
+    /// The server-side facet of the filter+sort menu, in primitives: the page knows
+    /// it is filtering on *something* with a label and an icon, not whether that
+    /// something is a dish course or a brew method. Each tab passes its own.
+    struct Facet {
+        struct Option: Identifiable {
+            let id: String
+            let label: String
+            let systemImage: String
+        }
+
+        /// The picker's own label, e.g. `"Catégorie"` or `"Méthode"`.
+        let title: String
+        /// What the "no facet" row reads, e.g. `"Toutes"`.
+        let allLabel: String
+        let options: [Option]
+        /// The selected option's id — `nil` = no facet.
+        let selection: Binding<String?>
+    }
+
     let library: [LibraryRecipe]
-    /// The library section axis: month of last update, or dish course.
+    /// The library section axis: month of last update, dish course, or brew method.
     let libraryGrouping: LibraryGrouping
     let libraryLoading: Bool
     let libraryHasMore: Bool
     let libraryLoadMoreFailed: Bool
     let title: String
     let lensPicker: LensPicker?
+    /// The orders this tab offers — `RecipeSortOption.cooking` or `.coffee`.
+    var sortOptions: [RecipeSortOption] = RecipeSortOption.cooking
     let sort: Binding<RecipeSortOption>
-    /// Server-side dish-category facet, driven from the filter+sort menu. `nil` =
-    /// every category.
-    let categoryFilter: Binding<DishCategory?>
+    let facet: Facet
+    /// Copy for the genuinely empty, unfiltered library — the first-run nudge.
+    var emptyFirstRunMessage = "Importe ta première recette depuis l’onglet Importer — photo, texte ou lien."
     let onSettings: () -> Void
     var onPrefetch: (String) -> Void = { _ in }
     var onLoadMore: () async -> Void = {}
@@ -62,24 +83,24 @@ struct HomePage: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
                         Picker("Trier", selection: sort) {
-                            ForEach(RecipeSortOption.allCases) { option in
+                            ForEach(sortOptions) { option in
                                 Label(option.label, systemImage: option.icon).tag(option)
                             }
                         }
                         Divider()
-                        Picker("Catégorie", selection: categoryFilter) {
-                            Label("Toutes", systemImage: "circle.dashed")
-                                .tag(DishCategory?.none)
-                                .accessibilityIdentifier("library-category-all")
-                            ForEach(DishCategory.allCases) { category in
-                                Label(category.label, systemImage: category.iconName)
-                                    .tag(DishCategory?.some(category))
-                                    .accessibilityIdentifier("library-category-\(category.rawValue)")
+                        Picker(facet.title, selection: facet.selection) {
+                            Label(facet.allLabel, systemImage: "circle.dashed")
+                                .tag(String?.none)
+                                .accessibilityIdentifier("library-facet-all")
+                            ForEach(facet.options) { option in
+                                Label(option.label, systemImage: option.systemImage)
+                                    .tag(String?.some(option.id))
+                                    .accessibilityIdentifier("library-facet-\(option.id)")
                             }
                         }
                     } label: {
                         Image(systemName: "line.3.horizontal.decrease")
-                            .symbolVariant(categoryFilter.wrappedValue != nil ? .fill : .none)
+                            .symbolVariant(facet.selection.wrappedValue != nil ? .fill : .none)
                     }
                     .accessibilityLabel("Filtrer et trier")
                     .accessibilityIdentifier("library-sort-menu")
@@ -87,18 +108,18 @@ struct HomePage: View {
             }
     }
 
-    /// Empty-notebook copy. A facet that yields nothing (favourites, a dish category)
-    /// isn't a first-run state — the notebook may well hold other recipes — so only
-    /// the genuinely empty, unfiltered notebook nudges the user to import.
+    /// Empty-library copy. A facet that yields nothing (favourites, a dish course, a
+    /// brew method) isn't a first-run state — the library may well hold other
+    /// recipes — so only the genuinely empty, unfiltered one nudges the user to import.
     private var emptyStateMessage: String {
-        if categoryFilter.wrappedValue != nil {
+        if facet.selection.wrappedValue != nil {
             return "Aucune recette dans cette catégorie pour l’instant."
         }
         if lensPicker?.selection.wrappedValue == .favorites {
             return "Aucun favori pour l’instant — ajoute-les depuis la fiche d’une recette."
         }
         // The `.all` lens narrows nothing: an empty library there IS the first-run state.
-        return "Importe ta première recette depuis l’onglet Importer — photo, texte ou lien."
+        return emptyFirstRunMessage
     }
 
     @ViewBuilder
@@ -136,6 +157,40 @@ struct HomePage: View {
     }
 }
 
+// MARK: - Facet builders
+
+extension HomePage.Facet {
+    /// The dish-course facet, bridging `DishCategory` to the page's primitives.
+    static func course(selection: Binding<DishCategory?>) -> Self {
+        Self(
+            title: "Catégorie",
+            allLabel: "Toutes",
+            options: DishCategory.allCases.map {
+                Option(id: $0.rawValue, label: $0.label, systemImage: $0.iconName)
+            },
+            selection: Binding(
+                get: { selection.wrappedValue?.rawValue },
+                set: { selection.wrappedValue = $0.flatMap(DishCategory.init(rawValue:)) }
+            )
+        )
+    }
+
+    /// The brew-method facet, the coffee tab's counterpart.
+    static func method(selection: Binding<BrewMethod?>) -> Self {
+        Self(
+            title: "Méthode",
+            allLabel: "Toutes",
+            options: BrewMethod.allCases.map {
+                Option(id: $0.rawValue, label: $0.label, systemImage: $0.iconName)
+            },
+            selection: Binding(
+                get: { selection.wrappedValue?.rawValue },
+                set: { selection.wrappedValue = $0.flatMap(BrewMethod.init(rawValue:)) }
+            )
+        )
+    }
+}
+
 #if DEBUG
 private struct HomePagePreview: View {
     @State private var lens: LibraryLens = .all
@@ -159,7 +214,30 @@ private struct HomePagePreview: View {
                 title: "Cuisine",
                 lensPicker: .init(options: [.all, .favorites], selection: $lens),
                 sort: $sort,
-                categoryFilter: $category,
+                facet: .course(selection: $category),
+                onSettings: {}
+            )
+        }
+    }
+}
+
+private struct CoffeePagePreview: View {
+    @State private var sort: RecipeSortOption = .brewMethod
+    @State private var method: BrewMethod?
+
+    var body: some View {
+        NavigationStack {
+            HomePage(
+                library: Fixtures.coffeeRecipes,
+                libraryGrouping: sort == .lastModified ? .month : .method,
+                libraryLoading: false,
+                libraryHasMore: false,
+                libraryLoadMoreFailed: false,
+                title: "Café",
+                lensPicker: nil,
+                sortOptions: RecipeSortOption.coffee,
+                sort: $sort,
+                facet: .method(selection: $method),
                 onSettings: {}
             )
         }
@@ -168,6 +246,10 @@ private struct HomePagePreview: View {
 
 #Preview {
     HomePagePreview()
+}
+
+#Preview("Café") {
+    CoffeePagePreview()
 }
 
 #Preview("Premier chargement") {
@@ -181,7 +263,7 @@ private struct HomePagePreview: View {
             title: "Cuisine",
             lensPicker: nil,
             sort: .constant(.lastModified),
-            categoryFilter: .constant(nil),
+            facet: .course(selection: .constant(nil)),
             onSettings: {}
         )
     }
@@ -198,7 +280,7 @@ private struct HomePagePreview: View {
             title: "Cuisine",
             lensPicker: nil,
             sort: .constant(.lastModified),
-            categoryFilter: .constant(nil),
+            facet: .course(selection: .constant(nil)),
             onSettings: {}
         )
     }
