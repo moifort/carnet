@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test'
-import type { DishCategory, RecipeId, RecipeType } from '~/domain/recipe/types'
+import type { BrewMethod, DishCategory, RecipeId, RecipeType } from '~/domain/recipe/types'
 import type { UserId } from '~/domain/shared/types'
 import { fakeFirebase, resetFakeFirestore } from '~/test/fake-firestore'
 
 mock.module('~/system/firebase', fakeFirebase)
 
 const { RecipeQuery } = await import('~/domain/recipe/query')
-const { categoryRank } = await import('~/domain/recipe/business-rules')
+const { categoryRank, methodRank } = await import('~/domain/recipe/business-rules')
 
 const userId = 'user-1' as UserId
 
@@ -22,6 +22,7 @@ const seedRecipe = (
   fields: {
     type?: RecipeType
     category: DishCategory
+    method?: BrewMethod
     updatedAt: number
     owner?: UserId
     favorite?: true
@@ -33,6 +34,8 @@ const seedRecipe = (
     type: fields.type ?? 'dish',
     category: fields.category,
     categoryRank: categoryRank(fields.category),
+    // Only a coffee carries a method, hence a method rank — same as on save.
+    ...(fields.method ? { method: fields.method, methodRank: methodRank(fields.method) } : {}),
     // Absent unless marked, exactly as the aggregate stores it.
     ...(fields.favorite ? { favorite: true } : {}),
     updatedAt: new Date(fields.updatedAt),
@@ -127,7 +130,7 @@ describe('RecipeQuery.library — type filter', () => {
 
   test('keeps only the requested type, combined with the sort', async () => {
     const page = await RecipeQuery.library(userId, {
-      type: 'thermomix',
+      types: ['thermomix'],
       sort: 'updatedAt',
       order: 'desc',
       limit: 10,
@@ -138,13 +141,67 @@ describe('RecipeQuery.library — type filter', () => {
 
   test('the type filter also applies under the category sort', async () => {
     const page = await RecipeQuery.library(userId, {
-      type: 'thermomix',
+      types: ['thermomix'],
       sort: 'category',
       order: 'desc',
       limit: 10,
     })
     // starter(0) before dessert(2)
     expect(ids(page)).toEqual(['thermomix-b', 'thermomix-a'])
+  })
+
+  // The cooking notebook asks for several types at once; the coffee tab asks for
+  // the one the notebook leaves out.
+  test('keeps every requested type when several are asked for', async () => {
+    seedRecipe('coffee-a', {
+      type: 'coffee',
+      category: 'drink',
+      method: 'v60',
+      updatedAt: 4000,
+    })
+    const page = await RecipeQuery.library(userId, {
+      types: ['dish', 'thermomix'],
+      sort: 'updatedAt',
+      order: 'desc',
+      limit: 10,
+    })
+    expect(ids(page)).toEqual(['thermomix-b', 'thermomix-a', 'dish-a'])
+  })
+})
+
+describe('RecipeQuery.library — the coffee tab', () => {
+  beforeEach(() => {
+    seedRecipe('dish-a', { type: 'dish', category: 'main', updatedAt: 5000 })
+    seedRecipe('v60', { type: 'coffee', category: 'drink', method: 'v60', updatedAt: 1000 })
+    seedRecipe('espresso', {
+      type: 'coffee',
+      category: 'drink',
+      method: 'espresso',
+      updatedAt: 2000,
+    })
+    seedRecipe('chemex', { type: 'coffee', category: 'drink', method: 'chemex', updatedAt: 3000 })
+  })
+
+  test('reads coffees in brewing order, most recently modified first within a method', async () => {
+    const page = await RecipeQuery.library(userId, {
+      types: ['coffee'],
+      sort: 'method',
+      order: 'desc',
+      limit: 10,
+    })
+    // espresso(0) → v60(6) → chemex(7); the dish is not a coffee.
+    expect(ids(page)).toEqual(['espresso', 'v60', 'chemex'])
+  })
+
+  test('the method facet pins the order to updatedAt desc, like the category one', async () => {
+    const page = await RecipeQuery.library(userId, {
+      types: ['coffee'],
+      method: 'v60',
+      sort: 'method',
+      order: 'asc',
+      limit: 10,
+    })
+    expect(ids(page)).toEqual(['v60'])
   })
 })
 
@@ -198,7 +255,7 @@ describe('RecipeQuery.library — category filter', () => {
 
   test('combines a type facet with the category filter', async () => {
     const page = await RecipeQuery.library(userId, {
-      type: 'thermomix',
+      types: ['thermomix'],
       category: 'main',
       sort: 'updatedAt',
       order: 'desc',

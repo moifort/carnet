@@ -1,8 +1,11 @@
 import { VersionNumber as toVersionNumber } from '~/domain/recipe/primitives'
 import {
+  BREW_METHOD_VALUES,
+  type BrewMethod,
   DISH_CATEGORY_VALUES,
   type DishCategory,
   type Rating,
+  type Recipe,
   type RecipeVersion,
   type VersionNumber,
 } from '~/domain/recipe/types'
@@ -18,6 +21,19 @@ const isRated = (version: RecipeVersion): version is RatedVersion => version.rat
 // order by it with a stable cursor — sorting client-side would break pagination.
 export const categoryRank = (category: DishCategory): number =>
   DISH_CATEGORY_VALUES.indexOf(category)
+
+// The coffee tab's method sort follows the brewing order (espresso → milk drinks →
+// stovetop → pour-over → immersion), not the alphabetical order of the enum values.
+// Denormalized onto the recipe document exactly like `categoryRank`, for the same
+// reason: sorting client-side would break pagination.
+export const methodRank = (method: BrewMethod): number => BREW_METHOD_VALUES.indexOf(method)
+
+// A brew method belongs to a coffee and to nothing else: a dish or a Thermomix
+// recipe that carried one — or a coffee that carried none — would be a recipe the
+// coffee tab cannot rank. The aggregate-level twin of the `content.kind ===
+// recipe.type` invariant, and the reason `Recipe.method` can stay optional.
+export const methodMatchesType = (recipe: Pick<Recipe, 'type' | 'method'>): boolean =>
+  recipe.type === 'coffee' ? recipe.method !== undefined : recipe.method === undefined
 
 export const nextVersionNumber = (lastVersionNumber: VersionNumber) =>
   toVersionNumber(lastVersionNumber + 1)

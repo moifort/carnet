@@ -85,6 +85,86 @@ describe('createRecipe mutation', () => {
     `)
     expect(result.errors?.[0]?.extensions?.code).toBe('CONTENT_TYPE_MISMATCH')
   })
+
+  test('saves a coffee with its brew method and its per-step extraction settings', async () => {
+    const result = await execute(`
+      mutation {
+        createRecipe(input: {
+          type: COFFEE
+          category: DRINK
+          method: V60
+          title: "V60 Éthiopie Guji"
+          content: { coffee: {
+            ingredients: [{ name: "Café", quantity: "18 g" }, { name: "Eau", quantity: "300 g" }]
+            steps: [
+              { text: "Moudre", settings: { grind: "moyenne" } }
+              { text: "Verser l’eau de pré-infusion", settings: { water: "50 g", temperature: "93°C", time: "45 s" } }
+            ]
+          } }
+        }) {
+          method
+          category
+          versionToOpen {
+            content {
+              ... on CoffeeContent {
+                ingredients { name quantity }
+                steps { text settings { grind water temperature time yield } }
+              }
+            }
+          }
+        }
+      }
+    `)
+    expect(result.errors).toBeUndefined()
+    expect(result.data?.createRecipe).toMatchObject({
+      method: 'V60',
+      category: 'DRINK',
+      versionToOpen: {
+        content: {
+          ingredients: [
+            { name: 'Café', quantity: '18 g' },
+            { name: 'Eau', quantity: '300 g' },
+          ],
+          steps: [
+            {
+              text: 'Moudre',
+              settings: {
+                grind: 'moyenne',
+                water: null,
+                temperature: null,
+                time: null,
+                yield: null,
+              },
+            },
+            {
+              text: 'Verser l’eau de pré-infusion',
+              settings: {
+                grind: null,
+                water: '50 g',
+                temperature: '93°C',
+                time: '45 s',
+                yield: null,
+              },
+            },
+          ],
+        },
+      },
+    })
+  })
+
+  test('refuses a coffee with no brew method', async () => {
+    const result = await execute(`
+      mutation {
+        createRecipe(input: {
+          type: COFFEE
+          category: DRINK
+          title: "Espresso"
+          content: { coffee: { ingredients: [], steps: [{ text: "Extraire", settings: {} }] } }
+        }) { id }
+      }
+    `)
+    expect(result.errors?.[0]?.extensions?.code).toBe('METHOD_MISMATCH')
+  })
 })
 
 describe('updateRecipe mutation', () => {
@@ -112,6 +192,14 @@ describe('updateRecipe mutation', () => {
       mutation { updateRecipe(id: "11111111-1111-4111-8111-111111111111", input: { title: "Rien" }) { title } }
     `)
     expect(result.errors?.[0]?.extensions?.code).toBe('NOT_FOUND')
+  })
+
+  test('refuses to hang a brew method on a recipe that is not a coffee', async () => {
+    const id = await createdId()
+    const result = await execute(`
+      mutation { updateRecipe(id: "${id}", input: { method: CHEMEX }) { method } }
+    `)
+    expect(result.errors?.[0]?.extensions?.code).toBe('METHOD_MISMATCH')
   })
 })
 

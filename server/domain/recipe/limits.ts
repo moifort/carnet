@@ -10,4 +10,5 @@ export const RECIPE_MAX = {
   tip: 300,
   warning: 300,
   thermomix: 20,
+  coffee: 30, // a grind setting spells out a grinder ("Niveau 12, Comandante")
 } as const

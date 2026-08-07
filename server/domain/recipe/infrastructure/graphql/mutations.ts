@@ -46,6 +46,7 @@ builder.mutationField('createRecipe', (t) =>
         {
           type: input.type,
           category: input.category,
+          ...(input.method ? { method: input.method } : {}),
           title: input.title,
           content: versionContentInput(input.content),
           tips: input.tips,
@@ -54,6 +55,7 @@ builder.mutationField('createRecipe', (t) =>
       )
       return match(result)
         .with('content-type-mismatch', domainError)
+        .with('method-mismatch', domainError)
         .with(P.not(P.string), (recipe) => recipe)
         .exhaustive()
     },
@@ -88,12 +90,14 @@ builder.mutationField('updateRecipe', (t) =>
       const result = await RecipeCommand.update(userId, id, {
         ...(input.title ? { title: input.title } : {}),
         ...(input.category ? { category: input.category } : {}),
+        ...(input.method ? { method: input.method } : {}),
         ...(input.favorite !== null && input.favorite !== undefined
           ? { favorite: input.favorite }
           : {}),
       })
       return match(result)
         .with('not-found', domainError)
+        .with('method-mismatch', domainError)
         .with(P.not(P.string), (recipe) => recipe)
         .exhaustive()
     },

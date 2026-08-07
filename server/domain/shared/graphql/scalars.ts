@@ -1,6 +1,11 @@
 import { GraphQLError } from 'graphql'
 import { ZodError } from 'zod'
 import {
+  CoffeeGrind,
+  CoffeeTemperature,
+  CoffeeTime,
+  CoffeeWater,
+  CoffeeYield,
   IngredientName,
   IngredientQuantity,
   Rating,
@@ -128,6 +133,39 @@ builder.scalarType('ThermomixSpeed', {
     'The blade speed of a Thermomix step, e.g. `"5"`, `"pétrin"` (kneading) or `"turbo"`',
   serialize: (value) => value as string,
   parseValue: validatedParse('ThermomixSpeed', ThermomixSpeed),
+})
+
+builder.scalarType('CoffeeGrind', {
+  description:
+    'How fine the coffee is ground for a step, written as you would read it off the grinder, ' +
+    'e.g. `"fine"`, `"moyenne"` or `"Niveau 12"`',
+  serialize: (value) => value as string,
+  parseValue: validatedParse('CoffeeGrind', CoffeeGrind),
+})
+
+builder.scalarType('CoffeeWater', {
+  description: 'The water poured at one brewing step, e.g. `"50 g"` (a bloom) or `"300 ml"`',
+  serialize: (value) => value as string,
+  parseValue: validatedParse('CoffeeWater', CoffeeWater),
+})
+
+builder.scalarType('CoffeeTemperature', {
+  description: 'The water temperature of a brewing step, e.g. `"93°C"`',
+  serialize: (value) => value as string,
+  parseValue: validatedParse('CoffeeTemperature', CoffeeTemperature),
+})
+
+builder.scalarType('CoffeeTime', {
+  description: 'How long a brewing step runs, e.g. `"28 s"` (an espresso shot) or `"4 min"`',
+  serialize: (value) => value as string,
+  parseValue: validatedParse('CoffeeTime', CoffeeTime),
+})
+
+builder.scalarType('CoffeeYield', {
+  description:
+    'What lands in the cup at the end of a brewing step, e.g. `"36 g"` for a double espresso',
+  serialize: (value) => value as string,
+  parseValue: validatedParse('CoffeeYield', CoffeeYield),
 })
 
 builder.scalarType('Remarks', {

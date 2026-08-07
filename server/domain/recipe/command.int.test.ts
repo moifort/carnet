@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test'
+import type { CoffeeContent } from '~/domain/recipe/content/coffee'
 import type { DishContent } from '~/domain/recipe/content/dish'
 import type { ThermomixContent } from '~/domain/recipe/content/thermomix'
 import type {
+  CoffeeTemperature,
+  CoffeeTime,
   Ingredient,
   IngredientName,
   IngredientQuantity,
@@ -35,6 +38,18 @@ const dishContent = (opts: { ingredients?: Ingredient[] } = {}): DishContent => 
   kind: 'dish',
   ingredients: opts.ingredients ?? [],
   steps: steps('Saisir', 'Mijoter'),
+})
+
+const coffeeContent = (): CoffeeContent => ({
+  kind: 'coffee',
+  ingredients: [ingredient('Café', '18 g'), ingredient('Eau', '36 g')],
+  steps: [
+    { text: 'Moudre' as StepText, settings: {} },
+    {
+      text: 'Extraire' as StepText,
+      settings: { temperature: '93°C' as CoffeeTemperature, time: '28 s' as CoffeeTime },
+    },
+  ],
 })
 
 const newInput = (content: DishContent | ThermomixContent = dishContent()) => ({
@@ -104,6 +119,46 @@ describe('RecipeCommand.create', () => {
     // Nothing written on the rejected create.
     expect(fake.batches.length).toBe(0)
     expect(fake.directWrites).toEqual([])
+  })
+
+  test('rejects a coffee with no brew method, and a method on anything else', async () => {
+    const methodless = await RecipeCommand.create(userId, {
+      type: 'coffee',
+      category: 'drink' as const,
+      title: 'Espresso' as RecipeTitle,
+      content: coffeeContent(),
+      tips: [],
+    })
+    expect(methodless).toBe('method-mismatch')
+
+    const dishWithMethod = await RecipeCommand.create(userId, {
+      ...newInput(),
+      method: 'v60' as const,
+    })
+    expect(dishWithMethod).toBe('method-mismatch')
+
+    expect(fake.batches.length).toBe(0)
+    expect(fake.directWrites).toEqual([])
+  })
+
+  test('files a coffee as a drink whatever category it is given, and keeps its method', async () => {
+    const recipe = await RecipeCommand.create(userId, {
+      type: 'coffee',
+      // The AI filed it as a main course; a coffee is a drink regardless.
+      category: 'main' as const,
+      method: 'v60' as const,
+      title: 'V60 Éthiopie' as RecipeTitle,
+      content: coffeeContent(),
+      tips: [],
+    })
+    if (typeof recipe === 'string') throw new Error(`expected a recipe, got ${recipe}`)
+
+    expect(recipe.category).toBe('drink')
+    expect(recipe.method).toBe('v60')
+    const stored = fake.snapshot('recipes').get(recipe.id as string)
+    // The coffee tab's Firestore order reads the denormalized rank, not the value.
+    expect(stored?.methodRank).toBe(6)
+    expect(fake.snapshot('recipe-versions').get(`${recipe.id}_1`)?.content).toEqual(coffeeContent())
   })
 
   test('persists ingredients on v1 and stores [] when absent', async () => {

@@ -1,7 +1,13 @@
 import { match, P } from 'ts-pattern'
 import { RecipeQuery } from '~/domain/recipe/query'
 import { builder } from '~/domain/shared/graphql/builder'
-import { DishCategoryEnum, RecipeSortEnum, RecipeTypeEnum, SortOrderEnum } from './enums'
+import {
+  BrewMethodEnum,
+  DishCategoryEnum,
+  RecipeSortEnum,
+  RecipeTypeEnum,
+  SortOrderEnum,
+} from './enums'
 import { RecipesType, RecipeType } from './types'
 
 builder.queryField('recipes', (t) =>
@@ -11,19 +17,28 @@ builder.queryField('recipes', (t) =>
       'One page of your recipe library, loaded a few at a time for infinite scroll. You can ' +
         'narrow it (e.g. only `THERMOMIX` recipes, or only `DESSERT`) and choose the order. For ' +
         'example: the 20 most recently updated dishes, then pass the last id as `after` to load ' +
-        'the next 20.',
+        'the next 20. The app’s cooking notebook asks for `[DISH, THERMOMIX]` and its coffee tab ' +
+        'for `[COFFEE]`.',
       '',
       '```graphql',
-      'recipes(type: THERMOMIX, sort: UPDATED_AT, order: DESC, limit: 20) {',
+      'recipes(types: [THERMOMIX], sort: UPDATED_AT, order: DESC, limit: 20) {',
       '  items { id title bestRating }',
       '  hasMore',
       '}',
       '```',
     ].join('\n'),
     args: {
-      type: t.arg({
-        type: RecipeTypeEnum,
-        description: 'Facet: keep only this recipe type, e.g. `THERMOMIX`',
+      types: t.arg({
+        type: [RecipeTypeEnum],
+        description:
+          'Facet: keep only these recipe types, e.g. `[DISH, THERMOMIX]` for the cooking ' +
+          'notebook. Leave out for every type.',
+      }),
+      method: t.arg({
+        type: BrewMethodEnum,
+        description:
+          'Facet: keep only coffees brewed this way, e.g. `V60`. Like `category`, it coerces the ' +
+          'page to updatedAt desc',
       }),
       category: t.arg({
         type: DishCategoryEnum,
@@ -58,8 +73,9 @@ builder.queryField('recipes', (t) =>
     },
     resolve: async (_root, args, { userId }) =>
       RecipeQuery.library(userId, {
-        type: args.type ?? undefined,
+        types: args.types ?? undefined,
         category: args.category ?? undefined,
+        method: args.method ?? undefined,
         ...(args.favorite ? { favorite: true as const } : {}),
         sort: args.sort ?? 'updatedAt',
         order: args.order ?? 'desc',

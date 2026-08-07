@@ -12,6 +12,52 @@ type AcceptProposalResult {
 }
 
 """
+How a coffee is brewed. Detected once at import, shared by every version, and the axis the coffee tab groups and sorts on — the counterpart of `DishCategory` for cooking. Present on a `COFFEE` recipe and on no other.
+"""
+enum BrewMethod {
+  """An AeroPress, brewed under hand pressure"""
+  AEROPRESS
+
+  """An espresso lengthened with hot water"""
+  AMERICANO
+
+  """An espresso with steamed and foamed milk"""
+  CAPPUCCINO
+
+  """A Chemex pour-over, on its thick paper filter"""
+  CHEMEX
+
+  """A long cold-water extraction"""
+  COLD_BREW
+
+  """A filter machine, e.g. a Moccamaster"""
+  DRIP
+
+  """A shot pulled on an espresso machine"""
+  ESPRESSO
+
+  """An espresso with steamed microfoam milk"""
+  FLAT_WHITE
+
+  """A French press, full immersion"""
+  FRENCH_PRESS
+
+  """An espresso with a large share of steamed milk"""
+  LATTE
+
+  """A stovetop pot, e.g. a Bialetti"""
+  MOKA
+
+  """
+  Any other way of brewing — where a coffee lands when none of the above fits
+  """
+  OTHER
+
+  """A cone pour-over, e.g. a Hario V60"""
+  V60
+}
+
+"""
 One release in the app’s "What’s new" list — the changes shipped in a given version of the app, e.g. `"1.2"` with "Faster recipe imports"
 """
 type ChangelogEntry {
@@ -30,16 +76,140 @@ type ChangelogEntry {
 }
 
 """
+The body of a coffee version: its ingredient list (the dose, the water, the milk) and its steps, each carrying its own extraction settings. How the coffee is brewed is not here — that is the recipe’s `method`, fixed across the whole lineage.
+"""
+type CoffeeContent {
+  """
+  The full ingredient list, in order, e.g. `"Café — 18 g"` then `"Eau — 300 g"` (empty list when it has none)
+  """
+  ingredients: [Ingredient!]!
+
+  """The method, each step carrying its own extraction settings"""
+  steps: [CoffeeStep!]!
+}
+
+"""
+The body of a coffee version: its ingredient list (the dose, the water, the milk) and its steps, each carrying its own extraction settings.
+"""
+input CoffeeContentInput {
+  """
+  The ingredient list, in order, e.g. `"Café — 18 g"` then `"Eau — 300 g"` (send `[]` when it has none)
+  """
+  ingredients: [IngredientInput!]!
+
+  """The method, each step carrying its own extraction settings"""
+  steps: [CoffeeStepInput!]!
+}
+
+"""
+How fine the coffee is ground for a step, written as you would read it off the grinder, e.g. `"fine"`, `"moyenne"` or `"Niveau 12"`
+"""
+scalar CoffeeGrind
+
+"""
+The extraction settings that go with one brewing step (only for coffee recipes). Every field is optional — a step can set just a time, or the full grind + water + temperature + time + yield combo, e.g. `"18 g fine → 36 g / 93°C / 28 s"`.
+"""
+type CoffeeSettings {
+  """
+  How fine the coffee is ground, e.g. `"fine"` or `"Niveau 12"` (`null` if not set)
+  """
+  grind: CoffeeGrind
+
+  """The water temperature, e.g. `"93°C"` (`null` if not set)"""
+  temperature: CoffeeTemperature
+
+  """How long the step runs, e.g. `"28 s"` or `"4 min"` (`null` if not set)"""
+  time: CoffeeTime
+
+  """The water poured at this step, e.g. `"50 g"` (`null` if not set)"""
+  water: CoffeeWater
+
+  """What lands in the cup, e.g. `"36 g"` (`null` if not set)"""
+  yield: CoffeeYield
+}
+
+"""
+The extraction settings to attach to one brewing step, e.g. `"93°C / 28 s / 36 g"`. Every field is optional.
+"""
+input CoffeeSettingsInput {
+  """Grind size, e.g. `"fine"` or `"Niveau 12"`"""
+  grind: CoffeeGrind
+
+  """Temperature, e.g. `"93°C"`"""
+  temperature: CoffeeTemperature
+
+  """Duration, e.g. `"28 s"`"""
+  time: CoffeeTime
+
+  """Water poured here, e.g. `"50 g"`"""
+  water: CoffeeWater
+
+  """What lands in the cup, e.g. `"36 g"`"""
+  yield: CoffeeYield
+}
+
+"""
+One brewing step: its instruction plus the extraction settings that go with it. A plain step (no extraction settings) carries an empty settings object.
+"""
+type CoffeeStep {
+  """
+  The extraction settings for this step, e.g. `"93°C / 28 s / 36 g"` (every field left out = a plain step)
+  """
+  settings: CoffeeSettings!
+
+  """The step instruction, e.g. `"Verser 50 g d’eau et laisser gonfler"`"""
+  text: StepText!
+}
+
+"""
+One brewing step to save: its instruction plus the extraction settings that go with it. Send `settings: {}` for a plain step (no extraction settings).
+"""
+input CoffeeStepInput {
+  """
+  Its extraction settings, e.g. `"93°C / 28 s / 36 g"` (send `{}` for a plain step)
+  """
+  settings: CoffeeSettingsInput!
+
+  """The step instruction, e.g. `"Verser 50 g d’eau et laisser gonfler"`"""
+  text: StepText!
+}
+
+"""The water temperature of a brewing step, e.g. `"93°C"`"""
+scalar CoffeeTemperature
+
+"""
+How long a brewing step runs, e.g. `"28 s"` (an espresso shot) or `"4 min"`
+"""
+scalar CoffeeTime
+
+"""
+The water poured at one brewing step, e.g. `"50 g"` (a bloom) or `"300 ml"`
+"""
+scalar CoffeeWater
+
+"""
+What lands in the cup at the end of a brewing step, e.g. `"36 g"` for a double espresso
+"""
+scalar CoffeeYield
+
+"""
 Everything needed to save a brand-new recipe (its `v1`), once you have reviewed the import preview and confirmed it, e.g. `"Grandma’s lasagna"` with its content
 """
 input CreateRecipeInput {
-  """Its course, e.g. `MAIN` for lasagna, as detected during import"""
+  """
+  Its course, e.g. `MAIN` for lasagna, as detected during import. Ignored on a `COFFEE`, which is always filed as a `DRINK`.
+  """
   category: DishCategory!
 
   """
-  The recipe body — provide exactly one of `dish` or `thermomix`, matching `type`
+  The recipe body — provide exactly one of `dish`, `thermomix` or `coffee`, matching `type`
   """
   content: VersionContentInput!
+
+  """
+  How it is brewed, e.g. `V60`, as detected during import. REQUIRED on a `COFFEE` and rejected on anything else.
+  """
+  method: BrewMethod
 
   """Where it came from, e.g. `"Marmiton"` or `"Mum"`"""
   sourceLabel: String
@@ -52,7 +222,9 @@ input CreateRecipeInput {
   """The recipe’s name, e.g. `"Grandma’s lasagna"`"""
   title: RecipeTitle!
 
-  """Cooked dish (`DISH`) or Thermomix recipe (`THERMOMIX`)"""
+  """
+  Cooked dish (`DISH`), Thermomix recipe (`THERMOMIX`) or coffee (`COFFEE`)
+  """
   type: RecipeType!
 }
 
@@ -687,10 +859,10 @@ type Query {
   ): Recipe
 
   """
-  One page of your recipe library, loaded a few at a time for infinite scroll. You can narrow it (e.g. only `THERMOMIX` recipes, or only `DESSERT`) and choose the order. For example: the 20 most recently updated dishes, then pass the last id as `after` to load the next 20.
+  One page of your recipe library, loaded a few at a time for infinite scroll. You can narrow it (e.g. only `THERMOMIX` recipes, or only `DESSERT`) and choose the order. For example: the 20 most recently updated dishes, then pass the last id as `after` to load the next 20. The app’s cooking notebook asks for `[DISH, THERMOMIX]` and its coffee tab for `[COFFEE]`.
   
   ```graphql
-  recipes(type: THERMOMIX, sort: UPDATED_AT, order: DESC, limit: 20) {
+  recipes(types: [THERMOMIX], sort: UPDATED_AT, order: DESC, limit: 20) {
     items { id title bestRating }
     hasMore
   }
@@ -714,6 +886,11 @@ type Query {
     limit: Int = 20
 
     """
+    Facet: keep only coffees brewed this way, e.g. `V60`. Like `category`, it coerces the page to updatedAt desc
+    """
+    method: BrewMethod
+
+    """
     Sort direction, e.g. `DESC` (ignored for the category sort, which is fixed)
     """
     order: SortOrder = DESC
@@ -721,8 +898,10 @@ type Query {
     """Field the page is ordered by, e.g. `UPDATED_AT`"""
     sort: RecipeSort = UPDATED_AT
 
-    """Facet: keep only this recipe type, e.g. `THERMOMIX`"""
-    type: RecipeType
+    """
+    Facet: keep only these recipe types, e.g. `[DISH, THERMOMIX]` for the cooking notebook. Leave out for every type.
+    """
+    types: [RecipeType!]
   ): Recipes!
 }
 
@@ -780,7 +959,7 @@ type Recipe {
   bestRating: Rating
 
   """
-  Which course it is, e.g. `DESSERT` for a tarte tatin. Set once at import and shared by every version; used to group the library.
+  Which course it is, e.g. `DESSERT` for a tarte tatin. Set once at import and shared by every version; used to group the library. A coffee is always a `DRINK` — its own axis is `method`.
   """
   category: DishCategory!
 
@@ -795,6 +974,11 @@ type Recipe {
   """Its unique identifier, e.g. `"9f1c…-a3b2"`"""
   id: RecipeId!
 
+  """
+  How it is brewed, e.g. `V60`. Set once at import and shared by every version; used to group the coffee tab. `null` on anything that is not a `COFFEE`.
+  """
+  method: BrewMethod
+
   """Its name, e.g. `"Grandma’s lasagna"`"""
   title: RecipeTitle!
 
@@ -804,7 +988,7 @@ type Recipe {
   toTestCount: Int!
 
   """
-  Whether it is a cooked dish (`DISH`) or a Thermomix recipe (`THERMOMIX`)
+  Whether it is a cooked dish (`DISH`), a Thermomix recipe (`THERMOMIX`) or a coffee (`COFFEE`)
   """
   type: RecipeType!
 
@@ -845,6 +1029,11 @@ enum RecipeSort {
   CATEGORY
 
   """
+  Brewing order (`ESPRESSO → … → COLD_BREW → OTHER`), most recently modified first within a method — the coffee tab’s own order
+  """
+  METHOD
+
+  """
   Most recently modified first (honours order), e.g. today’s lasagna edit on top
   """
   UPDATED_AT
@@ -857,6 +1046,11 @@ scalar RecipeTitle
 The kind of culinary experiment. Fixed at import, it decides how a version is displayed and how the AI is allowed to iterate on it.
 """
 enum RecipeType {
+  """
+  A brewed coffee — each step also carries its extraction settings, e.g. `"18 g → 36 g / 93°C / 28 s"`. It always carries a `method` too, and lives in the app’s coffee tab rather than the cooking notebook.
+  """
+  COFFEE
+
   """A cooked dish — steps are plain text, e.g. `"Grandma’s lasagna"`"""
   DISH
 
@@ -1050,11 +1244,11 @@ type TipsProposal {
 }
 
 """
-What you can retouch on a recipe: its name, its course and whether it is a favourite. Send only what you want to change — anything you leave out stays as it was.
+What you can retouch on a recipe: its name, its course or its brew method, and whether it is a favourite. Send only what you want to change — anything you leave out stays as it was. Its type is fixed for good.
 """
 input UpdateRecipeInput {
   """
-  The new course, e.g. `DRINK` for a recipe the import filed as `MAIN` (leave out to keep the current one)
+  The new course, e.g. `DRINK` for a recipe the import filed as `MAIN` (leave out to keep the current one). Ignored on a `COFFEE` — refiling one means changing its `method`.
   """
   category: DishCategory
 
@@ -1062,6 +1256,11 @@ input UpdateRecipeInput {
   `true` marks it as a favourite, `false` un-marks it, e.g. `true` for the risotto you keep coming back to (leave out to keep it as it is)
   """
   favorite: Boolean
+
+  """
+  The new brew method, e.g. `CHEMEX` for a coffee the import filed as `V60` (leave out to keep the current one). Rejected on a recipe that is not a `COFFEE`.
+  """
+  method: BrewMethod
 
   """
   The new name, e.g. `"Nonna’s lasagna"` (leave out to keep the current one)
@@ -1089,7 +1288,7 @@ type Version {
   change: String
 
   """
-  This version’s body — its ingredients and steps. A `DishContent` for a cooked dish (plain-text steps), a `ThermomixContent` for a Thermomix recipe (each step carrying its machine settings).
+  This version’s body — its ingredients and steps. A `DishContent` for a cooked dish (plain-text steps), a `ThermomixContent` for a Thermomix recipe (each step carrying its machine settings), a `CoffeeContent` for a coffee (each step carrying its extraction settings).
   """
   content: VersionContent!
 
@@ -1160,14 +1359,17 @@ type Version {
 }
 
 """
-The body of a version, which depends on the recipe type: a `DishContent` for a cooked dish, a `ThermomixContent` for a Thermomix recipe.
+The body of a version, which depends on the recipe type: a `DishContent` for a cooked dish, a `ThermomixContent` for a Thermomix recipe, a `CoffeeContent` for a coffee.
 """
-union VersionContent = DishContent | ThermomixContent
+union VersionContent = CoffeeContent | DishContent | ThermomixContent
 
 """
-The body of a version, tagged by recipe type: provide EXACTLY ONE of `dish` (a cooked dish) or `thermomix` (a Thermomix recipe).
+The body of a version, tagged by recipe type: provide EXACTLY ONE of `dish` (a cooked dish), `thermomix` (a Thermomix recipe) or `coffee` (a brewed coffee).
 """
 input VersionContentInput @oneOf {
+  """A coffee body"""
+  coffee: CoffeeContentInput
+
   """A cooked-dish body"""
   dish: DishContentInput
 

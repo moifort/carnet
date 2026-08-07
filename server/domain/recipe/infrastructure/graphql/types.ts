@@ -1,17 +1,19 @@
 import { bestRating, toTestCount, versionToOpen } from '~/domain/recipe/business-rules'
+import type { CoffeeContent, CoffeeStep } from '~/domain/recipe/content/coffee'
 import type { DishContent } from '~/domain/recipe/content/dish'
 import type { ThermomixContent, ThermomixStep } from '~/domain/recipe/content/thermomix'
 import type { VersionContent } from '~/domain/recipe/content/types'
 import type { RecipeLibraryPage } from '~/domain/recipe/query'
 import { builder } from '~/domain/shared/graphql/builder'
 import type {
+  CoffeeSettings,
   Ingredient,
   Recipe,
   RecipeVersion,
   ThermomixSettings,
   VersionNumber,
 } from '../../types'
-import { DishCategoryEnum, RecipeTypeEnum, VersionOriginKindEnum } from './enums'
+import { BrewMethodEnum, DishCategoryEnum, RecipeTypeEnum, VersionOriginKindEnum } from './enums'
 
 export const IngredientType = builder.objectRef<Ingredient>('Ingredient').implement({
   description:
@@ -123,13 +125,97 @@ export const ThermomixContentType = builder
     }),
   })
 
+export const CoffeeSettingsType = builder.objectRef<CoffeeSettings>('CoffeeSettings').implement({
+  description:
+    'The extraction settings that go with one brewing step (only for coffee recipes). Every ' +
+    'field is optional — a step can set just a time, or the full grind + water + temperature + ' +
+    'time + yield combo, e.g. `"18 g fine → 36 g / 93°C / 28 s"`.',
+  fields: (t) => ({
+    grind: t.field({
+      type: 'CoffeeGrind',
+      nullable: true,
+      description:
+        'How fine the coffee is ground, e.g. `"fine"` or `"Niveau 12"` (`null` if not set)',
+      resolve: (s) => s.grind ?? null,
+    }),
+    water: t.field({
+      type: 'CoffeeWater',
+      nullable: true,
+      description: 'The water poured at this step, e.g. `"50 g"` (`null` if not set)',
+      resolve: (s) => s.water ?? null,
+    }),
+    temperature: t.field({
+      type: 'CoffeeTemperature',
+      nullable: true,
+      description: 'The water temperature, e.g. `"93°C"` (`null` if not set)',
+      resolve: (s) => s.temperature ?? null,
+    }),
+    time: t.field({
+      type: 'CoffeeTime',
+      nullable: true,
+      description: 'How long the step runs, e.g. `"28 s"` or `"4 min"` (`null` if not set)',
+      resolve: (s) => s.time ?? null,
+    }),
+    yield: t.field({
+      type: 'CoffeeYield',
+      nullable: true,
+      description: 'What lands in the cup, e.g. `"36 g"` (`null` if not set)',
+      resolve: (s) => s.yield ?? null,
+    }),
+  }),
+})
+
+export const CoffeeStepType = builder.objectRef<CoffeeStep>('CoffeeStep').implement({
+  description:
+    'One brewing step: its instruction plus the extraction settings that go with it. A plain ' +
+    'step (no extraction settings) carries an empty settings object.',
+  fields: (t) => ({
+    text: t.expose('text', {
+      type: 'StepText',
+      description: 'The step instruction, e.g. `"Verser 50 g d’eau et laisser gonfler"`',
+    }),
+    settings: t.field({
+      type: CoffeeSettingsType,
+      description:
+        'The extraction settings for this step, e.g. `"93°C / 28 s / 36 g"` (every field left ' +
+        'out = a plain step)',
+      resolve: (s) => s.settings,
+    }),
+  }),
+})
+
+export const CoffeeContentType = builder.objectRef<CoffeeContent>('CoffeeContent').implement({
+  description:
+    'The body of a coffee version: its ingredient list (the dose, the water, the milk) and its ' +
+    'steps, each carrying its own extraction settings. How the coffee is brewed is not here — ' +
+    'that is the recipe’s `method`, fixed across the whole lineage.',
+  fields: (t) => ({
+    ingredients: t.field({
+      type: [IngredientType],
+      description:
+        'The full ingredient list, in order, e.g. `"Café — 18 g"` then `"Eau — 300 g"` (empty ' +
+        'list when it has none)',
+      resolve: (c) => c.ingredients,
+    }),
+    steps: t.field({
+      type: [CoffeeStepType],
+      description: 'The method, each step carrying its own extraction settings',
+      resolve: (c) => c.steps,
+    }),
+  }),
+})
+
 export const VersionContentUnion = builder.unionType('VersionContent', {
   description:
     'The body of a version, which depends on the recipe type: a `DishContent` for a cooked ' +
-    'dish, a `ThermomixContent` for a Thermomix recipe.',
-  types: [DishContentType, ThermomixContentType],
+    'dish, a `ThermomixContent` for a Thermomix recipe, a `CoffeeContent` for a coffee.',
+  types: [DishContentType, ThermomixContentType, CoffeeContentType],
   resolveType: (content: VersionContent) =>
-    content.kind === 'dish' ? 'DishContent' : 'ThermomixContent',
+    content.kind === 'dish'
+      ? 'DishContent'
+      : content.kind === 'coffee'
+        ? 'CoffeeContent'
+        : 'ThermomixContent',
 })
 
 // A version is also an attempt: immutable content/lineage, plus its outcome fields
@@ -197,7 +283,8 @@ export const VersionType = builder.objectRef<RecipeVersion>('Version').implement
       description:
         'This version’s body — its ingredients and steps. A `DishContent` for a cooked dish ' +
         '(plain-text steps), a `ThermomixContent` for a Thermomix recipe (each step carrying its ' +
-        'machine settings).',
+        'machine settings), a `CoffeeContent` for a coffee (each step carrying its extraction ' +
+        'settings).',
       resolve: (v) => v.content,
     }),
     tips: t.field({
@@ -272,13 +359,24 @@ RecipeType.implement({
     }),
     type: t.expose('type', {
       type: RecipeTypeEnum,
-      description: 'Whether it is a cooked dish (`DISH`) or a Thermomix recipe (`THERMOMIX`)',
+      description:
+        'Whether it is a cooked dish (`DISH`), a Thermomix recipe (`THERMOMIX`) or a coffee ' +
+        '(`COFFEE`)',
     }),
     category: t.expose('category', {
       type: DishCategoryEnum,
       description:
         'Which course it is, e.g. `DESSERT` for a tarte tatin. Set once at import and shared by ' +
-        'every version; used to group the library.',
+        'every version; used to group the library. A coffee is always a `DRINK` — its own axis ' +
+        'is `method`.',
+    }),
+    method: t.field({
+      type: BrewMethodEnum,
+      nullable: true,
+      description:
+        'How it is brewed, e.g. `V60`. Set once at import and shared by every version; used to ' +
+        'group the coffee tab. `null` on anything that is not a `COFFEE`.',
+      resolve: (r) => r.method ?? null,
     }),
     title: t.expose('title', {
       type: 'RecipeTitle',

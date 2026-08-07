@@ -15,6 +15,38 @@ export const RecipeTypeEnum = builder.enumType('RecipeType', {
         'A Thermomix recipe — each step also carries machine settings, e.g. ' +
         '`"10 min / 100°C / speed 2"`',
     },
+    COFFEE: {
+      value: 'coffee',
+      description:
+        'A brewed coffee — each step also carries its extraction settings, e.g. ' +
+        '`"18 g → 36 g / 93°C / 28 s"`. It always carries a `method` too, and lives in the ' +
+        'app’s coffee tab rather than the cooking notebook.',
+    },
+  } as const,
+})
+
+export const BrewMethodEnum = builder.enumType('BrewMethod', {
+  description:
+    'How a coffee is brewed. Detected once at import, shared by every version, and the axis the ' +
+    'coffee tab groups and sorts on — the counterpart of `DishCategory` for cooking. Present on ' +
+    'a `COFFEE` recipe and on no other.',
+  values: {
+    ESPRESSO: { value: 'espresso', description: 'A shot pulled on an espresso machine' },
+    AMERICANO: { value: 'americano', description: 'An espresso lengthened with hot water' },
+    FLAT_WHITE: { value: 'flat-white', description: 'An espresso with steamed microfoam milk' },
+    CAPPUCCINO: { value: 'cappuccino', description: 'An espresso with steamed and foamed milk' },
+    LATTE: { value: 'latte', description: 'An espresso with a large share of steamed milk' },
+    MOKA: { value: 'moka', description: 'A stovetop pot, e.g. a Bialetti' },
+    V60: { value: 'v60', description: 'A cone pour-over, e.g. a Hario V60' },
+    CHEMEX: { value: 'chemex', description: 'A Chemex pour-over, on its thick paper filter' },
+    DRIP: { value: 'drip', description: 'A filter machine, e.g. a Moccamaster' },
+    AEROPRESS: { value: 'aeropress', description: 'An AeroPress, brewed under hand pressure' },
+    FRENCH_PRESS: { value: 'french-press', description: 'A French press, full immersion' },
+    COLD_BREW: { value: 'cold-brew', description: 'A long cold-water extraction' },
+    OTHER: {
+      value: 'other',
+      description: 'Any other way of brewing — where a coffee lands when none of the above fits',
+    },
   } as const,
 })
 
@@ -45,6 +77,12 @@ export const RecipeSortEnum = builder.enumType('RecipeSort', {
       description:
         'Dish course order (`STARTER → MAIN → DESSERT → SOUP → SAUCE → BAKING → DRINK`), ' +
         'most recently modified first within a course',
+    },
+    METHOD: {
+      value: 'method',
+      description:
+        'Brewing order (`ESPRESSO → … → COLD_BREW → OTHER`), most recently modified first ' +
+        'within a method — the coffee tab’s own order',
     },
   } as const,
 })

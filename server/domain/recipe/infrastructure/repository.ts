@@ -1,7 +1,8 @@
 import type { WriteBatch } from 'firebase-admin/firestore'
 import { chunk } from 'lodash-es'
-import { categoryRank } from '~/domain/recipe/business-rules'
+import { categoryRank, methodRank } from '~/domain/recipe/business-rules'
 import type {
+  BrewMethod,
   DishCategory,
   Recipe,
   RecipeId,
@@ -88,10 +89,15 @@ export const findManyByIds = async (userId: UserId, ids: RecipeId[]) => {
 
 export const save = async (recipe: Recipe, batch?: WriteBatch) => {
   const ref = recipes().doc(recipe.id)
-  // `categoryRank` is a storage-only, derived sort key (never on the domain type
-  // nor exposed via GraphQL): the single write point stamps it so the library's
-  // Firestore category ordering always has a fresh, cursor-safe field to sort on.
-  const stored = { ...recipe, categoryRank: categoryRank(recipe.category) }
+  // `categoryRank` and `methodRank` are storage-only, derived sort keys (never on
+  // the domain type nor exposed via GraphQL): the single write point stamps them so
+  // the library's and the coffee tab's Firestore ordering always have a fresh,
+  // cursor-safe field to sort on. Only a coffee carries a method, hence a rank.
+  const stored = {
+    ...recipe,
+    categoryRank: categoryRank(recipe.category),
+    ...(recipe.method ? { methodRank: methodRank(recipe.method) } : {}),
+  }
   if (batch) batch.set(ref, stored)
   else await ref.set(stored)
   return recipe
@@ -99,8 +105,11 @@ export const save = async (recipe: Recipe, batch?: WriteBatch) => {
 
 export type RecipePage = { recipes: Recipe[]; hasMore: boolean }
 export type RecipePageArgs = {
-  type?: RecipeType
+  // The types the page is about: `[dish, thermomix]` for the cooking notebook,
+  // `[coffee]` for the coffee tab. Absent = every type.
+  types?: RecipeType[]
   category?: DishCategory
+  method?: BrewMethod
   favorite?: true
   sort: RecipeSort
   order: SortOrder
@@ -114,15 +123,21 @@ export type RecipePageArgs = {
 // a stale cursor (deleted recipe) simply restarts from the top.
 export const findPage = async (userId: UserId, args: RecipePageArgs): Promise<RecipePage> => {
   let query = recipes().where('userId', '==', userId)
-  if (args.type) query = query.where('type', '==', args.type)
+  // A single type is an equality (one index scan); several make it an `in`, which
+  // Firestore runs as one scan per value over the very same composite index.
+  if (args.types?.length === 1) query = query.where('type', '==', args.types[0])
+  else if (args.types?.length) query = query.where('type', 'in', args.types)
   if (args.category) query = query.where('category', '==', args.category)
+  if (args.method) query = query.where('method', '==', args.method)
   // Favourites are marked by the field's presence, so equality on `true` is also
   // what excludes every recipe that never carried it.
   if (args.favorite) query = query.where('favorite', '==', true)
   query =
     args.sort === 'category'
       ? query.orderBy('categoryRank', 'asc').orderBy('updatedAt', 'desc')
-      : query.orderBy('updatedAt', args.order)
+      : args.sort === 'method'
+        ? query.orderBy('methodRank', 'asc').orderBy('updatedAt', 'desc')
+        : query.orderBy('updatedAt', args.order)
   if (args.after) {
     const cursor = await recipes().doc(args.after).get()
     if (cursor.exists) query = query.startAfter(cursor)

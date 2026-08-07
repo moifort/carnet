@@ -1,5 +1,6 @@
 import * as repository from '~/domain/recipe/infrastructure/repository'
 import type {
+  BrewMethod,
   DishCategory,
   Recipe,
   RecipeId,
@@ -15,10 +16,13 @@ import type { UserId } from '~/domain/shared/types'
 export type RecipeLibraryPage = { items: Recipe[]; hasMore: boolean; totalCount: number }
 
 export type RecipeLibraryCriteria = {
-  type?: RecipeType
+  // Which types the page is about — the cooking notebook asks for
+  // `[dish, thermomix]`, the coffee tab for `[coffee]`. Absent = every type.
+  types?: RecipeType[]
   category?: DishCategory
+  method?: BrewMethod
   // Facet: keep only the favourites. The favourites lens mixes every type, so it is
-  // never combined with `type` in practice.
+  // never combined with `types` in practice.
   favorite?: true
   sort: RecipeSort
   order: SortOrder
@@ -39,12 +43,14 @@ export namespace RecipeQuery {
     userId: UserId,
     criteria: RecipeLibraryCriteria,
   ): Promise<RecipeLibraryPage> => {
-    // A category filter pins the order to updatedAt desc: ranking recipes within
-    // a single course is meaningless, and coercing here keeps the composite-index
-    // surface bounded (no per-category × sort index explosion).
-    const effective: RecipeLibraryCriteria = criteria.category
-      ? { ...criteria, sort: 'updatedAt', order: 'desc' }
-      : criteria
+    // A category or method filter pins the order to updatedAt desc: ranking recipes
+    // within a single course (or a single brew method) is meaningless, and coercing
+    // here keeps the composite-index surface bounded (no per-facet × sort index
+    // explosion).
+    const effective: RecipeLibraryCriteria =
+      criteria.category || criteria.method
+        ? { ...criteria, sort: 'updatedAt', order: 'desc' }
+        : criteria
     const { recipes, hasMore } = await repository.findPage(userId, {
       ...effective,
       limit: clampLimit(effective.limit),

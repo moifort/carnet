@@ -2,6 +2,11 @@ import SchemaBuilder from '@pothos/core'
 import { GraphQLScalarType } from 'graphql'
 import type { H3Event } from 'h3'
 import type {
+  CoffeeGrind,
+  CoffeeTemperature,
+  CoffeeTime,
+  CoffeeWater,
+  CoffeeYield,
   IngredientName,
   IngredientQuantity,
   Rating,
@@ -52,6 +57,11 @@ export const builder = new SchemaBuilder<{
     ThermomixTime: { Input: ThermomixTime; Output: ThermomixTime }
     ThermomixTemperature: { Input: ThermomixTemperature; Output: ThermomixTemperature }
     ThermomixSpeed: { Input: ThermomixSpeed; Output: ThermomixSpeed }
+    CoffeeGrind: { Input: CoffeeGrind; Output: CoffeeGrind }
+    CoffeeWater: { Input: CoffeeWater; Output: CoffeeWater }
+    CoffeeTemperature: { Input: CoffeeTemperature; Output: CoffeeTemperature }
+    CoffeeTime: { Input: CoffeeTime; Output: CoffeeTime }
+    CoffeeYield: { Input: CoffeeYield; Output: CoffeeYield }
     Remarks: { Input: Remarks; Output: Remarks }
   }
 }>({

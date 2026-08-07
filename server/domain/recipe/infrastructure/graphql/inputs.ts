@@ -2,7 +2,7 @@ import type { VersionContent } from '~/domain/recipe/content/types'
 import { VersionContent as brandVersionContent } from '~/domain/recipe/primitives'
 import { builder } from '~/domain/shared/graphql/builder'
 import { domainError } from '~/domain/shared/graphql/errors'
-import { DishCategoryEnum, RecipeTypeEnum } from './enums'
+import { BrewMethodEnum, DishCategoryEnum, RecipeTypeEnum } from './enums'
 
 export const IngredientInput = builder.inputType('IngredientInput', {
   description:
@@ -58,6 +58,61 @@ export const ThermomixStepInput = builder.inputType('ThermomixStepInput', {
   }),
 })
 
+export const CoffeeSettingsInput = builder.inputType('CoffeeSettingsInput', {
+  description:
+    'The extraction settings to attach to one brewing step, e.g. `"93°C / 28 s / 36 g"`. Every ' +
+    'field is optional.',
+  fields: (t) => ({
+    grind: t.field({
+      type: 'CoffeeGrind',
+      description: 'Grind size, e.g. `"fine"` or `"Niveau 12"`',
+    }),
+    water: t.field({ type: 'CoffeeWater', description: 'Water poured here, e.g. `"50 g"`' }),
+    temperature: t.field({ type: 'CoffeeTemperature', description: 'Temperature, e.g. `"93°C"`' }),
+    time: t.field({ type: 'CoffeeTime', description: 'Duration, e.g. `"28 s"`' }),
+    yield: t.field({ type: 'CoffeeYield', description: 'What lands in the cup, e.g. `"36 g"`' }),
+  }),
+})
+
+export const CoffeeStepInput = builder.inputType('CoffeeStepInput', {
+  description:
+    'One brewing step to save: its instruction plus the extraction settings that go with it. ' +
+    'Send `settings: {}` for a plain step (no extraction settings).',
+  fields: (t) => ({
+    text: t.field({
+      type: 'StepText',
+      required: true,
+      description: 'The step instruction, e.g. `"Verser 50 g d’eau et laisser gonfler"`',
+    }),
+    settings: t.field({
+      type: CoffeeSettingsInput,
+      required: true,
+      description:
+        'Its extraction settings, e.g. `"93°C / 28 s / 36 g"` (send `{}` for a plain step)',
+    }),
+  }),
+})
+
+export const CoffeeContentInput = builder.inputType('CoffeeContentInput', {
+  description:
+    'The body of a coffee version: its ingredient list (the dose, the water, the milk) and its ' +
+    'steps, each carrying its own extraction settings.',
+  fields: (t) => ({
+    ingredients: t.field({
+      type: [IngredientInput],
+      required: true,
+      description:
+        'The ingredient list, in order, e.g. `"Café — 18 g"` then `"Eau — 300 g"` (send `[]` ' +
+        'when it has none)',
+    }),
+    steps: t.field({
+      type: [CoffeeStepInput],
+      required: true,
+      description: 'The method, each step carrying its own extraction settings',
+    }),
+  }),
+})
+
 export const DishContentInput = builder.inputType('DishContentInput', {
   description: 'The body of a cooked-dish version: its ingredient list and plain-text steps.',
   fields: (t) => ({
@@ -95,12 +150,12 @@ export const ThermomixContentInput = builder.inputType('ThermomixContentInput', 
   }),
 })
 
-// @oneOf: exactly one of `dish`/`thermomix` must be set, mirroring the recipe type
-// — the server rejects the version otherwise (`content-type-mismatch`).
+// @oneOf: exactly one of `dish`/`thermomix`/`coffee` must be set, mirroring the
+// recipe type — the server rejects the version otherwise (`content-type-mismatch`).
 export const VersionContentInput = builder.inputType('VersionContentInput', {
   description:
     'The body of a version, tagged by recipe type: provide EXACTLY ONE of `dish` (a cooked ' +
-    'dish) or `thermomix` (a Thermomix recipe).',
+    'dish), `thermomix` (a Thermomix recipe) or `coffee` (a brewed coffee).',
   isOneOf: true,
   fields: (t) => ({
     dish: t.field({ type: DishContentInput, required: false, description: 'A cooked-dish body' }),
@@ -108,6 +163,11 @@ export const VersionContentInput = builder.inputType('VersionContentInput', {
       type: ThermomixContentInput,
       required: false,
       description: 'A Thermomix body',
+    }),
+    coffee: t.field({
+      type: CoffeeContentInput,
+      required: false,
+      description: 'A coffee body',
     }),
   }),
 })
@@ -120,9 +180,11 @@ type ContentArm = { ingredients: unknown[]; steps: unknown[] }
 export const versionContentInput = (input: {
   dish?: ContentArm | null
   thermomix?: ContentArm | null
+  coffee?: ContentArm | null
 }): VersionContent => {
   if (input.dish) return brandVersionContent({ kind: 'dish', ...input.dish })
   if (input.thermomix) return brandVersionContent({ kind: 'thermomix', ...input.thermomix })
+  if (input.coffee) return brandVersionContent({ kind: 'coffee', ...input.coffee })
   return domainError('invalid-content')
 }
 
@@ -134,12 +196,20 @@ export const CreateRecipeInput = builder.inputType('CreateRecipeInput', {
     type: t.field({
       type: RecipeTypeEnum,
       required: true,
-      description: 'Cooked dish (`DISH`) or Thermomix recipe (`THERMOMIX`)',
+      description: 'Cooked dish (`DISH`), Thermomix recipe (`THERMOMIX`) or coffee (`COFFEE`)',
     }),
     category: t.field({
       type: DishCategoryEnum,
       required: true,
-      description: 'Its course, e.g. `MAIN` for lasagna, as detected during import',
+      description:
+        'Its course, e.g. `MAIN` for lasagna, as detected during import. Ignored on a `COFFEE`, ' +
+        'which is always filed as a `DRINK`.',
+    }),
+    method: t.field({
+      type: BrewMethodEnum,
+      description:
+        'How it is brewed, e.g. `V60`, as detected during import. REQUIRED on a `COFFEE` and ' +
+        'rejected on anything else.',
     }),
     title: t.field({
       type: 'RecipeTitle',
@@ -151,7 +221,7 @@ export const CreateRecipeInput = builder.inputType('CreateRecipeInput', {
       type: VersionContentInput,
       required: true,
       description:
-        'The recipe body — provide exactly one of `dish` or `thermomix`, matching `type`',
+        'The recipe body — provide exactly one of `dish`, `thermomix` or `coffee`, matching `type`',
     }),
     tips: t.field({
       type: ['Tip'],
@@ -165,8 +235,9 @@ export const CreateRecipeInput = builder.inputType('CreateRecipeInput', {
 
 export const UpdateRecipeInput = builder.inputType('UpdateRecipeInput', {
   description:
-    'What you can retouch on a recipe: its name, its course and whether it is a favourite. Send ' +
-    'only what you want to change — anything you leave out stays as it was.',
+    'What you can retouch on a recipe: its name, its course or its brew method, and whether it ' +
+    'is a favourite. Send only what you want to change — anything you leave out stays as it was. ' +
+    'Its type is fixed for good.',
   fields: (t) => ({
     title: t.field({
       type: 'RecipeTitle',
@@ -176,7 +247,13 @@ export const UpdateRecipeInput = builder.inputType('UpdateRecipeInput', {
       type: DishCategoryEnum,
       description:
         'The new course, e.g. `DRINK` for a recipe the import filed as `MAIN` (leave out to keep ' +
-        'the current one)',
+        'the current one). Ignored on a `COFFEE` — refiling one means changing its `method`.',
+    }),
+    method: t.field({
+      type: BrewMethodEnum,
+      description:
+        'The new brew method, e.g. `CHEMEX` for a coffee the import filed as `V60` (leave out to ' +
+        'keep the current one). Rejected on a recipe that is not a `COFFEE`.',
     }),
     favorite: t.boolean({
       description:

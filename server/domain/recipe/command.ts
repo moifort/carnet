@@ -1,8 +1,9 @@
-import { nextVersionNumber } from '~/domain/recipe/business-rules'
+import { methodMatchesType, nextVersionNumber } from '~/domain/recipe/business-rules'
 import type { VersionContent } from '~/domain/recipe/content/types'
 import * as repository from '~/domain/recipe/infrastructure/repository'
 import { randomRecipeId, VersionNumber } from '~/domain/recipe/primitives'
 import type {
+  BrewMethod,
   DishCategory,
   Rating,
   Recipe,
@@ -24,6 +25,8 @@ const FIRST_VERSION = VersionNumber(1)
 export type NewRecipeInput = {
   type: RecipeType
   category: DishCategory
+  // Required on a coffee, rejected on anything else — see `methodMatchesType`.
+  method?: BrewMethod
   title: RecipeTitle
   content: VersionContent
   tips: Tip[]
@@ -53,6 +56,9 @@ export type NewVersionInput = {
 export type UpdateRecipeInput = {
   title?: RecipeTitle
   category?: DishCategory
+  // Refiling a coffee under another brew method. Rejected on a recipe that is not
+  // one — the type itself is never editable.
+  method?: BrewMethod
   favorite?: boolean
 }
 
@@ -73,12 +79,17 @@ export namespace RecipeCommand {
     // The body's discriminant must mirror the recipe type — a dish recipe cannot
     // carry Thermomix content and vice versa. Enforced here, no throw.
     if (input.content.kind !== input.type) return 'content-type-mismatch' as const
+    // A brew method belongs to a coffee and to nothing else.
+    if (!methodMatchesType(input)) return 'method-mismatch' as const
     const now = new Date()
     const recipe: Recipe = {
       id: randomRecipeId(),
       userId,
       type: input.type,
-      category: input.category,
+      // A coffee is a drink, whatever the AI guessed: the course axis says nothing
+      // about it, its `method` is what the coffee tab reads on.
+      category: input.type === 'coffee' ? 'drink' : input.category,
+      ...(input.method ? { method: input.method } : {}),
       title: input.title,
       warnings: [],
       lastVersionNumber: FIRST_VERSION,
@@ -220,14 +231,18 @@ export namespace RecipeCommand {
     return repository.save({ ...recipe, warnings, updatedAt: new Date() })
   }
 
-  // The touches a cook can make to the aggregate itself: its name, its course and
-  // whether it is a favourite. Each is optional — what is left out stays as it was.
-  // `favorite: false` drops the field entirely (the full-document write erases it),
-  // so absence is the single spelling of "not a favourite". A category change keeps
-  // the library's sort honest on its own: `repository.save` re-derives `categoryRank`.
+  // The touches a cook can make to the aggregate itself: its name, its course or its
+  // brew method, and whether it is a favourite. Each is optional — what is left out
+  // stays as it was. `favorite: false` drops the field entirely (the full-document
+  // write erases it), so absence is the single spelling of "not a favourite". A
+  // category or method change keeps the library's sort honest on its own:
+  // `repository.save` re-derives `categoryRank` and `methodRank`.
   export const update = async (userId: UserId, recipeId: RecipeId, input: UpdateRecipeInput) => {
     const recipe = await repository.findBy(userId, recipeId)
     if (!recipe) return 'not-found' as const
+    // A brew method belongs to a coffee: a dish never grows one, since the type
+    // itself is not editable.
+    if (input.method && recipe.type !== 'coffee') return 'method-mismatch' as const
     // Spread without the flag, then put it back only if it holds — otherwise the
     // rewritten document simply has no `favorite` field.
     const { favorite: _dropped, ...rest } = recipe
@@ -235,7 +250,9 @@ export namespace RecipeCommand {
     const updated: Recipe = {
       ...rest,
       ...(input.title ? { title: input.title } : {}),
-      ...(input.category ? { category: input.category } : {}),
+      // A coffee stays a drink — refiling it means changing its method.
+      ...(input.category && recipe.type !== 'coffee' ? { category: input.category } : {}),
+      ...(input.method ? { method: input.method } : {}),
       ...(favorite ? { favorite: true as const } : {}),
       updatedAt: new Date(),
     }
