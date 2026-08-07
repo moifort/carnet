@@ -123,6 +123,142 @@ const coffeeSettingsSchemaProperty = {
   propertyOrdering: ['grind', 'water', 'temperature', 'time', 'yield'],
 }
 
+// A coffee's parameters — what it IS, as opposed to the gestures that brew it.
+// Null on anything that is not a coffee, and null field by field for everything
+// the source does not state: a guessed roast date would falsify the whole log.
+const coffeeParametersSchemaProperty = {
+  type: 'object',
+  nullable: true,
+  description:
+    'The parameters of a coffee; null on anything that is not of type coffee. Never invent a value the source does not give',
+  properties: {
+    beans: {
+      type: 'object',
+      nullable: true,
+      description: 'The coffee itself, as the bag names it',
+      properties: {
+        name: {
+          type: 'string',
+          nullable: true,
+          description: 'Roaster and lot (e.g. "Belleville — Guji"); null when not stated',
+        },
+        country: {
+          type: 'string',
+          nullable: true,
+          description: 'Origin country (e.g. "Éthiopie"); null when not stated',
+        },
+        producer: {
+          type: 'string',
+          nullable: true,
+          description:
+            'Farm, washing station or co-op (e.g. "Coop. Hambela"); null when not stated',
+        },
+        roastedOn: {
+          type: 'string',
+          nullable: true,
+          description: 'Roast date, ISO 8601 (e.g. "2026-06-12"); null when not stated',
+        },
+        dose: {
+          type: 'string',
+          nullable: true,
+          description: 'Ground coffee in (e.g. "18 g"); null when not stated',
+        },
+      },
+      propertyOrdering: ['name', 'country', 'producer', 'roastedOn', 'dose'],
+    },
+    water: {
+      type: 'object',
+      nullable: true,
+      description: 'The water',
+      properties: {
+        kind: {
+          type: 'string',
+          nullable: true,
+          description:
+            'What the water is (e.g. "Robinet (dureté 3/5)", "Volvic"); null when not stated',
+        },
+        amount: {
+          type: 'string',
+          nullable: true,
+          description: 'TOTAL water (e.g. "300 g"); null when not stated',
+        },
+        temperature: {
+          type: 'string',
+          nullable: true,
+          description: 'Water temperature (e.g. "93°C"); null when not stated',
+        },
+      },
+      propertyOrdering: ['kind', 'amount', 'temperature'],
+    },
+    extraction: {
+      type: 'object',
+      nullable: true,
+      description: 'The extraction dials',
+      properties: {
+        grind: {
+          type: 'string',
+          nullable: true,
+          description: 'Grind size (e.g. "fine", "Niveau 12"); null when not stated',
+        },
+        time: {
+          type: 'string',
+          nullable: true,
+          description: 'TOTAL brew time (e.g. "28 s", "4 min"); null when not stated',
+        },
+        yield: {
+          type: 'string',
+          nullable: true,
+          description: 'What lands in the cup (e.g. "36 g"); null when not stated',
+        },
+      },
+      propertyOrdering: ['grind', 'time', 'yield'],
+    },
+    milk: {
+      type: 'object',
+      nullable: true,
+      description: 'The milk; null on a drink that has none (an espresso, a V60)',
+      properties: {
+        kind: {
+          type: 'string',
+          nullable: true,
+          description: 'What the milk is (e.g. "Entier", "Avoine Oatly"); null when not stated',
+        },
+        amount: {
+          type: 'string',
+          nullable: true,
+          description: 'How much milk (e.g. "150 ml"); null when not stated',
+        },
+        temperature: {
+          type: 'string',
+          nullable: true,
+          description: 'Steaming temperature (e.g. "65°C"); null when not stated',
+        },
+      },
+      propertyOrdering: ['kind', 'amount', 'temperature'],
+    },
+    gear: {
+      type: 'object',
+      nullable: true,
+      description: 'What brews it and what grinds it',
+      properties: {
+        machine: {
+          type: 'string',
+          nullable: true,
+          description:
+            'Brand and model (e.g. "Rancilio Silvia", "Hario V60 02", "Moccamaster KBG"); null when not stated',
+        },
+        grinder: {
+          type: 'string',
+          nullable: true,
+          description: 'Brand and model (e.g. "Niche Zero"); null when not stated',
+        },
+      },
+      propertyOrdering: ['machine', 'grinder'],
+    },
+  },
+  propertyOrdering: ['beans', 'water', 'extraction', 'milk', 'gear'],
+}
+
 const stepsSchemaProperty = {
   type: 'array',
   description: 'Short, actionable steps in order, written in French',
@@ -191,6 +327,7 @@ const importResponseSchema = {
       description: 'Recipe source (author, website, book) if identifiable',
     },
     ingredients: ingredientsSchemaProperty,
+    coffee: coffeeParametersSchemaProperty,
     steps: stepsSchemaProperty,
     tips: { ...tipsSchemaProperty, nullable: true },
   },
@@ -203,6 +340,7 @@ const importResponseSchema = {
     'title',
     'sourceLabel',
     'ingredients',
+    'coffee',
     'steps',
     'tips',
   ],
@@ -244,8 +382,9 @@ Rules:
 - For a Thermomix recipe (type thermomix): for every step performed on the Thermomix, fill the nested thermomix object (time, temperature, speed, reverse) exactly as stated in the recipe (time "3 min" / "30 s" / "1 h 10 min"; temperature "100°C" or "Varoma"; speed "0,5" to "10", "pétrin", "mijotage" or "turbo"). ALWAYS return every step as an object: use null for every missing setting, and set thermomix to null (or leave its fields null) when the step is not done on the Thermomix or when the recipe is not of type thermomix — never omit or merge a step because it carries no setting.
 - For a coffee (type coffee):
   - method: how it is brewed. espresso, americano, flat-white, cappuccino or latte for a machine drink; moka for a stovetop pot (Bialetti); v60 or chemex for a pour-over; drip for a filter machine (Moccamaster, cafetière filtre); aeropress; french-press; cold-brew. Use other ONLY when none of these fits — never force a coffee into a method it was not made with.
-  - ingredients: what goes in, with its weight — the dose of coffee ("Café" → "18 g"), the total water ("Eau" → "300 g"), the milk ("Lait" → "150 ml"), and the beans themselves when the source names them ("Café (Éthiopie Guji, torréfaction claire)" → "18 g"). Prefer grams over millilitres for water, as the source states it.
-  - steps: the brewing gestures in order (grind, rinse the filter, bloom, pour, plunge, steam the milk…). For every step that carries an extraction parameter, fill the nested coffee object: grind ("fine", "moyenne", "grossière", or a grinder setting like "Niveau 12"), water (the amount poured AT THAT STEP — "50 g" for a bloom, not the total), temperature ("93°C"), time ("28 s", "4 min"), yield (what lands in the cup at that step — "36 g" for a double espresso). Use null for every missing setting, and set coffee to null when the step carries none or the recipe is not of type coffee — never omit or merge a step because it carries no setting.
+  - ingredients: leave it empty. A coffee has no ingredient list — its dose, its water and its milk are parameters.
+  - coffee: the parameters, read off the source and NEVER guessed. beans (name as the bag spells it, country, producer, roast date, dose), water (what the water is — "Robinet (dureté 3/5)", "Volvic" —, the TOTAL amount, the temperature), extraction (grind, TOTAL brew time, what lands in the cup), milk (null unless the drink has some), gear (machine and grinder, brand and model). Use null for anything the source does not state: a missing value is information, an invented one is a lie the cook will brew against.
+  - steps: only for a method that has gestures — a pour-over (v60, chemex), an immersion (french-press, aeropress, cold-brew), a filter machine, a milk drink to steam. An espresso is wholly described by its parameters: return an empty array. When there ARE steps, fill the nested coffee object of each one that carries a parameter: grind ("fine", "moyenne", "grossière", or a grinder setting like "Niveau 12"), water (the amount poured AT THAT STEP — "50 g" for a bloom, not the total), temperature ("93°C"), time ("28 s", "4 min"), yield (what lands in the cup at that step). Use null for every missing setting, and set coffee to null when the step carries none — never omit or merge a step because it carries no setting.
   - The whole point is reproducibility: a dose, a grind, a temperature, a time or a yield stated in the source goes into the structured field, never only in the step text.
 - Be concise: every value stays short (ingredient name ≤120, quantity ≤60, step ≤300, title ≤200, Thermomix setting ≤20, extraction setting ≤30 characters).
 - If the source contains no usable recipe (unreadable image or one without a recipe, off-topic page or text), set recipeFound to false and leave every other field empty or null. Otherwise set recipeFound to true.

@@ -33,6 +33,18 @@ export type ImportCoffeeSettings = {
   yield?: string
 }
 
+// The coffee parameters as extracted by Gemini. Plain strings — the domain layer
+// validates them into branded types when the cook confirms. The blocks are total:
+// an empty object is "the source says nothing about it", and an absent `milk` is a
+// drink that has none.
+export type ImportCoffeeParameters = {
+  beans: { name?: string; country?: string; producer?: string; roastedOn?: string; dose?: string }
+  water: { kind?: string; amount?: string; temperature?: string }
+  extraction: { grind?: string; time?: string; yield?: string }
+  milk?: { kind?: string; amount?: string; temperature?: string }
+  gear: { machine?: string; grinder?: string }
+}
+
 // One extracted step: its text plus the settings that go with it — the machine
 // ones on a Thermomix recipe, the extraction ones on a coffee. The two are named
 // after their context rather than both being `settings`, since this one wire
@@ -53,7 +65,11 @@ export type ImportAnalysis = {
   method?: BrewMethod
   title: string
   sourceLabel?: string
+  // The ingredient list — on a dish and a Thermomix recipe only. A coffee has none:
+  // its dose, its water and its milk are parameters.
   ingredients: { name: string; quantity: string }[]
+  // The parameters of a coffee — absent on anything that is not one.
+  coffee?: ImportCoffeeParameters
   steps: ImportStep[]
   // Cooking tips found in the source (serving, storage, technique) — `[]` when
   // the source carries none.
@@ -75,6 +91,9 @@ export type ProposalContext = {
   // espresso one. Absent on anything that is not a coffee.
   method?: BrewMethod
   currentIngredients: { name: string; quantity: string }[]
+  // The parameters of the coffee version being iterated on — where the extraction
+  // starts from. Absent on anything that is not a coffee.
+  currentCoffee?: ImportCoffeeParameters
   // Each step carries its own settings (an empty object is a step that sets nothing).
   currentSteps: ImportStep[]
   // The tips of the version iterated on — the proposal returns the complete
@@ -95,6 +114,9 @@ export type Proposal = {
   changeSummary: string
   rationale: string
   ingredients: { name: string; quantity: string }[]
+  // The next version's coffee parameters — the whole set, with exactly one dial
+  // moved. Absent on anything that is not a coffee.
+  coffee?: ImportCoffeeParameters
   steps: ImportStep[]
   // The complete tips list of the next version (current tips carried over,
   // advice found in the remarks folded in).

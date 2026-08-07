@@ -115,6 +115,102 @@ describe('parseImportResponse — coffee', () => {
   test('hangs no method on a recipe that is not a coffee', () => {
     expect(parsedImport({ ...base, method: 'v60', steps: ['Mixer'] }).method).toBeUndefined()
   })
+
+  test('reads the parameters off the source, nulls becoming absent fields', () => {
+    const result = parsedImport({
+      ...coffeeBase,
+      method: 'espresso',
+      coffee: {
+        beans: {
+          name: 'Belleville — Guji',
+          country: 'Éthiopie',
+          producer: null,
+          roastedOn: '2026-06-12',
+          dose: '18 g',
+        },
+        water: { kind: 'Robinet', amount: '36 g', temperature: '93°C' },
+        extraction: { grind: 'Niveau 12', time: '28 s', yield: '36 g' },
+        milk: null,
+        gear: { machine: 'Rancilio Silvia', grinder: null },
+      },
+      steps: [],
+    })
+
+    expect(result.coffee).toEqual({
+      beans: {
+        name: 'Belleville — Guji',
+        country: 'Éthiopie',
+        roastedOn: '2026-06-12',
+        dose: '18 g',
+      },
+      water: { kind: 'Robinet', amount: '36 g', temperature: '93°C' },
+      extraction: { grind: 'Niveau 12', time: '28 s', yield: '36 g' },
+      gear: { machine: 'Rancilio Silvia' },
+    })
+    // An espresso is wholly described by its parameters: no steps, no ingredients.
+    expect(result.steps).toEqual([])
+    expect(result.ingredients).toEqual([])
+  })
+
+  test('keeps the milk of a milk drink and drops an empty one', () => {
+    const latte = parsedImport({
+      ...coffeeBase,
+      method: 'latte',
+      coffee: { milk: { kind: 'Avoine Oatly', amount: '150 ml', temperature: null } },
+      steps: [],
+    })
+    expect(latte.coffee?.milk).toEqual({ kind: 'Avoine Oatly', amount: '150 ml' })
+
+    const espresso = parsedImport({
+      ...coffeeBase,
+      method: 'espresso',
+      coffee: {
+        extraction: { time: '28 s' },
+        milk: { kind: null, amount: null, temperature: null },
+      },
+      steps: [],
+    })
+    expect(espresso.coffee?.milk).toBeUndefined()
+  })
+
+  test('an espresso stands as a recipe on its parameters alone, with no step at all', () => {
+    const result = parseImportResponse(
+      JSON.stringify({
+        type: 'coffee',
+        title: 'Espresso',
+        method: 'espresso',
+        coffee: { beans: { dose: '18 g' }, extraction: { time: '28 s', yield: '36 g' } },
+        steps: [],
+      }),
+    )
+    expect(result).not.toBe('no-recipe-found')
+  })
+
+  test('a coffee that says nothing at all is no recipe', () => {
+    const result = parseImportResponse(
+      JSON.stringify({ type: 'coffee', title: 'Espresso', method: 'espresso', steps: [] }),
+    )
+    expect(result).toBe('no-recipe-found')
+  })
+
+  test('gives a coffee the empty blocks when the model returned no parameters at all', () => {
+    const result = parsedImport({ ...coffeeBase, method: 'v60', steps: ['Infuser'] })
+    expect(result.coffee).toEqual({ beans: {}, water: {}, extraction: {}, gear: {} })
+  })
+
+  test('drops the ingredient list a coffee should never have carried', () => {
+    const result = parsedImport({
+      ...coffeeBase,
+      method: 'v60',
+      ingredients: [{ name: 'Café', quantity: '18 g' }],
+      steps: ['Infuser'],
+    })
+    expect(result.ingredients).toEqual([])
+  })
+
+  test('hangs no parameters on a recipe that is not a coffee', () => {
+    expect(parsedImport({ ...base, steps: ['Mixer'] }).coffee).toBeUndefined()
+  })
 })
 
 describe('parseImportResponse — dish category', () => {
