@@ -65,6 +65,15 @@ export type CoffeeWater = Brand<string, 'CoffeeWater'>
 export type CoffeeTemperature = Brand<string, 'CoffeeTemperature'>
 export type CoffeeTime = Brand<string, 'CoffeeTime'>
 export type CoffeeYield = Brand<string, 'CoffeeYield'>
+export type CoffeeBeanName = Brand<string, 'CoffeeBeanName'>
+export type CoffeeCountry = Brand<string, 'CoffeeCountry'>
+export type CoffeeProducer = Brand<string, 'CoffeeProducer'>
+export type CoffeeDose = Brand<string, 'CoffeeDose'>
+export type CoffeeWaterKind = Brand<string, 'CoffeeWaterKind'>
+export type CoffeeMilkKind = Brand<string, 'CoffeeMilkKind'>
+export type CoffeeMilkAmount = Brand<string, 'CoffeeMilkAmount'>
+export type CoffeeMachine = Brand<string, 'CoffeeMachine'>
+export type CoffeeGrinder = Brand<string, 'CoffeeGrinder'>
 
 // A recipe component with its measured quantity ("Gin" → "50 ml", "Beurre" →
 // "170 g"). The shopping-list view of the recipe. Ordered list, never a map.

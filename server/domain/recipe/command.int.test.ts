@@ -3,8 +3,12 @@ import type { CoffeeContent } from '~/domain/recipe/content/coffee'
 import type { DishContent } from '~/domain/recipe/content/dish'
 import type { ThermomixContent } from '~/domain/recipe/content/thermomix'
 import type {
+  CoffeeBeanName,
+  CoffeeDose,
+  CoffeeMachine,
   CoffeeTemperature,
   CoffeeTime,
+  CoffeeWater,
   Ingredient,
   IngredientName,
   IngredientQuantity,
@@ -42,7 +46,10 @@ const dishContent = (opts: { ingredients?: Ingredient[] } = {}): DishContent => 
 
 const coffeeContent = (): CoffeeContent => ({
   kind: 'coffee',
-  ingredients: [ingredient('Café', '18 g'), ingredient('Eau', '36 g')],
+  beans: { name: 'Belleville — Guji' as CoffeeBeanName, dose: '18 g' as CoffeeDose },
+  water: { amount: '36 g' as CoffeeWater },
+  extraction: {},
+  gear: { machine: 'Rancilio Silvia' as CoffeeMachine },
   steps: [
     { text: 'Moudre' as StepText, settings: {} },
     {

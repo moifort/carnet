@@ -86,7 +86,7 @@ describe('createRecipe mutation', () => {
     expect(result.errors?.[0]?.extensions?.code).toBe('CONTENT_TYPE_MISMATCH')
   })
 
-  test('saves a coffee with its brew method and its per-step extraction settings', async () => {
+  test('saves a coffee with its brew method, its parameters and its per-step settings', async () => {
     const result = await execute(`
       mutation {
         createRecipe(input: {
@@ -95,7 +95,10 @@ describe('createRecipe mutation', () => {
           method: V60
           title: "V60 Éthiopie Guji"
           content: { coffee: {
-            ingredients: [{ name: "Café", quantity: "18 g" }, { name: "Eau", quantity: "300 g" }]
+            beans: { name: "Belleville — Guji", country: "Éthiopie", dose: "18 g" }
+            water: { kind: "Robinet (dureté 3/5)", amount: "300 g", temperature: "93°C" }
+            extraction: { grind: "moyenne", time: "2 min 30" }
+            gear: { machine: "Hario V60 02", grinder: "Niche Zero" }
             steps: [
               { text: "Moudre", settings: { grind: "moyenne" } }
               { text: "Verser l’eau de pré-infusion", settings: { water: "50 g", temperature: "93°C", time: "45 s" } }
@@ -105,9 +108,14 @@ describe('createRecipe mutation', () => {
           method
           category
           versionToOpen {
+            restDays
             content {
               ... on CoffeeContent {
-                ingredients { name quantity }
+                beans { name country producer roastedOn dose }
+                water { kind amount temperature }
+                extraction { grind time yield }
+                milk { kind }
+                gear { machine grinder }
                 steps { text settings { grind water temperature time yield } }
               }
             }
@@ -120,11 +128,21 @@ describe('createRecipe mutation', () => {
       method: 'V60',
       category: 'DRINK',
       versionToOpen: {
+        // No roast date was given, so nothing says how long the beans rested.
+        restDays: null,
         content: {
-          ingredients: [
-            { name: 'Café', quantity: '18 g' },
-            { name: 'Eau', quantity: '300 g' },
-          ],
+          beans: {
+            name: 'Belleville — Guji',
+            country: 'Éthiopie',
+            producer: null,
+            roastedOn: null,
+            dose: '18 g',
+          },
+          water: { kind: 'Robinet (dureté 3/5)', amount: '300 g', temperature: '93°C' },
+          extraction: { grind: 'moyenne', time: '2 min 30', yield: null },
+          // A V60 has no milk: the block is absent, not empty.
+          milk: null,
+          gear: { machine: 'Hario V60 02', grinder: 'Niche Zero' },
           steps: [
             {
               text: 'Moudre',
@@ -159,7 +177,7 @@ describe('createRecipe mutation', () => {
           type: COFFEE
           category: DRINK
           title: "Espresso"
-          content: { coffee: { ingredients: [], steps: [{ text: "Extraire", settings: {} }] } }
+          content: { coffee: { steps: [{ text: "Extraire", settings: {} }] } }
         }) { id }
       }
     `)

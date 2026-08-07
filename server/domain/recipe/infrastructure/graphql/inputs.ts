@@ -93,22 +93,88 @@ export const CoffeeStepInput = builder.inputType('CoffeeStepInput', {
   }),
 })
 
+export const CoffeeBeansInput = builder.inputType('CoffeeBeansInput', {
+  description: 'The coffee itself and its dose. Every field is optional.',
+  fields: (t) => ({
+    name: t.field({ type: 'CoffeeBeanName', description: 'e.g. `"Belleville — Guji"`' }),
+    country: t.field({ type: 'CoffeeCountry', description: 'e.g. `"Éthiopie"`' }),
+    producer: t.field({ type: 'CoffeeProducer', description: 'e.g. `"Coop. Hambela"`' }),
+    roastedOn: t.field({ type: 'DateTime', description: 'When the beans were roasted' }),
+    dose: t.field({ type: 'CoffeeDose', description: 'e.g. `"18 g"`' }),
+  }),
+})
+
+export const CoffeeWaterSpecInput = builder.inputType('CoffeeWaterSpecInput', {
+  description: 'The water: what it is, how much, how hot. Every field is optional.',
+  fields: (t) => ({
+    kind: t.field({ type: 'CoffeeWaterKind', description: 'e.g. `"Robinet (dureté 3/5)"`' }),
+    amount: t.field({ type: 'CoffeeWater', description: 'The TOTAL water, e.g. `"300 g"`' }),
+    temperature: t.field({ type: 'CoffeeTemperature', description: 'e.g. `"93°C"`' }),
+  }),
+})
+
+export const CoffeeExtractionInput = builder.inputType('CoffeeExtractionInput', {
+  description: 'The dials: grind, brew time, what lands in the cup. Every field is optional.',
+  fields: (t) => ({
+    grind: t.field({ type: 'CoffeeGrind', description: 'e.g. `"Niveau 12"`' }),
+    time: t.field({ type: 'CoffeeTime', description: 'The total brew time, e.g. `"28 s"`' }),
+    yield: t.field({ type: 'CoffeeYield', description: 'e.g. `"36 g"`' }),
+  }),
+})
+
+export const CoffeeMilkInput = builder.inputType('CoffeeMilkInput', {
+  description: 'The milk. Leave the whole block out on a drink that has none — an espresso, a V60.',
+  fields: (t) => ({
+    kind: t.field({ type: 'CoffeeMilkKind', description: 'e.g. `"Avoine Oatly"`' }),
+    amount: t.field({ type: 'CoffeeMilkAmount', description: 'e.g. `"150 ml"`' }),
+    temperature: t.field({ type: 'CoffeeTemperature', description: 'e.g. `"65°C"`' }),
+  }),
+})
+
+export const CoffeeGearInput = builder.inputType('CoffeeGearInput', {
+  description: 'What brews it and what grinds it. Every field is optional.',
+  fields: (t) => ({
+    machine: t.field({ type: 'CoffeeMachine', description: 'e.g. `"Rancilio Silvia"`' }),
+    grinder: t.field({ type: 'CoffeeGrinder', description: 'e.g. `"Niche Zero"`' }),
+  }),
+})
+
+export const CoffeeParametersInput = builder.inputType('CoffeeParametersInput', {
+  description:
+    'What a coffee version is set by. Every block is optional; leaving one out means nothing is ' +
+    'known about it yet, and leaving `milk` out means the drink has none.',
+  fields: (t) => ({
+    beans: t.field({ type: CoffeeBeansInput, required: false, description: 'The coffee itself' }),
+    water: t.field({ type: CoffeeWaterSpecInput, required: false, description: 'The water' }),
+    extraction: t.field({
+      type: CoffeeExtractionInput,
+      required: false,
+      description: 'The extraction dials',
+    }),
+    milk: t.field({ type: CoffeeMilkInput, required: false, description: 'The milk, if any' }),
+    gear: t.field({ type: CoffeeGearInput, required: false, description: 'Machine and grinder' }),
+  }),
+})
+
 export const CoffeeContentInput = builder.inputType('CoffeeContentInput', {
   description:
-    'The body of a coffee version: its ingredient list (the dose, the water, the milk) and its ' +
-    'steps, each carrying its own extraction settings.',
+    'The body of a coffee version: the parameters it is set by plus, optionally, its brewing ' +
+    'steps (send `[]` on an espresso, whose parameters say everything). There is no ingredient ' +
+    'list — the dose, the water and the milk ARE parameters.',
   fields: (t) => ({
-    ingredients: t.field({
-      type: [IngredientInput],
-      required: true,
-      description:
-        'The ingredient list, in order, e.g. `"Café — 18 g"` then `"Eau — 300 g"` (send `[]` ' +
-        'when it has none)',
+    beans: t.field({ type: CoffeeBeansInput, required: false, description: 'The coffee itself' }),
+    water: t.field({ type: CoffeeWaterSpecInput, required: false, description: 'The water' }),
+    extraction: t.field({
+      type: CoffeeExtractionInput,
+      required: false,
+      description: 'The extraction dials',
     }),
+    milk: t.field({ type: CoffeeMilkInput, required: false, description: 'The milk, if any' }),
+    gear: t.field({ type: CoffeeGearInput, required: false, description: 'Machine and grinder' }),
     steps: t.field({
       type: [CoffeeStepInput],
       required: true,
-      description: 'The method, each step carrying its own extraction settings',
+      description: 'The brewing gestures, each carrying its own extraction settings',
     }),
   }),
 })
@@ -177,10 +243,12 @@ export const VersionContentInput = builder.inputType('VersionContentInput', {
 // The raw arms (branded scalars plus the client's `null`s on absent settings) are
 // re-validated and paired by the `VersionContent` constructor.
 type ContentArm = { ingredients: unknown[]; steps: unknown[] }
+// The coffee arm carries parameter blocks instead of an ingredient list.
+type CoffeeArm = { steps: unknown[] } & Record<string, unknown>
 export const versionContentInput = (input: {
   dish?: ContentArm | null
   thermomix?: ContentArm | null
-  coffee?: ContentArm | null
+  coffee?: CoffeeArm | null
 }): VersionContent => {
   if (input.dish) return brandVersionContent({ kind: 'dish', ...input.dish })
   if (input.thermomix) return brandVersionContent({ kind: 'thermomix', ...input.thermomix })

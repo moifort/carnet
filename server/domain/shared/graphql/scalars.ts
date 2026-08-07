@@ -1,10 +1,19 @@
 import { GraphQLError } from 'graphql'
 import { ZodError } from 'zod'
 import {
+  CoffeeBeanName,
+  CoffeeCountry,
+  CoffeeDose,
   CoffeeGrind,
+  CoffeeGrinder,
+  CoffeeMachine,
+  CoffeeMilkAmount,
+  CoffeeMilkKind,
+  CoffeeProducer,
   CoffeeTemperature,
   CoffeeTime,
   CoffeeWater,
+  CoffeeWaterKind,
   CoffeeYield,
   IngredientName,
   IngredientQuantity,
@@ -166,6 +175,65 @@ builder.scalarType('CoffeeYield', {
     'What lands in the cup at the end of a brewing step, e.g. `"36 g"` for a double espresso',
   serialize: (value) => value as string,
   parseValue: validatedParse('CoffeeYield', CoffeeYield),
+})
+
+builder.scalarType('CoffeeBeanName', {
+  description:
+    'The coffee itself, as the bag names it — roaster and lot, e.g. `"Belleville — Guji"`',
+  serialize: (value) => value as string,
+  parseValue: validatedParse('CoffeeBeanName', CoffeeBeanName),
+})
+
+builder.scalarType('CoffeeCountry', {
+  description: 'Where the coffee grew, e.g. `"Éthiopie"`',
+  serialize: (value) => value as string,
+  parseValue: validatedParse('CoffeeCountry', CoffeeCountry),
+})
+
+builder.scalarType('CoffeeProducer', {
+  description: 'Who grew it — farm, washing station or co-op, e.g. `"Coop. Hambela"`',
+  serialize: (value) => value as string,
+  parseValue: validatedParse('CoffeeProducer', CoffeeProducer),
+})
+
+builder.scalarType('CoffeeDose', {
+  description: 'The ground coffee that goes in, e.g. `"18 g"`',
+  serialize: (value) => value as string,
+  parseValue: validatedParse('CoffeeDose', CoffeeDose),
+})
+
+builder.scalarType('CoffeeWaterKind', {
+  description:
+    'What the water IS, written as you would say it, e.g. `"Robinet (dureté 3/5)"` or ' +
+    '`"Volvic + minéralisation Lotus"`',
+  serialize: (value) => value as string,
+  parseValue: validatedParse('CoffeeWaterKind', CoffeeWaterKind),
+})
+
+builder.scalarType('CoffeeMilkKind', {
+  description: 'What the milk is, e.g. `"Entier"` or `"Avoine Oatly"`',
+  serialize: (value) => value as string,
+  parseValue: validatedParse('CoffeeMilkKind', CoffeeMilkKind),
+})
+
+builder.scalarType('CoffeeMilkAmount', {
+  description: 'How much milk goes in, e.g. `"150 ml"`',
+  serialize: (value) => value as string,
+  parseValue: validatedParse('CoffeeMilkAmount', CoffeeMilkAmount),
+})
+
+builder.scalarType('CoffeeMachine', {
+  description:
+    'What brews it, brand and model, e.g. `"Rancilio Silvia"`, `"Hario V60 02"` or ' +
+    '`"Moccamaster KBG"`',
+  serialize: (value) => value as string,
+  parseValue: validatedParse('CoffeeMachine', CoffeeMachine),
+})
+
+builder.scalarType('CoffeeGrinder', {
+  description: 'What grinds it, brand and model, e.g. `"Niche Zero"`',
+  serialize: (value) => value as string,
+  parseValue: validatedParse('CoffeeGrinder', CoffeeGrinder),
 })
 
 builder.scalarType('Remarks', {

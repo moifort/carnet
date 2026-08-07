@@ -2,10 +2,19 @@ import SchemaBuilder from '@pothos/core'
 import { GraphQLScalarType } from 'graphql'
 import type { H3Event } from 'h3'
 import type {
+  CoffeeBeanName,
+  CoffeeCountry,
+  CoffeeDose,
   CoffeeGrind,
+  CoffeeGrinder,
+  CoffeeMachine,
+  CoffeeMilkAmount,
+  CoffeeMilkKind,
+  CoffeeProducer,
   CoffeeTemperature,
   CoffeeTime,
   CoffeeWater,
+  CoffeeWaterKind,
   CoffeeYield,
   IngredientName,
   IngredientQuantity,
@@ -62,6 +71,15 @@ export const builder = new SchemaBuilder<{
     CoffeeTemperature: { Input: CoffeeTemperature; Output: CoffeeTemperature }
     CoffeeTime: { Input: CoffeeTime; Output: CoffeeTime }
     CoffeeYield: { Input: CoffeeYield; Output: CoffeeYield }
+    CoffeeBeanName: { Input: CoffeeBeanName; Output: CoffeeBeanName }
+    CoffeeCountry: { Input: CoffeeCountry; Output: CoffeeCountry }
+    CoffeeProducer: { Input: CoffeeProducer; Output: CoffeeProducer }
+    CoffeeDose: { Input: CoffeeDose; Output: CoffeeDose }
+    CoffeeWaterKind: { Input: CoffeeWaterKind; Output: CoffeeWaterKind }
+    CoffeeMilkKind: { Input: CoffeeMilkKind; Output: CoffeeMilkKind }
+    CoffeeMilkAmount: { Input: CoffeeMilkAmount; Output: CoffeeMilkAmount }
+    CoffeeMachine: { Input: CoffeeMachine; Output: CoffeeMachine }
+    CoffeeGrinder: { Input: CoffeeGrinder; Output: CoffeeGrinder }
     Remarks: { Input: Remarks; Output: Remarks }
   }
 }>({

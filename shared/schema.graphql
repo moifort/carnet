@@ -76,35 +76,225 @@ type ChangelogEntry {
 }
 
 """
-The body of a coffee version: its ingredient list (the dose, the water, the milk) and its steps, each carrying its own extraction settings. How the coffee is brewed is not here — that is the recipe’s `method`, fixed across the whole lineage.
+The coffee itself, as the bag names it — roaster and lot, e.g. `"Belleville — Guji"`
 """
-type CoffeeContent {
-  """
-  The full ingredient list, in order, e.g. `"Café — 18 g"` then `"Eau — 300 g"` (empty list when it has none)
-  """
-  ingredients: [Ingredient!]!
+scalar CoffeeBeanName
 
-  """The method, each step carrying its own extraction settings"""
-  steps: [CoffeeStep!]!
+"""
+The coffee itself: what is in the bag and how much of it went in. Every field is optional — a cook who only knows the dose still logs the dose.
+"""
+type CoffeeBeans {
+  """Where it grew, e.g. `"Éthiopie"` (`null` if not set)"""
+  country: CoffeeCountry
+
+  """The ground coffee that goes in, e.g. `"18 g"` (`null` if not set)"""
+  dose: CoffeeDose
+
+  """Roaster and lot, e.g. `"Belleville — Guji"` (`null` if not set)"""
+  name: CoffeeBeanName
+
+  """
+  Farm, washing station or co-op, e.g. `"Coop. Hambela"` (`null` if not set)
+  """
+  producer: CoffeeProducer
+
+  """
+  When the beans were roasted, e.g. `"2026-06-12T00:00:00.000Z"`. See the version’s `restDays` for how long they rested before this cup. `null` if not set.
+  """
+  roastedOn: DateTime
+}
+
+"""The coffee itself and its dose. Every field is optional."""
+input CoffeeBeansInput {
+  """e.g. `"Éthiopie"`"""
+  country: CoffeeCountry
+
+  """e.g. `"18 g"`"""
+  dose: CoffeeDose
+
+  """e.g. `"Belleville — Guji"`"""
+  name: CoffeeBeanName
+
+  """e.g. `"Coop. Hambela"`"""
+  producer: CoffeeProducer
+
+  """When the beans were roasted"""
+  roastedOn: DateTime
 }
 
 """
-The body of a coffee version: its ingredient list (the dose, the water, the milk) and its steps, each carrying its own extraction settings.
+The body of a coffee version: the parameters it is set by plus, optionally, its brewing steps. There is no ingredient list — the dose, the water and the milk ARE parameters. How the coffee is brewed is not here either — that is the recipe’s `method`, fixed across the whole lineage.
+"""
+type CoffeeContent {
+  """The coffee itself and its dose"""
+  beans: CoffeeBeans!
+
+  """The dials: grind, brew time, what lands in the cup"""
+  extraction: CoffeeExtraction!
+
+  """What brews it and what grinds it"""
+  gear: CoffeeGear!
+
+  """The milk, or `null` on a drink that has none — an espresso, a V60"""
+  milk: CoffeeMilk
+
+  """
+  The brewing gestures, each carrying its own extraction settings. Empty on a drink whose parameters say everything, e.g. an espresso.
+  """
+  steps: [CoffeeStep!]!
+
+  """The water: what it is, how much, how hot"""
+  water: CoffeeWaterSpec!
+}
+
+"""
+The body of a coffee version: the parameters it is set by plus, optionally, its brewing steps (send `[]` on an espresso, whose parameters say everything). There is no ingredient list — the dose, the water and the milk ARE parameters.
 """
 input CoffeeContentInput {
-  """
-  The ingredient list, in order, e.g. `"Café — 18 g"` then `"Eau — 300 g"` (send `[]` when it has none)
-  """
-  ingredients: [IngredientInput!]!
+  """The coffee itself"""
+  beans: CoffeeBeansInput
 
-  """The method, each step carrying its own extraction settings"""
+  """The extraction dials"""
+  extraction: CoffeeExtractionInput
+
+  """Machine and grinder"""
+  gear: CoffeeGearInput
+
+  """The milk, if any"""
+  milk: CoffeeMilkInput
+
+  """The brewing gestures, each carrying its own extraction settings"""
   steps: [CoffeeStepInput!]!
+
+  """The water"""
+  water: CoffeeWaterSpecInput
+}
+
+"""Where the coffee grew, e.g. `"Éthiopie"`"""
+scalar CoffeeCountry
+
+"""The ground coffee that goes in, e.g. `"18 g"`"""
+scalar CoffeeDose
+
+"""
+The three dials the cook turns between two attempts. Every field is optional.
+"""
+type CoffeeExtraction {
+  """How fine it is ground, e.g. `"Niveau 12"` (`null` if not set)"""
+  grind: CoffeeGrind
+
+  """The total brew time, e.g. `"28 s"` (`null` if not set)"""
+  time: CoffeeTime
+
+  """What lands in the cup, e.g. `"36 g"` (`null` if not set)"""
+  yield: CoffeeYield
+}
+
+"""
+The dials: grind, brew time, what lands in the cup. Every field is optional.
+"""
+input CoffeeExtractionInput {
+  """e.g. `"Niveau 12"`"""
+  grind: CoffeeGrind
+
+  """The total brew time, e.g. `"28 s"`"""
+  time: CoffeeTime
+
+  """e.g. `"36 g"`"""
+  yield: CoffeeYield
+}
+
+"""
+What brews it and what grinds it. Versioned along with the rest: a version stays reproducible on its own, and swapping grinders shows up in the lineage.
+"""
+type CoffeeGear {
+  """Brand and model, e.g. `"Niche Zero"` (`null` if not set)"""
+  grinder: CoffeeGrinder
+
+  """
+  Brand and model, e.g. `"Rancilio Silvia"` or `"Hario V60 02"` (`null` if not set)
+  """
+  machine: CoffeeMachine
+}
+
+"""What brews it and what grinds it. Every field is optional."""
+input CoffeeGearInput {
+  """e.g. `"Niche Zero"`"""
+  grinder: CoffeeGrinder
+
+  """e.g. `"Rancilio Silvia"`"""
+  machine: CoffeeMachine
 }
 
 """
 How fine the coffee is ground for a step, written as you would read it off the grinder, e.g. `"fine"`, `"moyenne"` or `"Niveau 12"`
 """
 scalar CoffeeGrind
+
+"""What grinds it, brand and model, e.g. `"Niche Zero"`"""
+scalar CoffeeGrinder
+
+"""
+What brews it, brand and model, e.g. `"Rancilio Silvia"`, `"Hario V60 02"` or `"Moccamaster KBG"`
+"""
+scalar CoffeeMachine
+
+"""
+The milk of a milk drink. The whole block is `null` on a drink that has none — an espresso, a V60.
+"""
+type CoffeeMilk {
+  """How much of it, e.g. `"150 ml"` (`null` if not set)"""
+  amount: CoffeeMilkAmount
+
+  """What the milk is, e.g. `"Avoine Oatly"` (`null` if not set)"""
+  kind: CoffeeMilkKind
+
+  """The steaming temperature, e.g. `"65°C"` (`null` if not set)"""
+  temperature: CoffeeTemperature
+}
+
+"""How much milk goes in, e.g. `"150 ml"`"""
+scalar CoffeeMilkAmount
+
+"""
+The milk. Leave the whole block out on a drink that has none — an espresso, a V60.
+"""
+input CoffeeMilkInput {
+  """e.g. `"150 ml"`"""
+  amount: CoffeeMilkAmount
+
+  """e.g. `"Avoine Oatly"`"""
+  kind: CoffeeMilkKind
+
+  """e.g. `"65°C"`"""
+  temperature: CoffeeTemperature
+}
+
+"""What the milk is, e.g. `"Entier"` or `"Avoine Oatly"`"""
+scalar CoffeeMilkKind
+
+"""
+What a coffee version is set by. Every block is optional; leaving one out means nothing is known about it yet, and leaving `milk` out means the drink has none.
+"""
+input CoffeeParametersInput {
+  """The coffee itself"""
+  beans: CoffeeBeansInput
+
+  """The extraction dials"""
+  extraction: CoffeeExtractionInput
+
+  """Machine and grinder"""
+  gear: CoffeeGearInput
+
+  """The milk, if any"""
+  milk: CoffeeMilkInput
+
+  """The water"""
+  water: CoffeeWaterSpecInput
+}
+
+"""Who grew it — farm, washing station or co-op, e.g. `"Coop. Hambela"`"""
+scalar CoffeeProducer
 
 """
 The extraction settings that go with one brewing step (only for coffee recipes). Every field is optional — a step can set just a time, or the full grind + water + temperature + time + yield combo, e.g. `"18 g fine → 36 g / 93°C / 28 s"`.
@@ -186,6 +376,39 @@ scalar CoffeeTime
 The water poured at one brewing step, e.g. `"50 g"` (a bloom) or `"300 ml"`
 """
 scalar CoffeeWater
+
+"""
+What the water IS, written as you would say it, e.g. `"Robinet (dureté 3/5)"` or `"Volvic + minéralisation Lotus"`
+"""
+scalar CoffeeWaterKind
+
+"""
+The water, which is half the cup: what it is, how much of it, how hot. Every field is optional.
+"""
+type CoffeeWaterSpec {
+  """The TOTAL water, e.g. `"300 g"` (`null` if not set)"""
+  amount: CoffeeWater
+
+  """
+  What the water is, e.g. `"Robinet (dureté 3/5)"` or `"Volvic"` (`null` if not set)
+  """
+  kind: CoffeeWaterKind
+
+  """The water temperature, e.g. `"93°C"` (`null` if not set)"""
+  temperature: CoffeeTemperature
+}
+
+"""The water: what it is, how much, how hot. Every field is optional."""
+input CoffeeWaterSpecInput {
+  """The TOTAL water, e.g. `"300 g"`"""
+  amount: CoffeeWater
+
+  """e.g. `"Robinet (dureté 3/5)"`"""
+  kind: CoffeeWaterKind
+
+  """e.g. `"93°C"`"""
+  temperature: CoffeeTemperature
+}
 
 """
 What lands in the cup at the end of a brewing step, e.g. `"36 g"` for a double espresso
@@ -1361,6 +1584,11 @@ type Version {
   Your free notes on how it turned out, e.g. `"Still a touch too sweet, but the texture is spot on"`. `null` until you have cooked it.
   """
   remarks: Remarks
+
+  """
+  How many full days the beans rested between the roast and this version, e.g. `14`. Counted to the version’s creation, so it is frozen and stays comparable from one attempt to the next. `null` on anything that is not a coffee, on a coffee with no roast date, and on one whose roast date is in the future.
+  """
+  restDays: Int
 
   """
   This version’s cooking tips — serving, storage or technique advice, e.g. `"Serve over rice"`. Empty list when it has none. Unlike the content, they are rewritable in place (see updateTips) — refining the advice never creates a version.

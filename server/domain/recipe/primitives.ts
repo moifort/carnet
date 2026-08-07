@@ -1,15 +1,29 @@
 import { make } from 'ts-brand'
 import { z } from 'zod'
-import { coffeeSteps, type LooseCoffeeSettings } from '~/domain/recipe/content/coffee'
+import {
+  type CoffeeParameters as CoffeeParametersType,
+  coffeeSteps,
+  type LooseCoffeeSettings,
+  toCoffeeParameters,
+} from '~/domain/recipe/content/coffee'
 import { type LooseThermomixSettings, thermomixSteps } from '~/domain/recipe/content/thermomix'
 import type { VersionContent as VersionContentType } from '~/domain/recipe/content/types'
 import { RECIPE_MAX } from '~/domain/recipe/limits'
 import {
   BREW_METHOD_VALUES,
   type BrewMethod as BrewMethodType,
+  type CoffeeBeanName as CoffeeBeanNameType,
+  type CoffeeCountry as CoffeeCountryType,
+  type CoffeeDose as CoffeeDoseType,
+  type CoffeeGrinder as CoffeeGrinderType,
   type CoffeeGrind as CoffeeGrindType,
+  type CoffeeMachine as CoffeeMachineType,
+  type CoffeeMilkAmount as CoffeeMilkAmountType,
+  type CoffeeMilkKind as CoffeeMilkKindType,
+  type CoffeeProducer as CoffeeProducerType,
   type CoffeeTemperature as CoffeeTemperatureType,
   type CoffeeTime as CoffeeTimeType,
+  type CoffeeWaterKind as CoffeeWaterKindType,
   type CoffeeWater as CoffeeWaterType,
   type CoffeeYield as CoffeeYieldType,
   DISH_CATEGORY_VALUES,
@@ -113,6 +127,26 @@ export const CoffeeTemperature = (value: unknown) =>
   make<CoffeeTemperatureType>()(coffeeSetting(value))
 export const CoffeeTime = (value: unknown) => make<CoffeeTimeType>()(coffeeSetting(value))
 export const CoffeeYield = (value: unknown) => make<CoffeeYieldType>()(coffeeSetting(value))
+export const CoffeeDose = (value: unknown) => make<CoffeeDoseType>()(coffeeSetting(value))
+export const CoffeeMilkAmount = (value: unknown) =>
+  make<CoffeeMilkAmountType>()(coffeeSetting(value))
+
+// The descriptive coffee fields are longer than a setting: a bean spells out its
+// roaster, its origin and its lot. `RECIPE_MAX.coffeeLabel` is their single length.
+const coffeeLabel = (value: unknown) =>
+  z.string().trim().min(1).max(RECIPE_MAX.coffeeLabel).parse(value)
+
+export const CoffeeBeanName = (value: unknown) => make<CoffeeBeanNameType>()(coffeeLabel(value))
+export const CoffeeCountry = (value: unknown) => make<CoffeeCountryType>()(coffeeLabel(value))
+export const CoffeeProducer = (value: unknown) => make<CoffeeProducerType>()(coffeeLabel(value))
+export const CoffeeWaterKind = (value: unknown) => make<CoffeeWaterKindType>()(coffeeLabel(value))
+export const CoffeeMilkKind = (value: unknown) => make<CoffeeMilkKindType>()(coffeeLabel(value))
+export const CoffeeMachine = (value: unknown) => make<CoffeeMachineType>()(coffeeLabel(value))
+export const CoffeeGrinder = (value: unknown) => make<CoffeeGrinderType>()(coffeeLabel(value))
+
+// The single date of the coffee model — the boundaries hand it over as an ISO string
+// (GraphQL, Gemini) or already as a Date (Firestore).
+export const RoastDate = (value: unknown) => z.coerce.date().parse(value)
 
 export const VersionOriginKind = (value: unknown) =>
   z.enum(['import', 'ai-proposal', 'manual']).parse(value) as VersionOriginKindType
@@ -164,9 +198,43 @@ const thermomixContentSchema = z.object({
   steps: z.array(z.object({ text: z.unknown(), settings: looseSettingsSchema.nullish() })),
 })
 
-const coffeeContentSchema = z.object({
+// A coffee has no ingredient list: its dose, its water and its milk are parameters.
+const looseCoffeeParametersSchema = z.object({
+  beans: z
+    .object({
+      name: z.string().nullish(),
+      country: z.string().nullish(),
+      producer: z.string().nullish(),
+      roastedOn: z.union([z.string(), z.date()]).nullish(),
+      dose: z.string().nullish(),
+    })
+    .nullish(),
+  water: z
+    .object({
+      kind: z.string().nullish(),
+      amount: z.string().nullish(),
+      temperature: z.string().nullish(),
+    })
+    .nullish(),
+  extraction: z
+    .object({
+      grind: z.string().nullish(),
+      time: z.string().nullish(),
+      yield: z.string().nullish(),
+    })
+    .nullish(),
+  milk: z
+    .object({
+      kind: z.string().nullish(),
+      amount: z.string().nullish(),
+      temperature: z.string().nullish(),
+    })
+    .nullish(),
+  gear: z.object({ machine: z.string().nullish(), grinder: z.string().nullish() }).nullish(),
+})
+
+const coffeeContentSchema = looseCoffeeParametersSchema.extend({
   kind: z.literal('coffee'),
-  ingredients: z.array(looseIngredientSchema),
   steps: z.array(z.object({ text: z.unknown(), settings: looseCoffeeSettingsSchema.nullish() })),
 })
 
@@ -192,18 +260,58 @@ const brandLooseCoffeeSettings = (
   ...(s.yield ? { yield: CoffeeYield(s.yield) } : {}),
 })
 
+// Every scalar goes through its branded constructor, so a raw payload never sneaks
+// in, then `toCoffeeParameters` normalizes the blocks (absent keys, no empty milk).
+const brandCoffeeParameters = (
+  raw: z.infer<typeof looseCoffeeParametersSchema>,
+): CoffeeParametersType =>
+  toCoffeeParameters({
+    beans: {
+      ...(raw.beans?.name ? { name: CoffeeBeanName(raw.beans.name) } : {}),
+      ...(raw.beans?.country ? { country: CoffeeCountry(raw.beans.country) } : {}),
+      ...(raw.beans?.producer ? { producer: CoffeeProducer(raw.beans.producer) } : {}),
+      ...(raw.beans?.roastedOn ? { roastedOn: RoastDate(raw.beans.roastedOn) } : {}),
+      ...(raw.beans?.dose ? { dose: CoffeeDose(raw.beans.dose) } : {}),
+    },
+    water: {
+      ...(raw.water?.kind ? { kind: CoffeeWaterKind(raw.water.kind) } : {}),
+      ...(raw.water?.amount ? { amount: CoffeeWater(raw.water.amount) } : {}),
+      ...(raw.water?.temperature ? { temperature: CoffeeTemperature(raw.water.temperature) } : {}),
+    },
+    extraction: {
+      ...(raw.extraction?.grind ? { grind: CoffeeGrind(raw.extraction.grind) } : {}),
+      ...(raw.extraction?.time ? { time: CoffeeTime(raw.extraction.time) } : {}),
+      ...(raw.extraction?.yield ? { yield: CoffeeYield(raw.extraction.yield) } : {}),
+    },
+    milk: {
+      ...(raw.milk?.kind ? { kind: CoffeeMilkKind(raw.milk.kind) } : {}),
+      ...(raw.milk?.amount ? { amount: CoffeeMilkAmount(raw.milk.amount) } : {}),
+      ...(raw.milk?.temperature ? { temperature: CoffeeTemperature(raw.milk.temperature) } : {}),
+    },
+    gear: {
+      ...(raw.gear?.machine ? { machine: CoffeeMachine(raw.gear.machine) } : {}),
+      ...(raw.gear?.grinder ? { grinder: CoffeeGrinder(raw.gear.grinder) } : {}),
+    },
+  })
+
+// Boundary branding for a coffee version's parameters alone — what the in-place
+// correction (`updateCoffeeParameters`) passes through, steps untouched.
+export const CoffeeParameters = (value: unknown): CoffeeParametersType =>
+  brandCoffeeParameters(looseCoffeeParametersSchema.parse(value))
+
 const versionContentSchema = z
   .discriminatedUnion('kind', [dishContentSchema, thermomixContentSchema, coffeeContentSchema])
   .transform((raw): VersionContentType => {
+    if (raw.kind === 'coffee') {
+      const texts = raw.steps.map((s) => StepText(s.text))
+      const settings = raw.steps.map((s) => brandLooseCoffeeSettings(s.settings ?? {}))
+      return { kind: 'coffee', ...brandCoffeeParameters(raw), steps: coffeeSteps(texts, settings) }
+    }
     const ingredients = raw.ingredients.map(brandIngredient)
     if (raw.kind === 'dish') {
       return { kind: 'dish', ingredients, steps: raw.steps.map((s) => StepText(s)) }
     }
     const texts = raw.steps.map((s) => StepText(s.text))
-    if (raw.kind === 'coffee') {
-      const settings = raw.steps.map((s) => brandLooseCoffeeSettings(s.settings ?? {}))
-      return { kind: 'coffee', ingredients, steps: coffeeSteps(texts, settings) }
-    }
     const settings = raw.steps.map((s) => brandLooseSettings(s.settings ?? {}))
     return { kind: 'thermomix', ingredients, steps: thermomixSteps(texts, settings) }
   })

@@ -42,6 +42,13 @@ const brandProposal = (type: RecipeType, proposal: AiProposal): VersionContent =
   })
 }
 
+// Rebuild the AI context ingredients from a stored version's content. A coffee has
+// none — its dose, its water and its milk are parameters, handed over separately.
+const contextIngredients = (content: VersionContent) =>
+  content.kind === 'coffee'
+    ? []
+    : content.ingredients.map((i) => ({ name: i.name as string, quantity: i.quantity as string }))
+
 // Rebuild the AI context steps from a stored version's content: a dish exposes
 // steps that set nothing, a Thermomix recipe and a coffee their own per-step
 // settings. Both settings objects are always present — `{}` when the step sets
@@ -93,10 +100,7 @@ export namespace ProposalUseCase {
       category: recipe.category,
       // A coffee iterates within its brewing method; it never changes it.
       ...(recipe.method ? { method: recipe.method } : {}),
-      currentIngredients: version.content.ingredients.map((i) => ({
-        name: i.name as string,
-        quantity: i.quantity as string,
-      })),
+      currentIngredients: contextIngredients(version.content),
       currentSteps: contextSteps(version.content),
       currentTips: version.tips.map((tip) => tip as string),
       attempts: 'attempts' in request ? request.attempts : [],
@@ -153,10 +157,7 @@ export namespace ProposalUseCase {
 
     const tips = await Ai.formatTips({
       type: recipe.type,
-      currentIngredients: version.content.ingredients.map((i) => ({
-        name: i.name as string,
-        quantity: i.quantity as string,
-      })),
+      currentIngredients: contextIngredients(version.content),
       currentSteps: contextSteps(version.content),
       currentTips: version.tips.map((tip) => tip as string),
       requested,

@@ -83,7 +83,10 @@ const recipeInput = (opts: { type?: 'dish' | 'thermomix' | 'coffee' } = {}) => {
       : type === 'coffee'
         ? ({
             kind: 'coffee',
-            ingredients: [],
+            beans: {},
+            water: {},
+            extraction: {},
+            gear: {},
             steps: stepList('Moudre', 'Extraire').map((text) => ({ text, settings: {} })),
           } as CoffeeContent)
         : dishContent()
@@ -250,7 +253,10 @@ describe('ProposalUseCase.fromAttempt', () => {
     if (typeof coffeeProposal === 'string') throw new Error('expected a proposal')
     expect(coffeeProposal.content).toEqual({
       kind: 'coffee',
-      ingredients: PROPOSAL_INGREDIENTS,
+      beans: {},
+      water: {},
+      extraction: {},
+      gear: {},
       steps: [
         { text: 'Moudre' as StepText, settings: { grind: 'fine' as CoffeeGrind } },
         {

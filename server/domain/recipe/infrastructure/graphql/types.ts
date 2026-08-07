@@ -1,5 +1,14 @@
 import { bestRating, toTestCount, versionToOpen } from '~/domain/recipe/business-rules'
-import type { CoffeeContent, CoffeeStep } from '~/domain/recipe/content/coffee'
+import {
+  type CoffeeBeans,
+  type CoffeeContent,
+  type CoffeeExtraction,
+  type CoffeeGear,
+  type CoffeeMilk,
+  type CoffeeStep,
+  type CoffeeWaterSpec,
+  restDays,
+} from '~/domain/recipe/content/coffee'
 import type { DishContent } from '~/domain/recipe/content/dish'
 import type { ThermomixContent, ThermomixStep } from '~/domain/recipe/content/thermomix'
 import type { VersionContent } from '~/domain/recipe/content/types'
@@ -184,22 +193,184 @@ export const CoffeeStepType = builder.objectRef<CoffeeStep>('CoffeeStep').implem
   }),
 })
 
+export const CoffeeBeansType = builder.objectRef<CoffeeBeans>('CoffeeBeans').implement({
+  description:
+    'The coffee itself: what is in the bag and how much of it went in. Every field is optional — ' +
+    'a cook who only knows the dose still logs the dose.',
+  fields: (t) => ({
+    name: t.field({
+      type: 'CoffeeBeanName',
+      nullable: true,
+      description: 'Roaster and lot, e.g. `"Belleville — Guji"` (`null` if not set)',
+      resolve: (b) => b.name ?? null,
+    }),
+    country: t.field({
+      type: 'CoffeeCountry',
+      nullable: true,
+      description: 'Where it grew, e.g. `"Éthiopie"` (`null` if not set)',
+      resolve: (b) => b.country ?? null,
+    }),
+    producer: t.field({
+      type: 'CoffeeProducer',
+      nullable: true,
+      description: 'Farm, washing station or co-op, e.g. `"Coop. Hambela"` (`null` if not set)',
+      resolve: (b) => b.producer ?? null,
+    }),
+    roastedOn: t.field({
+      type: 'DateTime',
+      nullable: true,
+      description:
+        'When the beans were roasted, e.g. `"2026-06-12T00:00:00.000Z"`. See the version’s ' +
+        '`restDays` for how long they rested before this cup. `null` if not set.',
+      resolve: (b) => b.roastedOn ?? null,
+    }),
+    dose: t.field({
+      type: 'CoffeeDose',
+      nullable: true,
+      description: 'The ground coffee that goes in, e.g. `"18 g"` (`null` if not set)',
+      resolve: (b) => b.dose ?? null,
+    }),
+  }),
+})
+
+export const CoffeeWaterSpecType = builder.objectRef<CoffeeWaterSpec>('CoffeeWaterSpec').implement({
+  description:
+    'The water, which is half the cup: what it is, how much of it, how hot. Every field is ' +
+    'optional.',
+  fields: (t) => ({
+    kind: t.field({
+      type: 'CoffeeWaterKind',
+      nullable: true,
+      description:
+        'What the water is, e.g. `"Robinet (dureté 3/5)"` or `"Volvic"` (`null` if not set)',
+      resolve: (w) => w.kind ?? null,
+    }),
+    amount: t.field({
+      type: 'CoffeeWater',
+      nullable: true,
+      description: 'The TOTAL water, e.g. `"300 g"` (`null` if not set)',
+      resolve: (w) => w.amount ?? null,
+    }),
+    temperature: t.field({
+      type: 'CoffeeTemperature',
+      nullable: true,
+      description: 'The water temperature, e.g. `"93°C"` (`null` if not set)',
+      resolve: (w) => w.temperature ?? null,
+    }),
+  }),
+})
+
+export const CoffeeExtractionType = builder
+  .objectRef<CoffeeExtraction>('CoffeeExtraction')
+  .implement({
+    description: 'The three dials the cook turns between two attempts. Every field is optional.',
+    fields: (t) => ({
+      grind: t.field({
+        type: 'CoffeeGrind',
+        nullable: true,
+        description: 'How fine it is ground, e.g. `"Niveau 12"` (`null` if not set)',
+        resolve: (e) => e.grind ?? null,
+      }),
+      time: t.field({
+        type: 'CoffeeTime',
+        nullable: true,
+        description: 'The total brew time, e.g. `"28 s"` (`null` if not set)',
+        resolve: (e) => e.time ?? null,
+      }),
+      yield: t.field({
+        type: 'CoffeeYield',
+        nullable: true,
+        description: 'What lands in the cup, e.g. `"36 g"` (`null` if not set)',
+        resolve: (e) => e.yield ?? null,
+      }),
+    }),
+  })
+
+export const CoffeeMilkType = builder.objectRef<CoffeeMilk>('CoffeeMilk').implement({
+  description:
+    'The milk of a milk drink. The whole block is `null` on a drink that has none — an ' +
+    'espresso, a V60.',
+  fields: (t) => ({
+    kind: t.field({
+      type: 'CoffeeMilkKind',
+      nullable: true,
+      description: 'What the milk is, e.g. `"Avoine Oatly"` (`null` if not set)',
+      resolve: (m) => m.kind ?? null,
+    }),
+    amount: t.field({
+      type: 'CoffeeMilkAmount',
+      nullable: true,
+      description: 'How much of it, e.g. `"150 ml"` (`null` if not set)',
+      resolve: (m) => m.amount ?? null,
+    }),
+    temperature: t.field({
+      type: 'CoffeeTemperature',
+      nullable: true,
+      description: 'The steaming temperature, e.g. `"65°C"` (`null` if not set)',
+      resolve: (m) => m.temperature ?? null,
+    }),
+  }),
+})
+
+export const CoffeeGearType = builder.objectRef<CoffeeGear>('CoffeeGear').implement({
+  description:
+    'What brews it and what grinds it. Versioned along with the rest: a version stays ' +
+    'reproducible on its own, and swapping grinders shows up in the lineage.',
+  fields: (t) => ({
+    machine: t.field({
+      type: 'CoffeeMachine',
+      nullable: true,
+      description:
+        'Brand and model, e.g. `"Rancilio Silvia"` or `"Hario V60 02"` (`null` if not set)',
+      resolve: (g) => g.machine ?? null,
+    }),
+    grinder: t.field({
+      type: 'CoffeeGrinder',
+      nullable: true,
+      description: 'Brand and model, e.g. `"Niche Zero"` (`null` if not set)',
+      resolve: (g) => g.grinder ?? null,
+    }),
+  }),
+})
+
 export const CoffeeContentType = builder.objectRef<CoffeeContent>('CoffeeContent').implement({
   description:
-    'The body of a coffee version: its ingredient list (the dose, the water, the milk) and its ' +
-    'steps, each carrying its own extraction settings. How the coffee is brewed is not here — ' +
-    'that is the recipe’s `method`, fixed across the whole lineage.',
+    'The body of a coffee version: the parameters it is set by plus, optionally, its brewing ' +
+    'steps. There is no ingredient list — the dose, the water and the milk ARE parameters. How ' +
+    'the coffee is brewed is not here either — that is the recipe’s `method`, fixed across the ' +
+    'whole lineage.',
   fields: (t) => ({
-    ingredients: t.field({
-      type: [IngredientType],
-      description:
-        'The full ingredient list, in order, e.g. `"Café — 18 g"` then `"Eau — 300 g"` (empty ' +
-        'list when it has none)',
-      resolve: (c) => c.ingredients,
+    beans: t.field({
+      type: CoffeeBeansType,
+      description: 'The coffee itself and its dose',
+      resolve: (c) => c.beans,
+    }),
+    water: t.field({
+      type: CoffeeWaterSpecType,
+      description: 'The water: what it is, how much, how hot',
+      resolve: (c) => c.water,
+    }),
+    extraction: t.field({
+      type: CoffeeExtractionType,
+      description: 'The dials: grind, brew time, what lands in the cup',
+      resolve: (c) => c.extraction,
+    }),
+    milk: t.field({
+      type: CoffeeMilkType,
+      nullable: true,
+      description: 'The milk, or `null` on a drink that has none — an espresso, a V60',
+      resolve: (c) => c.milk ?? null,
+    }),
+    gear: t.field({
+      type: CoffeeGearType,
+      description: 'What brews it and what grinds it',
+      resolve: (c) => c.gear,
     }),
     steps: t.field({
       type: [CoffeeStepType],
-      description: 'The method, each step carrying its own extraction settings',
+      description:
+        'The brewing gestures, each carrying its own extraction settings. Empty on a drink ' +
+        'whose parameters say everything, e.g. an espresso.',
       resolve: (c) => c.steps,
     }),
   }),
@@ -286,6 +457,15 @@ export const VersionType = builder.objectRef<RecipeVersion>('Version').implement
         'machine settings), a `CoffeeContent` for a coffee (each step carrying its extraction ' +
         'settings).',
       resolve: (v) => v.content,
+    }),
+    restDays: t.int({
+      nullable: true,
+      description:
+        'How many full days the beans rested between the roast and this version, e.g. `14`. ' +
+        'Counted to the version’s creation, so it is frozen and stays comparable from one ' +
+        'attempt to the next. `null` on anything that is not a coffee, on a coffee with no ' +
+        'roast date, and on one whose roast date is in the future.',
+      resolve: (v) => restDays(v) ?? null,
     }),
     tips: t.field({
       type: ['Tip'],
