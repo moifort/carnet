@@ -351,8 +351,14 @@ Reminder: all tips you produce must be written in French.`
 
   const importParts = (source: ImportSource): GeminiPart[] => {
     if (source.kind === 'photos') {
+      // The photos are the recipe; the text the cook typed alongside them completes
+      // or corrects what they show, so it is stated as such rather than as a second
+      // recipe to merge.
+      const instructions = source.text
+        ? `${IMPORT_INSTRUCTIONS}\n\nThe photos below are the recipe. The cook also typed this, which completes or corrects what the photos show — where the two disagree, what the cook typed wins:\n${source.text}`
+        : IMPORT_INSTRUCTIONS
       return [
-        { text: IMPORT_INSTRUCTIONS },
+        { text: instructions },
         ...source.photos.map(
           (data): GeminiPart => ({ inline_data: { mime_type: 'image/jpeg', data } }),
         ),
@@ -456,9 +462,12 @@ Reminder: all text values you produce must be written in French.`
     // 'v11' salts the cache: bumped from 'v10' because coffee became a recipe type,
     // with a brew method and per-step extraction settings — so previously-analysed
     // sources re-run instead of serving a stale result that knows none of it.
+    // The text typed alongside photos is part of what was analysed, so it is part
+    // of the key — two identical photo sets with different notes are two analyses.
+    // Photos with no text hash exactly as before, keeping those entries valid.
     const material =
       source.kind === 'photos'
-        ? `v11|${source.photos.join('|')}`
+        ? `v11|${source.photos.join('|')}${source.text ? `|note:${source.text}` : ''}`
         : source.kind === 'url'
           ? `v11|url:${source.url}`
           : `v11|text:${source.text}`

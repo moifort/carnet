@@ -7,6 +7,11 @@ import SwiftUI
 enum ImportInput {
     case library(PhotosPickerItem)
     case capture(Data)
+    /// What the composer assembled when it holds at least one photo: the photos
+    /// (already loaded) plus the text typed alongside them, which may be empty.
+    /// Text with no photo resolves to `.source` in the composer, where a lone link
+    /// is still routed to the AI web search.
+    case composed(photos: [Data], text: String)
     case source(ImportAPI.Source)   // text / link, already resolved
 }
 
@@ -262,18 +267,24 @@ struct ImportReviewSheet: View {
         case .source(let source):
             return source
         case .capture(let data):
-            return await encode(data)
+            return await encode([data], text: nil)
         case .library(let item):
             guard let data = try? await item.loadTransferable(type: Data.self) else { return nil }
-            return await encode(data)
+            return await encode([data], text: nil)
+        case .composed(let photos, let text):
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            return await encode(photos, text: trimmed.isEmpty ? nil : trimmed)
         }
     }
 
-    private func encode(_ data: Data) async -> ImportAPI.Source? {
-        let base64 = await Task.detached(priority: .userInitiated) {
-            UIImage(data: data)?.jpegBase64()
+    /// Encode the photos in parallel, off the main actor — a six-photo import
+    /// would otherwise resize and compress them one after the other.
+    private func encode(_ photos: [Data], text: String?) async -> ImportAPI.Source? {
+        let encoded = await Task.detached(priority: .userInitiated) {
+            photos.compactMap { UIImage(data: $0)?.jpegBase64() }
         }.value
-        return base64.map { .photos([$0]) }
+        guard !encoded.isEmpty else { return nil }
+        return .photos(encoded, text: text)
     }
 
     private func save(_ analysis: ImportAnalysis) async {

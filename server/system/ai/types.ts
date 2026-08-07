@@ -3,9 +3,12 @@ import type { BrewMethod, DishCategory, RecipeType } from '~/domain/recipe/types
 
 export type ImportHash = Brand<string, 'ImportHash'>
 
-// The three ways a recipe can be imported. Exactly one is set per request.
+// The ways a recipe can be imported. Photos and text are ONE source when both are
+// given — the cook photographs the two pages of a book and types what the page
+// leaves out ("pour 4, au Chemex"), and the model reads them together. A URL
+// stands alone: reading a web page is a different capability (and a Premium one).
 export type ImportSource =
-  | { kind: 'photos'; photos: string[] } // base64 JPEGs (no data-URL prefix)
+  | { kind: 'photos'; photos: string[]; text?: string } // base64 JPEGs (no data-URL prefix)
   | { kind: 'url'; url: string }
   | { kind: 'text'; text: string }
 

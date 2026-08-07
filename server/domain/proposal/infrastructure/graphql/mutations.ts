@@ -277,17 +277,24 @@ builder.mutationField('analyzeImport', (t) =>
     type: ImportAnalysisType,
     description:
       'Analyze an import source (photos, a URL or raw text) into a structured recipe preview. ' +
-      'Exactly one source must be provided. Results are cached server-side by SHA-256. Spends ' +
-      'one import of your monthly AI allowance (see quota) — `QUOTA_EXHAUSTED` once it is used ' +
-      'up; importing from a URL is a Premium feature and answers `PREMIUM_REQUIRED` otherwise.',
+      '`photos` and `text` may be sent TOGETHER — the pages of a book plus what the cook typed ' +
+      'to complete them, read as one recipe; a `url` stands alone. Results are cached ' +
+      'server-side by SHA-256. Spends one import of your monthly AI allowance (see quota) — ' +
+      '`QUOTA_EXHAUSTED` once it is used up; importing from a URL is a Premium feature and ' +
+      'answers `PREMIUM_REQUIRED` otherwise.',
     args: {
       photos: t.arg.stringList({
         required: true,
         defaultValue: [],
-        description: 'Base64 JPEGs (no data-URL prefix) — `[]` when importing from a URL or text',
+        description:
+          'Base64 JPEGs (no data-URL prefix), up to 6 — `[]` when importing from a URL or text alone',
       }),
-      url: t.arg.string({ description: 'A recipe web page to read' }),
-      text: t.arg.string({ description: 'Raw recipe text' }),
+      url: t.arg.string({
+        description: 'A recipe web page to read — never combined with the rest',
+      }),
+      text: t.arg.string({
+        description: 'Raw recipe text, on its own or alongside `photos` to complete what they show',
+      }),
     },
     resolve: async (_root, { photos, url, text }, { userId }) => {
       const source = pickSource(photos, url, text)
@@ -308,23 +315,22 @@ builder.mutationField('analyzeImport', (t) =>
   }),
 )
 
+// Photos and text combine into a single source — the cook photographs the pages
+// and types what they leave out. A URL never combines with either: reading a web
+// page is its own capability, and mixing it with a photo would be two recipes.
 const pickSource = (
   photos: string[],
   url: string | null | undefined,
   text: string | null | undefined,
 ): ImportSource => {
-  const provided = [
-    photos.length ? 'photos' : null,
-    url ? 'url' : null,
-    text ? 'text' : null,
-  ].filter(Boolean)
-  if (provided.length !== 1) throw badInput('Provide exactly one of photos, url or text')
+  if (url && (photos.length || text)) throw badInput('A URL cannot be combined with photos or text')
+  if (!photos.length && !url && !text) throw badInput('Provide photos, a URL or text')
   if (photos.length) {
     if (photos.length > MAX_IMPORT_PHOTOS)
       throw badInput(`At most ${MAX_IMPORT_PHOTOS} photos are allowed`)
     if (!photos.every((photo) => imageWithinSizeLimit(photo.length)))
       throw badInput('A photo exceeds the 10 MB size limit')
-    return { kind: 'photos', photos }
+    return { kind: 'photos', photos, ...(text ? { text } : {}) }
   }
   if (url) return { kind: 'url', url }
   return { kind: 'text', text: text as string }

@@ -3,8 +3,11 @@ import ApolloAPI
 import Foundation
 
 enum ImportAPI {
+    /// What the AI is asked to read. Photos carry an optional `text` — the pages of
+    /// a book plus what the cook typed to complete them, read as ONE recipe. A URL
+    /// stands alone; the server refuses it mixed with the rest.
     enum Source {
-        case photos([String]) // base64 JPEGs, no data-URL prefix
+        case photos([String], text: String? = nil) // base64 JPEGs, no data-URL prefix
         case url(String)
         case text(String)
     }
@@ -25,7 +28,10 @@ enum ImportAPI {
         var url: GraphQLNullable<String> = .none
         var text: GraphQLNullable<String> = .none
         switch source {
-        case .photos(let list): photos = list
+        case .photos(let list, let note):
+            photos = list
+            // A blank note is no note: it must not read as a second, empty source.
+            text = GraphQLHelpers.graphQLNullable(note?.isEmpty == false ? note : nil)
         case .url(let value): url = GraphQLHelpers.graphQLNullable(value)
         case .text(let value): text = GraphQLHelpers.graphQLNullable(value)
         }

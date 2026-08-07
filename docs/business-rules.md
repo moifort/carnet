@@ -105,6 +105,14 @@ via `RecipeCommand.create` (the `createRecipe` mutation).
 
 ## AI wording rules
 
+**What counts as one import source** (`ImportSource`, assembled by `pickSource`): **photos and
+text combine** — the cook photographs the two pages of a book and types what the pages leave out
+or get wrong ("pour 4, au Chemex"), and the model reads them as one recipe, the typed text winning
+where the two disagree. Up to `MAX_IMPORT_PHOTOS` (6). A **URL never combines** with either
+(`BAD_USER_INPUT`): reading a web page is its own capability and its own Premium gate. The import
+cache key includes the typed text, so the same photos with a different note are a different
+analysis — photos with no text hash exactly as before.
+
 The prompts in `server/system/ai/index.ts`:
 
 - An ingredient **name** carries its intrinsic *variety/type/grade* in parentheses
@@ -140,8 +148,9 @@ app's only variable cost, so it is the only thing metered (`quota` domain, dimen
 [specs/2026-07-20-freemium-pricing-design.md](./specs/2026-07-20-freemium-pricing-design.md)):
 
 - Two meters, `imports` and `iterations`. An **import** is one recipe analysis (`analyzeImport`,
-  whatever the source); an **iteration** is one AI call on an existing version — a proposal, an
-  improvement *or* a tips merge, all three sharing the same counter.
+  whatever the source — six photos *and* a text are one analysis, so one import); an **iteration**
+  is one AI call on an existing version — a proposal, an improvement *or* a tips merge, all three
+  sharing the same counter.
 - `free` gets 3 imports and 5 iterations per **calendar month** (`FREE_LIMITS`), `premium`
   is unlimited. The window IS the month: one document per cook and per month, no reset job, and
   `renewsOn` is the 1st of the next month, UTC.

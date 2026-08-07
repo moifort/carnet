@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test'
 import { graphql } from 'graphql'
 import type { RecipeId, VersionNumber } from '~/domain/recipe/types'
 import type { UserId } from '~/domain/shared/types'
-import type { Proposal as AiProposal } from '~/system/ai/types'
+import type { Proposal as AiProposal, ImportSource } from '~/system/ai/types'
 import { fakeFirebase, resetFakeFirestore } from '~/test/fake-firestore'
 
 mock.module('~/system/firebase', fakeFirebase)
@@ -16,10 +16,16 @@ const proposal: AiProposal = {
   steps: [{ text: 'Mijoter 40 min', thermomix: {}, coffee: {} }],
   tips: [],
 }
+// The source the resolver assembled, captured so the tests can assert how photos,
+// text and a URL combine before ever reaching Gemini.
+let analysedSource: ImportSource | undefined
 mock.module('~/system/ai', () => ({
   Ai: {
     proposeNext: async () => proposal,
-    analyzeImport: async () => 'no-recipe-found',
+    analyzeImport: async (source: ImportSource) => {
+      analysedSource = source
+      return 'no-recipe-found'
+    },
     formatTips: async () => [],
   },
 }))
@@ -40,6 +46,7 @@ let fake = resetFakeFirestore()
 beforeEach(() => {
   fake = resetFakeFirestore()
   premiumUserIds = []
+  analysedSource = undefined
   seedRecipeWithV1()
 })
 
@@ -157,5 +164,55 @@ describe('quota query', () => {
       plan: 'PREMIUM',
       iterations: { limit: null, remaining: null },
     })
+  })
+})
+
+describe('analyzeImport mutation — what counts as one source', () => {
+  // The AI is mocked to answer 'no-recipe-found', which surfaces as this code —
+  // proof the source passed validation and reached the analysis.
+  const analyzed = async (args: string) => {
+    const result = await execute(`mutation { analyzeImport(${args}) { title } }`)
+    return result.errors?.[0]?.extensions?.code
+  }
+
+  test('reads photos and text as a single source', async () => {
+    expect(await analyzed('photos: ["AAAA", "BBBB"], text: "Pour 4, au Chemex"')).toBe(
+      'NO_RECIPE_FOUND',
+    )
+    expect(analysedSource).toEqual({
+      kind: 'photos',
+      photos: ['AAAA', 'BBBB'],
+      text: 'Pour 4, au Chemex',
+    })
+  })
+
+  test('leaves a photo-only source exactly as it was — no empty text', async () => {
+    await analyzed('photos: ["AAAA"]')
+    expect(analysedSource).toEqual({ kind: 'photos', photos: ['AAAA'] })
+  })
+
+  test('still takes text on its own', async () => {
+    await analyzed('photos: [], text: "200 g de spaghetti"')
+    expect(analysedSource).toEqual({ kind: 'text', text: '200 g de spaghetti' })
+  })
+
+  test('refuses a URL combined with photos or text — a web page is its own source', async () => {
+    premiumUserIds = [userId] // past the Premium gate, so the refusal is about the mix
+    expect(await analyzed('photos: ["AAAA"], url: "https://example.com"')).toBe('BAD_USER_INPUT')
+    expect(await analyzed('photos: [], url: "https://example.com", text: "note"')).toBe(
+      'BAD_USER_INPUT',
+    )
+    expect(analysedSource).toBeUndefined()
+  })
+
+  test('refuses an empty request', async () => {
+    expect(await analyzed('photos: []')).toBe('BAD_USER_INPUT')
+    expect(analysedSource).toBeUndefined()
+  })
+
+  test('refuses more photos than the limit allows', async () => {
+    const photos = Array.from({ length: 7 }, (_, i) => `"P${i}"`).join(', ')
+    expect(await analyzed(`photos: [${photos}], text: "note"`)).toBe('BAD_USER_INPUT')
+    expect(analysedSource).toBeUndefined()
   })
 })

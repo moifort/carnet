@@ -188,6 +188,10 @@ struct DebugGallery: View {
                 Color(white: 0.35).ignoresSafeArea()
                 ViewfinderOverlay()
             }
+        case "composer":
+            ComposerGalleryScreen()
+        case "composer-empty":
+            ComposerGalleryScreen(photoCount: 0, text: "")
         case "import-preview":
             NavigationStack {
                 ImportPreviewPage(analysis: Fixtures.importAnalysis, isSaving: false, onCancel: {}, onSave: { _ in })
@@ -336,6 +340,42 @@ private struct CuisineGalleryScreen: View {
                 onSettings: {}
             )
         }
+    }
+}
+
+/// The import composer, offline: the text and the attached photos that make one
+/// import. Flat colour swatches stand in for real photos.
+private struct ComposerGalleryScreen: View {
+    @State private var text: String
+    @State private var photos: [ImportComposer.Photo]
+
+    init(photoCount: Int = 2, text: String = "Pour 4 personnes, cuisson au four à chaleur tournante.") {
+        self._text = State(initialValue: text)
+        self._photos = State(initialValue: (0..<photoCount).map { index in
+            ImportComposer.Photo(id: UUID(), image: Self.swatch(index))
+        })
+    }
+
+    private static func swatch(_ index: Int) -> UIImage {
+        let colors: [UIColor] = [.systemBrown, .systemTeal, .systemIndigo]
+        return UIGraphicsImageRenderer(size: CGSize(width: 144, height: 144)).image { context in
+            colors[index % colors.count].setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 144, height: 144))
+        }
+    }
+
+    var body: some View {
+        ImportComposer(
+            text: $text,
+            photos: photos,
+            remainingSlots: 6 - photos.count,
+            isLoadingPhoto: false,
+            onAddFromLibrary: {},
+            onAddFromCamera: {},
+            onRemove: { id in photos.removeAll { $0.id == id } },
+            onCancel: {},
+            onAnalyze: {}
+        )
     }
 }
 
