@@ -12,6 +12,7 @@ import type {
   SortOrder,
   VersionNumber,
 } from '~/domain/recipe/types'
+import { type CoffeeVocabulary, emptyVocabulary } from '~/domain/recipe/vocabulary'
 import type { UserId } from '~/domain/shared/types'
 import { db } from '~/system/firebase'
 import { isInRequestCache, memoizedPerRequest } from '~/system/request-cache'
@@ -26,6 +27,9 @@ import {
 const recipes = () => db().collection('recipes').withConverter(genericDataConverter<Recipe>())
 const versions = () =>
   db().collection('recipe-versions').withConverter(genericDataConverter<RecipeVersion>())
+
+const vocabularies = () =>
+  db().collection('coffee-vocabularies').withConverter(genericDataConverter<CoffeeVocabulary>())
 
 const versionDocId = (recipeId: RecipeId, number: VersionNumber) => `${recipeId}_${number}`
 
@@ -252,5 +256,23 @@ export const removeAllByUser = async (userId: UserId) => {
   await deleteInBatches([
     ...recipeSnap.docs.map((doc) => doc.ref),
     ...versionSnap.docs.map((doc) => doc.ref),
+    // The vocabulary is learned from the recipes: it goes with them.
+    vocabularies().doc(userId),
   ])
+}
+
+// The cook's coffee vocabulary, or an empty one when they have never saved a coffee.
+// One keyed document, so it costs the same read whatever the size of the library.
+export const findVocabulary = async (userId: UserId): Promise<CoffeeVocabulary> => {
+  const doc = await vocabularies().doc(userId).get()
+  return doc.data() ?? emptyVocabulary(userId)
+}
+
+// Written in the same batch as the version that taught it: a version saved without
+// its vocabulary, or the reverse, must not exist.
+export const saveVocabulary = async (vocabulary: CoffeeVocabulary, batch?: WriteBatch) => {
+  const ref = vocabularies().doc(vocabulary.userId)
+  if (batch) batch.set(ref, vocabulary)
+  else await ref.set(vocabulary)
+  return vocabulary
 }
