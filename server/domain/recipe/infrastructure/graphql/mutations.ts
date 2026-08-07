@@ -1,9 +1,11 @@
 import { match, P } from 'ts-pattern'
 import { RecipeCommand } from '~/domain/recipe/command'
+import { CoffeeParameters as brandCoffeeParameters } from '~/domain/recipe/primitives'
 import { RecipeUseCase } from '~/domain/recipe/use-case'
 import { builder } from '~/domain/shared/graphql/builder'
 import { domainError } from '~/domain/shared/graphql/errors'
 import {
+  CoffeeParametersInput,
   CreateRecipeInput,
   RecordAttemptInput,
   UpdateRecipeInput,
@@ -198,6 +200,58 @@ builder.mutationField('updateTips', (t) =>
       const result = await RecipeCommand.updateTips(userId, recipeId, versionNumber, [...tips])
       return match(result)
         .with('not-found', domainError)
+        .with(P.not(P.string), (version) => version)
+        .exhaustive()
+    },
+  }),
+)
+
+builder.mutationField('updateCoffeeParameters', (t) =>
+  t.field({
+    type: VersionType,
+    description: [
+      'Correct one coffee version’s parameters — the roast date you read wrong, the grinder you ' +
+        'forgot. Full replacement: no version is created, and the brewing steps and the outcome ' +
+        'are left untouched (correcting what you logged is not iterating on the recipe). Every ' +
+        'free-text value you send is also remembered for that field’s suggestions — see ' +
+        '`coffeeVocabulary`. Returns the updated version.',
+      '',
+      '```graphql',
+      'updateCoffeeParameters(recipeId: "9f1c-a3b2", versionNumber: 1, parameters: {',
+      '  beans: { name: "Belleville — Guji", dose: "18 g" }',
+      '  extraction: { grind: "Niveau 12", time: "28 s", yield: "36 g" }',
+      '}) { number restDays }',
+      '```',
+    ].join('\n'),
+    args: {
+      recipeId: t.arg({
+        type: 'RecipeId',
+        required: true,
+        description: 'Which recipe the version belongs to',
+      }),
+      versionNumber: t.arg({
+        type: 'VersionNumber',
+        required: true,
+        description: 'Which version to correct, e.g. `1`',
+      }),
+      parameters: t.arg({
+        type: CoffeeParametersInput,
+        required: true,
+        description:
+          'The complete new parameters — a block left out is cleared, and leaving `milk` out ' +
+          'says the drink has none',
+      }),
+    },
+    resolve: async (_root, { recipeId, versionNumber, parameters }, { userId }) => {
+      const result = await RecipeCommand.updateCoffeeParameters(
+        userId,
+        recipeId,
+        versionNumber,
+        brandCoffeeParameters(parameters),
+      )
+      return match(result)
+        .with('not-found', domainError)
+        .with('not-a-coffee', domainError)
         .with(P.not(P.string), (version) => version)
         .exhaustive()
     },

@@ -244,3 +244,60 @@ describe('recipes query', () => {
     expect(fake.queryReads - before).toBe(2)
   })
 })
+
+describe('coffeeVocabulary query', () => {
+  test('suggests what the cook has already typed, most recent first', async () => {
+    fake.seed('coffee-vocabularies', userId, {
+      userId,
+      beanNames: ['Belleville — Sidamo', 'Belleville — Guji'],
+      countries: ['Éthiopie'],
+      producers: [],
+      waterKinds: ['Robinet (dureté 3/5)'],
+      milkKinds: [],
+      machines: ['Rancilio Silvia'],
+      grinders: ['Niche Zero'],
+      updatedAt: new Date(),
+    })
+
+    const result = await execute(
+      `{ coffeeVocabulary { beanNames countries waterKinds machines grinders milkKinds } }`,
+    )
+
+    expect(result.errors).toBeUndefined()
+    expect(result.data?.coffeeVocabulary).toEqual({
+      beanNames: ['Belleville — Sidamo', 'Belleville — Guji'],
+      countries: ['Éthiopie'],
+      waterKinds: ['Robinet (dureté 3/5)'],
+      machines: ['Rancilio Silvia'],
+      grinders: ['Niche Zero'],
+      milkKinds: [],
+    })
+  })
+
+  test('costs one keyed document read and never scans a collection', async () => {
+    fake.seed('coffee-vocabularies', userId, {
+      userId,
+      beanNames: ['Guji'],
+      countries: [],
+      producers: [],
+      waterKinds: [],
+      milkKinds: [],
+      machines: [],
+      grinders: [],
+      updatedAt: new Date(),
+    })
+    const before = fake.docReads
+
+    await execute(`{ coffeeVocabulary { beanNames } }`)
+
+    expect(fake.docReads - before).toBe(1)
+    expect(fake.queryReads).toBe(0)
+  })
+
+  test('answers empty lists to a cook who has never saved a coffee', async () => {
+    const result = await execute(`{ coffeeVocabulary { beanNames machines } }`)
+
+    expect(result.errors).toBeUndefined()
+    expect(result.data?.coffeeVocabulary).toEqual({ beanNames: [], machines: [] })
+  })
+})

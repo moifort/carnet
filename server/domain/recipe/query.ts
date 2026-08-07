@@ -80,4 +80,8 @@ export namespace RecipeQuery {
     if (!version) return 'not-found' as const
     return version
   }
+
+  // What each free-text coffee field suggests. One keyed document read, whatever the
+  // size of the library — never a scan over the versions to collect distinct values.
+  export const coffeeVocabulary = async (userId: UserId) => repository.findVocabulary(userId)
 }

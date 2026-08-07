@@ -8,7 +8,7 @@ import {
   RecipeTypeEnum,
   SortOrderEnum,
 } from './enums'
-import { RecipesType, RecipeType } from './types'
+import { CoffeeVocabularyType, RecipesType, RecipeType } from './types'
 
 builder.queryField('recipes', (t) =>
   t.field({
@@ -115,5 +115,21 @@ builder.queryField('recipe', (t) =>
         .with(P.not(P.string), (found) => found)
         .exhaustive()
     },
+  }),
+)
+
+builder.queryField('coffeeVocabulary', (t) =>
+  t.field({
+    type: CoffeeVocabularyType,
+    description: [
+      'What to suggest in each free-text coffee field — the values you have already used, most ' +
+        'recent first. One document, so it costs the same whether you have three coffees or ' +
+        'three hundred.',
+      '',
+      '```graphql',
+      '{ coffeeVocabulary { machines grinders waterKinds } }',
+      '```',
+    ].join('\n'),
+    resolve: (_root, _args, { userId }) => RecipeQuery.coffeeVocabulary(userId),
   }),
 )

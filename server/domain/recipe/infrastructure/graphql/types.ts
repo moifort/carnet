@@ -13,6 +13,7 @@ import type { DishContent } from '~/domain/recipe/content/dish'
 import type { ThermomixContent, ThermomixStep } from '~/domain/recipe/content/thermomix'
 import type { VersionContent } from '~/domain/recipe/content/types'
 import type { RecipeLibraryPage } from '~/domain/recipe/query'
+import type { CoffeeVocabulary } from '~/domain/recipe/vocabulary'
 import { builder } from '~/domain/shared/graphql/builder'
 import type {
   CoffeeSettings,
@@ -675,3 +676,50 @@ export const RecipesType = builder.objectRef<RecipeLibraryPage>('Recipes').imple
     }),
   }),
 })
+
+export const CoffeeVocabularyType = builder
+  .objectRef<CoffeeVocabulary>('CoffeeVocabulary')
+  .implement({
+    description:
+      'The free-text values you have already used on your coffees, per field, most recent ' +
+      'first — what each field of the coffee form suggests as you type. Suggestions only: any ' +
+      'new value is accepted, and using one is what adds it here. Empty lists on a cook who has ' +
+      'never saved a coffee.',
+    fields: (t) => ({
+      beanNames: t.field({
+        type: ['CoffeeBeanName'],
+        description: 'Coffees you have logged, e.g. `["Belleville — Guji"]`',
+        resolve: (v) => v.beanNames,
+      }),
+      countries: t.field({
+        type: ['CoffeeCountry'],
+        description: 'Origins you have logged, e.g. `["Éthiopie"]`',
+        resolve: (v) => v.countries,
+      }),
+      producers: t.field({
+        type: ['CoffeeProducer'],
+        description: 'Producers you have logged, e.g. `["Coop. Hambela"]`',
+        resolve: (v) => v.producers,
+      }),
+      waterKinds: t.field({
+        type: ['CoffeeWaterKind'],
+        description: 'Waters you have used, e.g. `["Robinet (dureté 3/5)"]`',
+        resolve: (v) => v.waterKinds,
+      }),
+      milkKinds: t.field({
+        type: ['CoffeeMilkKind'],
+        description: 'Milks you have used, e.g. `["Avoine Oatly"]`',
+        resolve: (v) => v.milkKinds,
+      }),
+      machines: t.field({
+        type: ['CoffeeMachine'],
+        description: 'Machines you brew on, e.g. `["Rancilio Silvia"]`',
+        resolve: (v) => v.machines,
+      }),
+      grinders: t.field({
+        type: ['CoffeeGrinder'],
+        description: 'Grinders you use, e.g. `["Niche Zero"]`',
+        resolve: (v) => v.grinders,
+      }),
+    }),
+  })

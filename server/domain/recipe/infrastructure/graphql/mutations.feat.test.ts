@@ -320,3 +320,117 @@ describe('deleteRecipe mutation', () => {
     expect(result.errors?.[0]?.extensions?.code).toBe('NOT_FOUND')
   })
 })
+
+describe('updateCoffeeParameters mutation', () => {
+  const createEspresso = `
+    mutation {
+      createRecipe(input: {
+        type: COFFEE
+        category: DRINK
+        method: ESPRESSO
+        title: "Espresso du matin"
+        content: { coffee: {
+          beans: { name: "Belleville — Guji", dose: "18 g" }
+          gear: { machine: "Rancilio Silvia" }
+          steps: []
+        } }
+      }) { id }
+    }
+  `
+
+  const espressoId = async () => {
+    const result = await execute(createEspresso)
+    expect(result.errors).toBeUndefined()
+    return (result.data as { createRecipe: { id: string } }).createRecipe.id
+  }
+
+  test('corrects the parameters and answers how long the beans rested', async () => {
+    const id = await espressoId()
+    // Roasted well before this version was created, so the rest is a real count.
+    const roastedOn = new Date(Date.now() - 14 * 86_400_000).toISOString()
+
+    const result = await execute(`
+      mutation {
+        updateCoffeeParameters(recipeId: "${id}", versionNumber: 1, parameters: {
+          beans: { name: "Belleville — Sidamo", country: "Éthiopie", roastedOn: "${roastedOn}", dose: "18 g" }
+          water: { kind: "Robinet (dureté 3/5)", amount: "36 g", temperature: "93°C" }
+          extraction: { grind: "Niveau 10", time: "30 s", yield: "36 g" }
+          gear: { machine: "Rancilio Silvia", grinder: "Niche Zero" }
+        }) {
+          number
+          restDays
+          content {
+            ... on CoffeeContent {
+              beans { name country dose }
+              water { kind amount temperature }
+              extraction { grind time yield }
+              milk { kind }
+              gear { machine grinder }
+              steps { text }
+            }
+          }
+        }
+      }
+    `)
+
+    expect(result.errors).toBeUndefined()
+    expect(result.data?.updateCoffeeParameters).toEqual({
+      number: 1,
+      restDays: 14,
+      content: {
+        beans: { name: 'Belleville — Sidamo', country: 'Éthiopie', dose: '18 g' },
+        water: { kind: 'Robinet (dureté 3/5)', amount: '36 g', temperature: '93°C' },
+        extraction: { grind: 'Niveau 10', time: '30 s', yield: '36 g' },
+        // An espresso has no milk: the block stays absent, not empty.
+        milk: null,
+        gear: { machine: 'Rancilio Silvia', grinder: 'Niche Zero' },
+        steps: [],
+      },
+    })
+  })
+
+  test('teaches the vocabulary what was typed', async () => {
+    const id = await espressoId()
+
+    await execute(`
+      mutation {
+        updateCoffeeParameters(recipeId: "${id}", versionNumber: 1, parameters: {
+          water: { kind: "Volvic + minéralisation Lotus" }
+          gear: { grinder: "Niche Zero" }
+        }) { number }
+      }
+    `)
+
+    const result = await execute(`{ coffeeVocabulary { waterKinds grinders machines } }`)
+    expect(result.data?.coffeeVocabulary).toEqual({
+      waterKinds: ['Volvic + minéralisation Lotus'],
+      grinders: ['Niche Zero'],
+      machines: ['Rancilio Silvia'],
+    })
+  })
+
+  test('refuses a version that is not a coffee', async () => {
+    const id = await createdId()
+    const result = await execute(`
+      mutation {
+        updateCoffeeParameters(recipeId: "${id}", versionNumber: 1, parameters: {
+          beans: { dose: "18 g" }
+        }) { number }
+      }
+    `)
+    expect(result.errors?.[0]?.extensions?.code).toBe('NOT_A_COFFEE')
+  })
+
+  test('surfaces an unknown recipe as NOT_FOUND', async () => {
+    const result = await execute(`
+      mutation {
+        updateCoffeeParameters(
+          recipeId: "11111111-1111-4111-8111-111111111111"
+          versionNumber: 1
+          parameters: {}
+        ) { number }
+      }
+    `)
+    expect(result.errors?.[0]?.extensions?.code).toBe('NOT_FOUND')
+  })
+})

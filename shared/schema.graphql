@@ -373,6 +373,32 @@ How long a brewing step runs, e.g. `"28 s"` (an espresso shot) or `"4 min"`
 scalar CoffeeTime
 
 """
+The free-text values you have already used on your coffees, per field, most recent first — what each field of the coffee form suggests as you type. Suggestions only: any new value is accepted, and using one is what adds it here. Empty lists on a cook who has never saved a coffee.
+"""
+type CoffeeVocabulary {
+  """Coffees you have logged, e.g. `["Belleville — Guji"]`"""
+  beanNames: [CoffeeBeanName!]!
+
+  """Origins you have logged, e.g. `["Éthiopie"]`"""
+  countries: [CoffeeCountry!]!
+
+  """Grinders you use, e.g. `["Niche Zero"]`"""
+  grinders: [CoffeeGrinder!]!
+
+  """Machines you brew on, e.g. `["Rancilio Silvia"]`"""
+  machines: [CoffeeMachine!]!
+
+  """Milks you have used, e.g. `["Avoine Oatly"]`"""
+  milkKinds: [CoffeeMilkKind!]!
+
+  """Producers you have logged, e.g. `["Coop. Hambela"]`"""
+  producers: [CoffeeProducer!]!
+
+  """Waters you have used, e.g. `["Robinet (dureté 3/5)"]`"""
+  waterKinds: [CoffeeWaterKind!]!
+}
+
+"""
 The water poured at one brewing step, e.g. `"50 g"` (a bloom) or `"300 ml"`
 """
 scalar CoffeeWater
@@ -892,6 +918,29 @@ type Mutation {
   ): Entitlement!
 
   """
+  Correct one coffee version’s parameters — the roast date you read wrong, the grinder you forgot. Full replacement: no version is created, and the brewing steps and the outcome are left untouched (correcting what you logged is not iterating on the recipe). Every free-text value you send is also remembered for that field’s suggestions — see `coffeeVocabulary`. Returns the updated version.
+  
+  ```graphql
+  updateCoffeeParameters(recipeId: "9f1c-a3b2", versionNumber: 1, parameters: {
+    beans: { name: "Belleville — Guji", dose: "18 g" }
+    extraction: { grind: "Niveau 12", time: "28 s", yield: "36 g" }
+  }) { number restDays }
+  ```
+  """
+  updateCoffeeParameters(
+    """
+    The complete new parameters — a block left out is cleared, and leaving `milk` out says the drink has none
+    """
+    parameters: CoffeeParametersInput!
+
+    """Which recipe the version belongs to"""
+    recipeId: RecipeId!
+
+    """Which version to correct, e.g. `1`"""
+    versionNumber: VersionNumber!
+  ): Version!
+
+  """
   Retouch a recipe: rename it, refile it under another course, mark it as a favourite, or any combination. Returns the updated recipe.
   
   ```graphql
@@ -1050,6 +1099,15 @@ type Query {
   ```
   """
   changelog: [ChangelogEntry!]!
+
+  """
+  What to suggest in each free-text coffee field — the values you have already used, most recent first. One document, so it costs the same whether you have three coffees or three hundred.
+  
+  ```graphql
+  { coffeeVocabulary { machines grinders waterKinds } }
+  ```
+  """
+  coffeeVocabulary: CoffeeVocabulary!
 
   """
   What you are entitled to today, and the account token to start a purchase with. The app reads this before showing the subscription sheet.
