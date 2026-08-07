@@ -373,6 +373,24 @@ identifies it. `RecipeHeaderBadges(methodLabel:methodIcon:)` — nil on anything
 A coffee also has **no portion slider**: `IngredientScaling` has no list to multiply. Doubling a
 dose is an edit of the parameters.
 
+### Correcting the parameters
+
+`CoffeeParametersEditSheet` (recipe menu → « Modifier les paramètres », coffee only) rewrites the
+displayed version's parameters **in place**: no version is created and the brewing steps are
+untouched — correcting what was logged is not iterating.
+
+Every field is labelled with `LabeledContent`, value on the trailing edge, mirroring the read-only
+sheet: a placeholder disappears exactly when a form of fifteen fields needs it. Two facts get a
+`Toggle` rather than an empty field, because their absence is information a blank cannot express —
+« Date de torréfaction connue » (a `DatePicker` always shows *some* date) and « Boisson lactée » (a
+drink either has milk or has not).
+
+Free-text fields use `SuggestingTextField`: chips of what the cook has already typed, shown only
+while the field holds the keyboard, hiding an exact match (a button that would do nothing). Typing
+anything new is always allowed — it is what teaches the next suggestion. The list comes from the
+`coffeeVocabulary` query, loaded when the sheet is opened so the sheet is not what waits on the
+network; machine and grinder fall back to the closest earlier version that carried any.
+
 ## Error reporting — Sentry
 
 `ShuhariApp.init()` calls `SentrySDK.start` (right after `FirebaseApp.configure()`) with a

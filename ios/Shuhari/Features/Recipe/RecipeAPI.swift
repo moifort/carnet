@@ -81,6 +81,43 @@ enum RecipeAPI {
         )
     }
 
+    /// Correct one coffee version's parameters — the roast date read wrong, the
+    /// grinder left out. Full replacement, in place: no version is created and the
+    /// brewing steps are untouched.
+    static func updateCoffeeParameters(
+        recipeId: String,
+        versionNumber: Int,
+        parameters: CoffeeParameters
+    ) async throws {
+        _ = try await GraphQLHelpers.perform(
+            GraphQLClient.shared.apollo,
+            mutation: ShuhariGraphQL.UpdateCoffeeParametersMutation(
+                recipeId: recipeId,
+                versionNumber: versionNumber,
+                parameters: GraphQLHelpers.coffeeParametersInput(parameters)
+            )
+        )
+    }
+
+    /// What each free-text coffee field suggests: the values this cook has already
+    /// typed, most recent first. One keyed document read, whatever the library size.
+    static func coffeeVocabulary() async throws -> CoffeeVocabulary {
+        let data = try await GraphQLHelpers.fetch(
+            GraphQLClient.shared.apollo,
+            query: ShuhariGraphQL.CoffeeVocabularyQuery()
+        )
+        let vocabulary = data.coffeeVocabulary
+        return CoffeeVocabulary(
+            beanNames: vocabulary.beanNames,
+            countries: vocabulary.countries,
+            producers: vocabulary.producers,
+            waterKinds: vocabulary.waterKinds,
+            milkKinds: vocabulary.milkKinds,
+            machines: vocabulary.machines,
+            grinders: vocabulary.grinders
+        )
+    }
+
     /// Replace the recipe's cautions with the complete list — rewritten in place,
     /// no version created. An empty list clears the banner.
     static func updateWarnings(id: String, warnings: [String]) async throws {

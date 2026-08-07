@@ -163,6 +163,18 @@ struct DebugGallery: View {
                         initialCategory: Fixtures.bourguignon.category
                     ) { _, _, _ in }
                 }
+        case "coffee-parameters-edit":
+            CoffeeParametersEditSheet(
+                initial: Fixtures.espressoParameters,
+                vocabulary: Fixtures.coffeeVocabulary,
+                previousGear: CoffeeGear(machine: "Rancilio Silvia", grinder: "Niche Zero")
+            ) { _ in }
+        case "coffee-parameters-edit-empty":
+            CoffeeParametersEditSheet(
+                initial: .empty,
+                vocabulary: Fixtures.coffeeVocabulary,
+                previousGear: CoffeeGear(machine: "Rancilio Silvia", grinder: "Niche Zero")
+            ) { _ in }
         case "recipe-edit-coffee":
             Color.clear
                 .sheet(isPresented: .constant(true)) {

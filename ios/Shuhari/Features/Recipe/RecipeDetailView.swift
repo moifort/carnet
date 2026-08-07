@@ -18,6 +18,10 @@ struct RecipeDetailView: View {
 
     @State private var viewModel: RecipeViewModel
     @State private var showEdit = false
+    /// The coffee-parameters form, and the suggestions it offers — loaded when the
+    /// sheet opens, so the sheet is not what waits on the network.
+    @State private var showCoffeeParameters = false
+    @State private var coffeeVocabulary = CoffeeVocabulary.empty
     @State private var showWarnings = false
     @State private var showHistory = false
     @State private var showToTest = false
@@ -127,6 +131,24 @@ struct RecipeDetailView: View {
                 .sheet(isPresented: $showWarnings) {
                     WarningsEditSheet(initialWarnings: recipe.warnings) { warnings in
                         try await RecipeAPI.updateWarnings(id: recipeId, warnings: warnings)
+                        await viewModel.load()
+                        onReload()
+                    }
+                }
+                // Correcting the parameters of the displayed coffee version: in
+                // place, no version created, the steps untouched.
+                .sheet(isPresented: $showCoffeeParameters) {
+                    let version = displayedVersion(recipe)
+                    CoffeeParametersEditSheet(
+                        initial: version.content.coffeeParameters ?? .empty,
+                        vocabulary: coffeeVocabulary,
+                        previousGear: previousGear(recipe, before: version)
+                    ) { parameters in
+                        try await RecipeAPI.updateCoffeeParameters(
+                            recipeId: recipeId,
+                            versionNumber: version.number,
+                            parameters: parameters
+                        )
                         await viewModel.load()
                         onReload()
                     }
@@ -245,6 +267,13 @@ struct RecipeDetailView: View {
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
                 Button("Modifier", systemImage: "pencil") { showEdit = true }
+                if recipe.type == .coffee {
+                    Button("Modifier les paramètres", systemImage: "slider.horizontal.3") {
+                        Task { coffeeVocabulary = (try? await RecipeAPI.coffeeVocabulary()) ?? .empty }
+                        showCoffeeParameters = true
+                    }
+                    .accessibilityIdentifier("edit-coffee-parameters-button")
+                }
                 Button(
                     recipe.warnings.isEmpty ? "Ajouter un avertissement" : "Modifier les avertissements",
                     systemImage: "exclamationmark.triangle"
@@ -328,6 +357,18 @@ struct RecipeDetailView: View {
     /// attempt version when set, otherwise the recipe's `versionToOpen`.
     private func displayedVersion(_ recipe: Recipe) -> RecipeVersion {
         focusVersionNumber.flatMap { recipe.version($0) } ?? recipe.versionToOpen
+    }
+
+    /// The gear of the closest earlier version that carried any — what pre-fills
+    /// the two fields on a version that has none. It is almost always the same
+    /// machine and the same grinder, and re-asking for them is how a field stops
+    /// being filled in at all.
+    private func previousGear(_ recipe: Recipe, before version: RecipeVersion) -> CoffeeGear {
+        recipe.versions
+            .filter { $0.number < version.number }
+            .sorted { $0.number > $1.number }
+            .compactMap { $0.content.coffeeParameters?.gear }
+            .first { !$0.isEmpty } ?? .empty
     }
 
     private func deleteRecipeLabel(_ recipe: Recipe) -> String {

@@ -352,6 +352,17 @@ enum Fixtures {
         versionToOpen: espressoV1
     )
 
+    /// What the coffee form suggests once a few cups have been logged.
+    static let coffeeVocabulary = CoffeeVocabulary(
+        beanNames: ["Belleville — Sidamo", "Belleville — Guji", "Cafés Lomi — Yirgacheffe"],
+        countries: ["Éthiopie", "Colombie", "Brésil"],
+        producers: ["Coop. Hambela", "Finca El Paraíso"],
+        waterKinds: ["Robinet (dureté 3/5)", "Volvic", "Volvic + minéralisation Lotus"],
+        milkKinds: ["Entier", "Avoine Oatly"],
+        machines: ["Rancilio Silvia", "Hario V60 02", "Moccamaster KBG"],
+        grinders: ["Niche Zero", "Comandante C40"]
+    )
+
     /// A page of coffees spanning several brewing methods — backs the coffee tab
     /// in previews and the debug gallery.
     static let coffeeRecipes = [
