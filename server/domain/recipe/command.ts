@@ -1,4 +1,6 @@
+import type { WriteBatch } from 'firebase-admin/firestore'
 import { methodMatchesType, nextVersionNumber } from '~/domain/recipe/business-rules'
+import type { CoffeeParameters } from '~/domain/recipe/content/coffee'
 import type { VersionContent } from '~/domain/recipe/content/types'
 import * as repository from '~/domain/recipe/infrastructure/repository'
 import { randomRecipeId, VersionNumber } from '~/domain/recipe/primitives'
@@ -17,10 +19,20 @@ import type {
   VersionOrigin,
   Warning,
 } from '~/domain/recipe/types'
+import { learnedVocabulary } from '~/domain/recipe/vocabulary'
 import type { UserId } from '~/domain/shared/types'
 import { atomically } from '~/utils/firestore'
 
 const FIRST_VERSION = VersionNumber(1)
+
+// A coffee version teaches the cook's vocabulary — the waters, machines and beans
+// its free-text fields carry. Folded into the caller's batch so the two land
+// together; a version of any other type teaches nothing.
+const teachVocabulary = async (userId: UserId, content: VersionContent, batch: WriteBatch) => {
+  if (content.kind !== 'coffee') return
+  const current = await repository.findVocabulary(userId)
+  await repository.saveVocabulary(learnedVocabulary(current, content), batch)
+}
 
 export type NewRecipeInput = {
   type: RecipeType
@@ -103,6 +115,7 @@ export namespace RecipeCommand {
     return atomically(async (batch) => {
       await repository.save(recipe, batch)
       await repository.saveVersion(firstVersion(recipe, origin, input), batch)
+      await teachVocabulary(userId, input.content, batch)
       return recipe
     })
   }
@@ -153,6 +166,7 @@ export namespace RecipeCommand {
       await repository.saveVersion(version, batch)
       if (cooked) await repository.saveVersion(cooked, batch)
       await repository.save(updated, batch)
+      await teachVocabulary(userId, input.content, batch)
       return updated
     })
   }
@@ -213,6 +227,39 @@ export namespace RecipeCommand {
     return atomically(async (batch) => {
       await repository.saveVersion(updated, batch)
       await repository.save(updatedRecipe, batch)
+      return updated
+    })
+  }
+
+  // Correct a coffee version's parameters in place — the cook is fixing what they
+  // logged (a roast date read wrong, the grinder they forgot), not iterating on the
+  // recipe: no version is created, and the brewing steps are left exactly as they
+  // were. Full replacement, like `updateTips`: the edited parameters ARE the
+  // complete set. Every free-text value typed also teaches the vocabulary, in the
+  // same batch.
+  export const updateCoffeeParameters = async (
+    userId: UserId,
+    recipeId: RecipeId,
+    versionNumber: VersionNumberT,
+    parameters: CoffeeParameters,
+  ): Promise<RecipeVersion | 'not-found' | 'not-a-coffee'> => {
+    const recipe = await repository.findBy(userId, recipeId)
+    if (!recipe) return 'not-found' as const
+    const version = await repository.findVersion(recipeId, versionNumber)
+    if (!version) return 'not-found' as const
+    // Parameters belong to a coffee and to nothing else — a dish has ingredients.
+    if (version.content.kind !== 'coffee') return 'not-a-coffee' as const
+    const content: VersionContent = {
+      ...parameters,
+      kind: 'coffee',
+      steps: version.content.steps,
+    }
+    const updated: RecipeVersion = { ...version, content }
+    const updatedRecipe: Recipe = { ...recipe, updatedAt: new Date() }
+    return atomically(async (batch) => {
+      await repository.saveVersion(updated, batch)
+      await repository.save(updatedRecipe, batch)
+      await teachVocabulary(userId, content, batch)
       return updated
     })
   }

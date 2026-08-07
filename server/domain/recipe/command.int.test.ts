@@ -1,14 +1,16 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test'
-import type { CoffeeContent } from '~/domain/recipe/content/coffee'
+import { type CoffeeContent, emptyCoffeeParameters } from '~/domain/recipe/content/coffee'
 import type { DishContent } from '~/domain/recipe/content/dish'
 import type { ThermomixContent } from '~/domain/recipe/content/thermomix'
 import type {
   CoffeeBeanName,
   CoffeeDose,
+  CoffeeGrinder,
   CoffeeMachine,
   CoffeeTemperature,
   CoffeeTime,
   CoffeeWater,
+  CoffeeWaterKind,
   Ingredient,
   IngredientName,
   IngredientQuantity,
@@ -30,6 +32,7 @@ import { fakeFirebase, resetFakeFirestore } from '~/test/fake-firestore'
 mock.module('~/system/firebase', fakeFirebase)
 
 const { RecipeCommand } = await import('~/domain/recipe/command')
+const repository = await import('~/domain/recipe/infrastructure/repository')
 
 const userId = 'user-1' as UserId
 const ingredient = (n: string, q: string): Ingredient => ({
@@ -690,5 +693,107 @@ describe('RecipeCommand.updateWarnings', () => {
     const recipe = await RecipeCommand.create(userId, newInput())
     if (typeof recipe === 'string') throw new Error('expected a recipe')
     expect(await RecipeCommand.updateWarnings('user-2' as UserId, recipe.id, [])).toBe('not-found')
+  })
+})
+
+describe('updateCoffeeParameters', () => {
+  const V1 = 1 as VersionNumber
+  const coffeeInput = (content: CoffeeContent = coffeeContent()) => ({
+    type: 'coffee' as const,
+    category: 'drink' as const,
+    method: 'espresso' as const,
+    title: 'Espresso du matin' as RecipeTitle,
+    content,
+    tips: [],
+  })
+
+  test('corrects the version in place and teaches the vocabulary, in one batch', async () => {
+    const recipe = await RecipeCommand.create(userId, coffeeInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+
+    const updated = await RecipeCommand.updateCoffeeParameters(userId, recipe.id, V1, {
+      ...emptyCoffeeParameters,
+      beans: { name: 'Belleville — Sidamo' as CoffeeBeanName },
+      gear: { grinder: 'Niche Zero' as CoffeeGrinder },
+    })
+    if (typeof updated === 'string') throw new Error(`expected a version, got ${updated}`)
+
+    expect(updated.content).toMatchObject({ beans: { name: 'Belleville — Sidamo' } })
+    expect(fake.snapshot('recipe-versions').get(`${recipe.id}_1`)?.content).toEqual(updated.content)
+    // The value typed now leads; the one the recipe was created with stays behind it.
+    const vocabulary = await repository.findVocabulary(userId)
+    expect(vocabulary.beanNames).toEqual([
+      'Belleville — Sidamo' as CoffeeBeanName,
+      'Belleville — Guji' as CoffeeBeanName,
+    ])
+    expect(vocabulary.grinders).toEqual(['Niche Zero' as CoffeeGrinder])
+  })
+
+  test('writes the version, the recipe and the vocabulary all-or-nothing', async () => {
+    const recipe = await RecipeCommand.create(userId, coffeeInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+    const batchesBefore = fake.batches.length
+
+    await RecipeCommand.updateCoffeeParameters(userId, recipe.id, V1, emptyCoffeeParameters)
+
+    expect(fake.batches.length).toBe(batchesBefore + 1)
+    expect(fake.directWrites).toEqual([])
+  })
+
+  test('leaves the steps untouched — correcting a parameter is not iterating', async () => {
+    const withSteps: CoffeeContent = {
+      ...coffeeContent(),
+      steps: [{ text: 'Infuser 4 min' as StepText, settings: {} }],
+    }
+    const recipe = await RecipeCommand.create(userId, coffeeInput(withSteps))
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+
+    const updated = await RecipeCommand.updateCoffeeParameters(userId, recipe.id, V1, {
+      ...emptyCoffeeParameters,
+      water: { kind: 'Volvic' as CoffeeWaterKind },
+    })
+    if (typeof updated === 'string') throw new Error(`expected a version, got ${updated}`)
+
+    expect(updated.content.kind === 'coffee' && updated.content.steps).toEqual([
+      { text: 'Infuser 4 min' as StepText, settings: {} },
+    ])
+  })
+
+  test('refuses a version that is not a coffee', async () => {
+    const recipe = await RecipeCommand.create(userId, newInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+
+    expect(
+      await RecipeCommand.updateCoffeeParameters(userId, recipe.id, V1, emptyCoffeeParameters),
+    ).toBe('not-a-coffee')
+  })
+
+  test('returns not-found for an unknown recipe or another cook\u2019s recipe', async () => {
+    expect(
+      await RecipeCommand.updateCoffeeParameters(
+        userId,
+        'nope' as RecipeId,
+        V1,
+        emptyCoffeeParameters,
+      ),
+    ).toBe('not-found')
+
+    const recipe = await RecipeCommand.create(userId, coffeeInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+    expect(
+      await RecipeCommand.updateCoffeeParameters(
+        'user-2' as UserId,
+        recipe.id,
+        V1,
+        emptyCoffeeParameters,
+      ),
+    ).toBe('not-found')
+  })
+
+  test('teaches the vocabulary when a coffee recipe is created too', async () => {
+    await RecipeCommand.create(userId, coffeeInput())
+
+    const vocabulary = await repository.findVocabulary(userId)
+    expect(vocabulary.machines).toEqual(['Rancilio Silvia' as CoffeeMachine])
   })
 })
