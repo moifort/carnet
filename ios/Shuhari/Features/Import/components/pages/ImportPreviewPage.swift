@@ -95,6 +95,12 @@ struct ImportPreviewPage: View {
                 }
             }
 
+            // A coffee shows what it IS instead of an ingredient list: read-only
+            // here, corrected from the recipe sheet once it is saved.
+            if let coffee = analysis.coffee, type == .coffee {
+                CoffeeParametersSection(parameters: coffee)
+            }
+
             if !ingredients.isEmpty {
                 Section("Ingrédients") {
                     ForEach($ingredients) { $ingredient in
@@ -239,6 +245,9 @@ struct ImportPreviewPage: View {
                 guard !name.isEmpty, !quantity.isEmpty else { return nil }
                 return Ingredient(name: name, quantity: quantity)
             },
+            // The extracted parameters ride through untouched — this preview shows
+            // them, the recipe sheet is where they are corrected.
+            coffee: type == .coffee ? (analysis.coffee ?? .empty) : nil,
             steps: steps,
             // Blank tips are dropped, like blank steps.
             tips: tipTexts.compactMap {

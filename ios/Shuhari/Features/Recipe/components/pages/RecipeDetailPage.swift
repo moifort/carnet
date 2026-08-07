@@ -36,13 +36,25 @@ struct RecipeDetailPage: View {
             header
             changeCard
 
-            IngredientsSection(
-                ingredients: displayedVersion.ingredients,
-                modified: modifiedIngredients,
-                compactHeader: focusVersion == nil,
-                scale: focusVersion == nil ? $scaleFactor : nil
-            )
-            ReferenceVersionSection(version: displayedVersion, modified: modifiedSteps)
+            // A coffee is set by parameters, everything else by an ingredient list.
+            if let parameters = displayedVersion.content.coffeeParameters {
+                CoffeeParametersSection(
+                    parameters: parameters,
+                    restDays: displayedVersion.restDays
+                )
+            } else {
+                IngredientsSection(
+                    ingredients: displayedVersion.ingredients,
+                    modified: modifiedIngredients,
+                    compactHeader: focusVersion == nil,
+                    scale: focusVersion == nil ? $scaleFactor : nil
+                )
+            }
+            // An espresso is wholly described by its parameters: no empty "steps"
+            // section is rendered for it.
+            if !displayedVersion.content.stepTexts.isEmpty {
+                ReferenceVersionSection(version: displayedVersion, modified: modifiedSteps)
+            }
             TipsSection(tips: displayedVersion.tips)
         }
         .listSectionSpacing(5)
@@ -103,7 +115,9 @@ struct RecipeDetailPage: View {
                     RecipeHeaderBadges(
                         type: recipe.type,
                         versionNumber: displayedVersion.number,
-                        toTestCount: recipe.versionsToTest.count
+                        toTestCount: recipe.versionsToTest.count,
+                        methodLabel: recipe.method?.label,
+                        methodIcon: recipe.method?.iconImage
                     )
                     Spacer(minLength: Theme.Spacing.s)
                     if let rating = displayedVersion.rating {

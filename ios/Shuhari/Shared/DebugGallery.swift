@@ -55,6 +55,8 @@ struct DebugGallery: View {
         case "recipe-thermomix":
             RecipeDetailGalleryScreen(recipe: Fixtures.risotto)
         case "recipe-coffee":
+            RecipeDetailGalleryScreen(recipe: Fixtures.espresso)
+        case "recipe-coffee-steps":
             RecipeDetailGalleryScreen(recipe: Fixtures.v60)
         case "warnings-edit":
             Color.clear

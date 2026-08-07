@@ -8,14 +8,21 @@ struct RecipeHeaderBadges: View {
     let versionNumber: Int?
     /// The versions waiting to be cooked. Zero hides the flask badge.
     var toTestCount: Int = 0
+    /// On a coffee, the capsule says HOW it is brewed (ESPRESSO, V60) rather than
+    /// the obvious "CAFÉ": the type is given away by the tab it lives in, the
+    /// method is what actually identifies the recipe. Nil on anything else.
+    var methodLabel: String? = nil
+    var methodIcon: Image? = nil
 
     var body: some View {
         HStack(spacing: Theme.Spacing.s) {
             capsule {
-                type.iconImage(filled: false)
-                Text(type.label.uppercased())
+                methodIcon ?? type.iconImage(filled: false)
+                Text((methodLabel ?? type.label).uppercased())
             }
-            .accessibilityLabel("Type \(type.label)")
+            .accessibilityLabel(
+                methodLabel.map { "Méthode \($0)" } ?? "Type \(type.label)"
+            )
 
             if let versionNumber {
                 capsule {
@@ -56,6 +63,15 @@ struct RecipeHeaderBadges: View {
             RecipeHeaderBadges(type: type, versionNumber: 3, toTestCount: 2)
         }
         RecipeHeaderBadges(type: .dish, versionNumber: nil)
+        // A coffee wears its brew method instead of the word "café".
+        ForEach([BrewMethod.espresso, .v60, .frenchPress], id: \.self) { method in
+            RecipeHeaderBadges(
+                type: .coffee,
+                versionNumber: 2,
+                methodLabel: method.label,
+                methodIcon: method.iconImage
+            )
+        }
     }
     .padding()
 }

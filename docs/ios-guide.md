@@ -350,6 +350,29 @@ An empty section reads as broken. Applies everywhere sections render data-driven
 import preview (Ingrédients, Paramètres), recipe display (`CurrentVersionSection`, …). Hide,
 don't stub.
 
+## The coffee sheet — parameters, not ingredients
+
+A coffee has no ingredient list: `CoffeeParametersSection` takes the place of
+`IngredientsSection` on `RecipeDetailPage` and in the import preview. Five blocks — Café (with
+`"12 juin 2026 · J+14"`, the roast date and how long the beans rested), Eau, Extraction, Lait,
+Matériel — each disappearing entirely when nothing in it is filled in, per the rule above.
+
+The **steps section only renders when the version has steps**: an espresso is wholly described
+by its parameters and shows none, while a V60 or a French press keeps its numbered pours with
+their badges. Two DebugGallery screens cover both: `recipe-coffee` (espresso, no steps) and
+`recipe-coffee-steps` (V60).
+
+The section stays primitive-first; the domain → primitives adapter is a convenience initializer
+in the same file (`init(parameters:restDays:big:)`), on the model of `CoffeeStepsList`, so the
+recipe sheet and the import preview cannot word a date differently.
+
+The header capsule on a coffee says **how it is brewed** (ESPRESSO, V60, FRENCH PRESS) instead of
+the recipe type: the type is given away by the tab the recipe lives in, the method is what
+identifies it. `RecipeHeaderBadges(methodLabel:methodIcon:)` — nil on anything else.
+
+A coffee also has **no portion slider**: `IngredientScaling` has no list to multiply. Doubling a
+dose is an edit of the parameters.
+
 ## Error reporting — Sentry
 
 `ShuhariApp.init()` calls `SentrySDK.start` (right after `FirebaseApp.configure()`) with a

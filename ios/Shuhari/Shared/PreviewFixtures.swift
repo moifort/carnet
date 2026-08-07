@@ -304,6 +304,54 @@ enum Fixtures {
         versionToOpen: v60V2
     )
 
+    // MARK: - Espresso — the parameters-only coffee
+
+    /// An espresso: wholly described by its dials, with no step at all. The case
+    /// the parameters model exists for.
+    static let espressoParameters = CoffeeParameters(
+        beans: CoffeeBeans(
+            name: "Belleville — Sidamo",
+            country: "Éthiopie",
+            producer: "Coop. Hambela",
+            roastedOn: date.addingTimeInterval(-86_400 * 9),
+            dose: "18 g"
+        ),
+        water: CoffeeWaterSpec(
+            kind: "Robinet (dureté 3/5)",
+            amount: "36 g",
+            temperature: "93°C"
+        ),
+        extraction: CoffeeExtraction(grind: "Niveau 12", time: "28 s", cupYield: "36 g"),
+        milk: nil,
+        gear: CoffeeGear(machine: "Rancilio Silvia", grinder: "Niche Zero")
+    )
+
+    static let espressoV1 = RecipeVersion(
+        number: 1, restDays: 9, basedOn: nil, change: nil, why: nil, originKind: .import,
+        originDetail: "Photo du sachet",
+        content: .coffee(parameters: espressoParameters, steps: []),
+        tips: ["Purger le groupe avant de verrouiller le porte-filtre."],
+        recipeId: "espresso",
+        rating: 4, remarks: "Bien équilibré, un chouïa court.",
+        executedAt: date.addingTimeInterval(-86_400),
+        photoUrl: nil,
+        createdAt: date.addingTimeInterval(-86_400 * 2)
+    )
+
+    static let espresso = Recipe(
+        id: "espresso",
+        title: "Espresso du matin",
+        type: .coffee,
+        category: .drink,
+        method: .espresso,
+        favorite: false,
+        createdAt: date.addingTimeInterval(-86_400 * 2),
+        updatedAt: date,
+        versions: [espressoV1],
+        bestRating: 4,
+        versionToOpen: espressoV1
+    )
+
     /// A page of coffees spanning several brewing methods — backs the coffee tab
     /// in previews and the debug gallery.
     static let coffeeRecipes = [
