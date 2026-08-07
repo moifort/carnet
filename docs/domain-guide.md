@@ -427,9 +427,10 @@ domain that imports `~/system/ai`, and it depends one-way on `recipe` (never the
 
 ## Adding a Recipe Type
 
-The `recipe` domain is built so a new type (say `cafe`) is a **local, additive** change: one new
-file under `content/`, one arm everywhere the union is enumerated, and the iOS organisms that render
-it. The versioning envelope and the lineage rules never learn about it.
+The `recipe` domain is built so a new type is a **local, additive** change: one new file under
+`content/`, one arm everywhere the union is enumerated, and the iOS organisms that render it. The
+versioning envelope and the lineage rules never learn about it. `coffee` was added exactly this
+way — the worked example below is what was actually done, not a sketch.
 
 The split that makes this possible: a version is a type-agnostic **envelope** (`recipe/version.ts` —
 `number`, `basedOn`, `change`, `origin`, `why`, `createdAt`, the attempt outcome and the `tips`) plus a
@@ -437,12 +438,15 @@ The split that makes this possible: a version is a type-agnostic **envelope** (`
 
 ```ts
 // content/types.ts
-export type VersionContent = DishContent | ThermomixContent
+export type VersionContent = DishContent | ThermomixContent | CoffeeContent
 // content/dish.ts
 export type DishContent = { kind: 'dish'; ingredients: Ingredient[]; steps: StepText[] }
 // content/thermomix.ts
 export type ThermomixStep = { text: StepText; settings: ThermomixSettings } // {} = a plain step
 export type ThermomixContent = { kind: 'thermomix'; ingredients: Ingredient[]; steps: ThermomixStep[] }
+// content/coffee.ts
+export type CoffeeStep = { text: StepText; settings: CoffeeSettings } // {} = a step that sets nothing
+export type CoffeeContent = { kind: 'coffee'; ingredients: Ingredient[]; steps: CoffeeStep[] }
 ```
 
 `kind` mirrors the recipe type. The invariant `content.kind === recipe.type` is enforced in
@@ -461,35 +465,48 @@ written before the field reads back as the empty list instead of needing a migra
 fails either test — anything that differs per recipe type, or anything a new version must freeze —
 goes in `content` instead.
 
-To add `cafe`, follow the `dish` / `thermomix` worked example:
+The steps, as followed for `coffee` — the value is an English technical symbol like every other
+(`coffee`, never `cafe`; see [code-style.md](./code-style.md#language)):
 
-1. **`types.ts`** — add the literal to the type tuple: `RECIPE_TYPE_VALUES = ['dish', 'thermomix', 'cafe']`.
-   Add any brands the new content needs, fully spelled out, no abbreviations (e.g. `BrewMethod`).
-2. **`content/cafe.ts`** — the new variant, tagged by `kind`:
-   `export type CafeContent = { kind: 'cafe'; ingredients: Ingredient[]; steps: … }`. If it needs
-   per-step machine data (as Thermomix does), model a nested step whose settings are **total** (an
-   empty `{}` is the single spelling of "no setting", never a hole) and put any pairing/normalizing
-   rules here as pure functions (see `thermomixSteps` / `toThermomixSettings`).
-3. **`content/types.ts`** — widen the union: `VersionContent = DishContent | ThermomixContent | CafeContent`.
-4. **`primitives.ts`** — add a `cafeContentSchema` arm to the `z.discriminatedUnion('kind', […])`
+1. **`types.ts`** — add the literal to the type tuple:
+   `RECIPE_TYPE_VALUES = ['dish', 'thermomix', 'coffee']`. Add any brands the new content needs,
+   fully spelled out, no abbreviations (`CoffeeGrind`, `CoffeeWater`, `CoffeeTemperature`,
+   `CoffeeTime`, `CoffeeYield`).
+2. **`content/coffee.ts`** — the new variant, tagged by `kind`. If it needs per-step data (as
+   Thermomix does), model a nested step whose settings are **total** (an empty `{}` is the single
+   spelling of "no setting", never a hole) and put any pairing/normalizing rules here as pure
+   functions (`coffeeSteps` / `toCoffeeSettings`, mirroring the Thermomix pair).
+3. **`content/types.ts`** — widen the union.
+4. **`primitives.ts`** — add a `coffeeContentSchema` arm to the `z.discriminatedUnion('kind', […])`
    inside the `VersionContent` constructor, with its transform branch that brands the raw arm.
 5. **GraphQL** (`infrastructure/graphql/`):
-   - `enums.ts` — add `CAFE: { value: 'cafe' }` to `RecipeTypeEnum`.
-   - `types.ts` — a `CafeContentType` object ref, added to the `VersionContent` `unionType`'s `types`
-     array and its `resolveType` (`content.kind === 'cafe' ? 'CafeContent' : …`).
-   - `inputs.ts` — a `CafeContentInput`, a `cafe` arm on the `@oneOf` `VersionContentInput`
+   - `enums.ts` — add `COFFEE: { value: 'coffee' }` to `RecipeTypeEnum`.
+   - `types.ts` — a `CoffeeContentType` object ref, added to the `VersionContent` `unionType`'s
+     `types` array and its `resolveType`.
+   - `inputs.ts` — a `CoffeeContentInput`, a `coffee` arm on the `@oneOf` `VersionContentInput`
      (`isOneOf: true`), and a branch in `versionContentInput(...)` that brands it.
+   - New branded scalars are declared twice: `Scalars` in `shared/graphql/builder.ts`, then
+     `builder.scalarType(...)` in `shared/graphql/scalars.ts`.
 6. **AI** (`server/system/ai/`) — the import/proposal `type` enum is generated from
-   `RECIPE_TYPE_VALUES` (`RECIPE_TYPE_ENUM = [...RECIPE_TYPE_VALUES]`), so the new value flows through
-   automatically; extend the shared step schema property (`server/system/ai/index.ts`) and
-   `ImportStep` (`ai/types.ts`) only if `cafe` needs per-step data the current wire doesn't carry, and
-   bump the import cache salt in `ai/index.ts`.
-7. **iOS** — add the organisms that render a `CafeContent` (the union arrives as a fragment; mirror
-   the dish/Thermomix sections). See [ios-guide.md](./ios-guide.md).
+   `RECIPE_TYPE_VALUES` (`RECIPE_TYPE_ENUM = [...RECIPE_TYPE_VALUES]`), so the new value flows
+   through automatically; extend the shared step schema property (`server/system/ai/index.ts`) and
+   `ImportStep` (`ai/types.ts`) when the type needs per-step data the current wire doesn't carry —
+   `ImportStep` names each settings object after its context (`thermomix`, `coffee`) because the
+   one wire carries every type — and **bump the import cache salt** in `ai/index.ts`, without which
+   already-analysed sources come back knowing nothing of the new type.
+7. **iOS** — add the organisms that render a `CoffeeContent` (the union arrives as a fragment;
+   mirror the dish/Thermomix sections). See [ios-guide.md](./ios-guide.md).
+
+**An aggregate-level axis is not content.** `coffee` also needed "how it is brewed", and that is
+neither versioned nor part of `content`: it went on the aggregate as `Recipe.method?`, present if
+and only if the type matches (`methodMatchesType` → `'method-mismatch'`), denormalized as
+`methodRank` by `repository.save` so Firestore can order on it with a cursor-safe key, and paired
+with its composite indexes in `firestore.indexes.json`. That is the `category` pattern; follow it
+rather than freezing such an axis into every version.
 
 The TypeScript compiler is your guide: widening the union turns every non-exhaustive `resolveType`,
-`match`, and content branch into a compile error until the `cafe` arm is added. No migration is
-needed for the new value alone (it is additive — no existing document carries `kind: 'cafe'`).
+`match`, and content branch into a compile error until the new arm is added. No migration is
+needed for the new value alone (it is additive — no existing document carries the new `kind`).
 
 ## Checklist
 

@@ -27,7 +27,7 @@ ios/
     │   ├── Fragments/                  # VersionFields, ProposalFields
     │   └── Schema/                     # CustomScalars (RecipeId, Rating, …), Enums, Objects, InputObjects
     ├── Features/
-    │   ├── Auth/  Home/  Recipe/  Proposal/  Execution/  Import/  Settings/
+    │   ├── Auth/  Home/  Coffee/  Recipe/  Proposal/  Execution/  Import/  Settings/
     │   └── {Feature}/
     │       ├── {Feature}Store.swift    # ViewModel (@MainActor @Observable) — or {Feature}ViewModel
     │       ├── {Feature}API.swift      # maps generated types → model structs
@@ -48,6 +48,23 @@ ios/
 > navigation + API); *pure presentation* is a `*Page.swift`; the *ViewModel* is a `*Store` (Home
 > and most features) or a `*ViewModel` (Recipe). Atoms live centrally in `Shared/Components/` —
 > features have no per-feature `atoms/`. Some features (Proposal, Import) only have `pages/`.
+
+### The root tabs
+
+`ContentView` holds two content tabs — **Carnet** (`HomeView`, cooking: `RecipeType.cooking`) and
+**Café** (`CoffeeView`, `[.coffee]`) — plus the trailing **Importer** entry (`.search`/`.prominent`
+role), which opens the camera full-screen and belongs to neither.
+
+Both tabs are the same machinery pointed at different types: one `LibraryStore(types:)`, one
+`HomePage`, one `LibrarySection`, and the type-agnostic `recipeFlow`. What differs is what each is
+filed by — a dish course vs. a brew method — which is why `HomePage`'s filter facet is
+**primitive-first** (`Facet`: a title, `(id, label, systemImage)` options and a `Binding<String?>`)
+rather than typed on `DishCategory`: the page filters on *something* without knowing what. The
+domain-to-primitive bridges are `HomePage.Facet.course(selection:)` / `.method(selection:)`.
+
+The import is single and shared: the type the AI detects decides which tab the created recipe is
+routed to (`ImportReviewSheet.onCreated` hands back the `RecipeType`), and closing the camera cover
+restores the content tab the user came from.
 
 ## Data fetching — GraphQL, not REST
 

@@ -8,19 +8,31 @@ the digest; this doc is the spec. The mechanics of building a domain live in
 
 ## Recipe types and version content
 
-- **Two recipe types** (`RECIPE_TYPE_VALUES`): `dish`, `thermomix`. Ratings are `1..5`.
+- **Three recipe types** (`RECIPE_TYPE_VALUES`): `dish`, `thermomix`, `coffee`. Ratings are `1..5`.
+  Cooking (`dish` + `thermomix`) lives in the app's notebook tab, `coffee` in its own.
 - **Version content is a discriminated union** (`server/domain/recipe/content/`):
-  `VersionContent = DishContent | ThermomixContent`, tagged by `kind` (`'dish' | 'thermomix'`).
+  `VersionContent = DishContent | ThermomixContent | CoffeeContent`, tagged by `kind`.
   `DishContent` = `ingredients` + plain-text `steps`; `ThermomixContent` = `ingredients` + nested
   `steps: ThermomixStep[]` where each `ThermomixStep = { text; settings }` (settings total — `{}`
-  = a plain step). **Invariant `content.kind === recipe.type`** is enforced in
+  = a plain step); `CoffeeContent` is shaped the same, its `CoffeeStep.settings` carrying
+  `grind` / `water` (poured at that step) / `temperature` / `time` / `yield` (what lands in the
+  cup). **Invariant `content.kind === recipe.type`** is enforced in
   `RecipeCommand.create`/`addVersion`, returning `'content-type-mismatch' as const` on a mismatch.
   GraphQL mirrors it: a `VersionContent` union (Pothos `unionType`, `resolveType` on `kind`) and a
-  `VersionContentInput @oneOf { dish, thermomix }` (`isOneOf: true`).
+  `VersionContentInput @oneOf { dish, thermomix, coffee }` (`isOneOf: true`).
 - **Dish category** (`DISH_CATEGORY_VALUES`): `starter`, `main`, `dessert`, `soup`, `sauce`,
   `baking`, `drink`. Detected by the AI at import and held on the aggregate (never versioned —
   the recipe sheet's edit CTA can refile it via `updateRecipe`); the array order IS the library's
-  sort rank, denormalized via `categoryRank`.
+  sort rank, denormalized via `categoryRank`. A coffee is always filed as a `drink` —
+  `RecipeCommand.create` forces it — because its own axis is the brew method.
+- **Brew method** (`BREW_METHOD_VALUES`): `espresso`, `americano`, `flat-white`, `cappuccino`,
+  `latte`, `moka` (Bialetti), `v60`, `chemex`, `drip` (filter machine), `aeropress`,
+  `french-press`, `cold-brew`, `other`. What the dish category is to cooking: detected by the AI
+  at import, held on the aggregate as `Recipe.method`, refilable via `updateRecipe`, and the axis
+  the coffee tab groups and sorts on — array order IS the rank, denormalized via `methodRank`.
+  **Invariant: present if and only if `type === 'coffee'`** (`methodMatchesType`), enforced in
+  `RecipeCommand.create`/`update`, returning `'method-mismatch' as const`. `other` exists so the
+  AI never forces a coffee into a method it was not made with.
 
 ## Lineage and attempts
 
@@ -103,13 +115,23 @@ The prompts in `server/system/ai/index.ts`:
   (`1 c. à café (6 g)` for salt) — quantities already in metric weight/volume and countable
   pieces stay bare.
 - A proposal must apply a remark's concrete value change into the right structured field (a
-  Thermomix time/temperature/speed in the step `settings`, a duration in the dish step text, a
-  quantity on the ingredient) and summarise each change in `changeSummary` as `old → new` — the
+  Thermomix time/temperature/speed in the step `settings`, a grind/water/temperature/time/yield
+  in a coffee step's, a duration in the dish step text, a quantity on the ingredient) and
+  summarise each change in `changeSummary` as `old → new` — the
   arrow being U+2192 and nothing else, a substitution written like a value change
   (`Citrons jaunes 2-3 pièces → Pomelo 1 pièce`) — several changes joined by `, `
   (`Bouillon 50 → 40 cl, cuisson 3 h 30 → 4 h`). Rendered verbatim as the proposal card's title,
   so the prompt must name the arrow character explicitly: told only "a comma-separated list of
   deltas", the model has answered with the comma as the separator *inside* a change.
+- **How far one iteration may go depends on the type** (`iterationRule`):
+  - *Cooking* (`dish`, `thermomix`) — several coherent elements may move at once.
+  - *Coffee* — **exactly one variable per version**: the grind, the dose, the water amount
+    (the ratio), the temperature, the brew time or the yield. Never two. That is the whole point
+    of the notebook here: with a single variable moved, the next tasting says what that variable
+    did; move two and the attempt teaches nothing. When the remarks call for several changes, the
+    model applies the one that most likely explains what was tasted and names in its `rationale`
+    what it is holding back for the iteration after. The brewing method is never changed — a V60
+    recipe stays a V60 (`ProposalContext.method` states it).
 
 ## The plan and the monthly AI allowance
 
