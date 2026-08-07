@@ -11,6 +11,7 @@ import type { UserId } from '~/domain/shared/types'
 import { Ai } from '~/system/ai'
 import type {
   Proposal as AiProposal,
+  ImportCoffeeParameters,
   ImportSource,
   ImportStep,
   ProposalContext,
@@ -32,7 +33,9 @@ const brandProposal = (type: RecipeType, proposal: AiProposal): VersionContent =
   if (type === 'coffee')
     return brandVersionContent({
       kind: 'coffee',
-      ingredients,
+      // The parameters the model answered with — the whole set, one dial moved. A
+      // proposal that returned none lands on the empty blocks rather than throwing.
+      ...(proposal.coffee ?? {}),
       steps: proposal.steps.map((s) => ({ text: s.text, settings: s.coffee })),
     })
   return brandVersionContent({
@@ -48,6 +51,20 @@ const contextIngredients = (content: VersionContent) =>
   content.kind === 'coffee'
     ? []
     : content.ingredients.map((i) => ({ name: i.name as string, quantity: i.quantity as string }))
+
+// The coffee parameters the iteration starts from, as the model reads them: plain
+// strings, the roast date in ISO. Absent on anything that is not a coffee.
+const contextCoffee = (content: VersionContent): ImportCoffeeParameters | undefined => {
+  if (content.kind !== 'coffee') return undefined
+  const { roastedOn, ...beans } = content.beans
+  return {
+    beans: { ...beans, ...(roastedOn ? { roastedOn: roastedOn.toISOString() } : {}) },
+    water: content.water,
+    extraction: content.extraction,
+    ...(content.milk ? { milk: content.milk } : {}),
+    gear: content.gear,
+  }
+}
 
 // Rebuild the AI context steps from a stored version's content: a dish exposes
 // steps that set nothing, a Thermomix recipe and a coffee their own per-step
@@ -101,6 +118,7 @@ export namespace ProposalUseCase {
       // A coffee iterates within its brewing method; it never changes it.
       ...(recipe.method ? { method: recipe.method } : {}),
       currentIngredients: contextIngredients(version.content),
+      ...(contextCoffee(version.content) ? { currentCoffee: contextCoffee(version.content) } : {}),
       currentSteps: contextSteps(version.content),
       currentTips: version.tips.map((tip) => tip as string),
       attempts: 'attempts' in request ? request.attempts : [],

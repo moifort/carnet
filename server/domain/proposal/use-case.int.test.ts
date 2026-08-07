@@ -3,7 +3,10 @@ import type { CoffeeContent } from '~/domain/recipe/content/coffee'
 import type { DishContent } from '~/domain/recipe/content/dish'
 import type { ThermomixContent } from '~/domain/recipe/content/thermomix'
 import type {
+  CoffeeBeanName,
+  CoffeeDose,
   CoffeeGrind,
+  CoffeeMachine,
   CoffeeTemperature,
   CoffeeTime,
   CoffeeYield,
@@ -23,7 +26,7 @@ import type {
   VersionNumber,
 } from '~/domain/recipe/types'
 import type { UserId } from '~/domain/shared/types'
-import type { Proposal as AiProposal, ImportAnalysis } from '~/system/ai/types'
+import type { Proposal as AiProposal, ImportAnalysis, ProposalContext } from '~/system/ai/types'
 import { fakeFirebase, resetFakeFirestore } from '~/test/fake-firestore'
 
 mock.module('~/system/firebase', fakeFirebase)
@@ -33,9 +36,15 @@ mock.module('~/system/firebase', fakeFirebase)
 let proposal: AiProposal
 let analysis: ImportAnalysis | 'no-recipe-found'
 let mergedTips: string[]
+// The context the use-case handed the model on the last call — what a coffee
+// iteration is asserted to start from.
+let lastContext: ProposalContext | undefined
 mock.module('~/system/ai', () => ({
   Ai: {
-    proposeNext: async () => proposal,
+    proposeNext: async (context: ProposalContext) => {
+      lastContext = context
+      return proposal
+    },
     analyzeImport: async () => analysis,
     formatTips: async () => mergedTips,
   },
@@ -71,7 +80,27 @@ const dishContent = (): DishContent => ({
   steps: stepList('Saisir', 'Mijoter'),
 })
 
-const recipeInput = (opts: { type?: 'dish' | 'thermomix' | 'coffee' } = {}) => {
+// The roast date of the filled coffee fixture — fixed, so the ISO string handed to
+// the model is the one asserted.
+const ROASTED_ON = new Date('2026-06-12T00:00:00.000Z')
+
+// A coffee version with something in every block a proposal reads from.
+const filledCoffeeContent = (): CoffeeContent => ({
+  kind: 'coffee',
+  beans: {
+    name: 'Belleville — Guji' as CoffeeBeanName,
+    dose: '18 g' as CoffeeDose,
+    roastedOn: ROASTED_ON,
+  },
+  water: {},
+  extraction: { grind: 'Niveau 12' as CoffeeGrind, time: '28 s' as CoffeeTime },
+  gear: { machine: 'Rancilio Silvia' as CoffeeMachine },
+  steps: [],
+})
+
+const recipeInput = (
+  opts: { type?: 'dish' | 'thermomix' | 'coffee'; coffee?: CoffeeContent } = {},
+) => {
   const type = opts.type ?? ('dish' as const)
   const content =
     type === 'thermomix'
@@ -81,14 +110,15 @@ const recipeInput = (opts: { type?: 'dish' | 'thermomix' | 'coffee' } = {}) => {
           steps: stepList('Saisir', 'Mijoter').map((text) => ({ text, settings: {} })),
         } as ThermomixContent)
       : type === 'coffee'
-        ? ({
+        ? (opts.coffee ??
+          ({
             kind: 'coffee',
             beans: {},
             water: {},
             extraction: {},
             gear: {},
             steps: stepList('Moudre', 'Extraire').map((text) => ({ text, settings: {} })),
-          } as CoffeeContent)
+          } as CoffeeContent))
         : dishContent()
   return {
     type,
@@ -131,6 +161,7 @@ const baseAnalysis = (): ImportAnalysis => ({
 let fake = resetFakeFirestore()
 beforeEach(() => {
   fake = resetFakeFirestore()
+  lastContext = undefined
   premiumUserIds = []
   proposal = baseProposal()
   analysis = baseAnalysis()
@@ -268,6 +299,57 @@ describe('ProposalUseCase.fromAttempt', () => {
           },
         },
       ],
+    })
+  })
+
+  test('hands the model the coffee parameters of the version cooked, and no ingredients', async () => {
+    const coffee = await RecipeCommand.create(
+      userId,
+      recipeInput({ type: 'coffee', coffee: filledCoffeeContent() }),
+    )
+    if (typeof coffee === 'string') throw new Error('expected a recipe')
+
+    await ProposalUseCase.fromAttempt(userId, coffee.id, V1, ATTEMPT)
+
+    expect(lastContext?.currentCoffee).toEqual({
+      beans: { name: 'Belleville — Guji', dose: '18 g', roastedOn: ROASTED_ON.toISOString() },
+      water: {},
+      extraction: { grind: 'Niveau 12', time: '28 s' },
+      gear: { machine: 'Rancilio Silvia' },
+    })
+    // A coffee has no ingredient list to hand over, and its method is fixed.
+    expect(lastContext?.currentIngredients).toEqual([])
+    expect(lastContext?.method).toBe('v60')
+  })
+
+  test('accepts a coffee proposal as the parameters of the next version', async () => {
+    proposal = {
+      ...baseProposal(),
+      steps: [],
+      coffee: {
+        beans: { name: 'Belleville — Guji', dose: '18 g' },
+        water: {},
+        // The single dial that moved.
+        extraction: { grind: 'Niveau 10', time: '28 s' },
+        gear: { machine: 'Rancilio Silvia' },
+      },
+    }
+    const coffee = await RecipeCommand.create(
+      userId,
+      recipeInput({ type: 'coffee', coffee: filledCoffeeContent() }),
+    )
+    if (typeof coffee === 'string') throw new Error('expected a recipe')
+
+    const coffeeProposal = await ProposalUseCase.fromAttempt(userId, coffee.id, V1, ATTEMPT)
+    if (typeof coffeeProposal === 'string') throw new Error('expected a proposal')
+
+    expect(coffeeProposal.content).toEqual({
+      kind: 'coffee',
+      beans: { name: 'Belleville — Guji' as CoffeeBeanName, dose: '18 g' as CoffeeDose },
+      water: {},
+      extraction: { grind: 'Niveau 10' as CoffeeGrind, time: '28 s' as CoffeeTime },
+      gear: { machine: 'Rancilio Silvia' as CoffeeMachine },
+      steps: [],
     })
   })
 })

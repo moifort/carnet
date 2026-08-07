@@ -8,6 +8,7 @@ import {
 } from '~/system/ai/primitives'
 import * as repository from '~/system/ai/repository'
 import type {
+  ImportCoffeeParameters,
   ImportHash as ImportHashType,
   ImportSource,
   ImportStep,
@@ -356,11 +357,12 @@ const proposalResponseSchema = {
     },
     rationale: { type: 'string', description: 'Explanation of the reasoning, written in French' },
     ingredients: ingredientsSchemaProperty,
+    coffee: coffeeParametersSchemaProperty,
     steps: stepsSchemaProperty,
     tips: tipsSchemaProperty,
   },
   required: ['changeSummary', 'rationale', 'ingredients', 'steps', 'tips'],
-  propertyOrdering: ['changeSummary', 'rationale', 'ingredients', 'steps', 'tips'],
+  propertyOrdering: ['changeSummary', 'rationale', 'ingredients', 'coffee', 'steps', 'tips'],
 }
 
 const tipsResponseSchema = {
@@ -398,7 +400,7 @@ const CUISINE_ITERATION_RULE =
 // The scientific constraint of the notebook, and the reason a coffee log is worth
 // keeping: change one thing, taste, learn what that one thing did.
 const COFFEE_ITERATION_RULE =
-  'For a coffee, change EXACTLY ONE variable in this version — the grind, the dose, the water amount (the ratio), the water temperature, the brew time, or the yield. Never two. This is the whole point: with a single variable moved, the next tasting says what that variable did; move two and the result teaches nothing. When the remarks call for several changes, pick the ONE that most likely explains what was tasted (a sour, under-extracted cup asks for a finer grind, a hotter water or a longer contact; a bitter, over-extracted one for the opposite), apply it, and say in the rationale which change you are holding back for the iteration after this one. Never change the brewing method: a V60 recipe stays a V60. Return the COMPLETE ingredient and step list of the next version (not only what changes), with the new value written in the right structured field — a grind/water/temperature/time/yield in that step\'s extraction settings, a dose on the ingredient — never only in the step text. changeSummary names the single variable and its move, as "label old → new", with the arrow character U+2192 between the two (e.g. "Mouture 18 → 16 (plus fine)", "Température 93 → 95°C"). Also return tips: the COMPLETE tips list of the next version — keep the current tips, and when a remark carries advice that changes nothing in the extraction (how to serve it, which beans suit it, how to store them), fold it in as a short reworded tip instead of forcing it into an ingredient or a step.'
+  'For a coffee, change EXACTLY ONE variable in this version, and only one of these: the grind, the dose, the water amount (the ratio), the water temperature, the brew time, the yield, or the milk. Never two. This is the whole point: with a single variable moved, the next tasting says what that variable did; move two and the result teaches nothing. When the remarks call for several changes, pick the ONE that most likely explains what was tasted (a sour, under-extracted cup asks for a finer grind, a hotter water or a longer contact; a bitter, over-extracted one for the opposite), apply it, and say in the rationale which change you are holding back for the iteration after this one. NEVER change the beans (name, country, producer, roast date), the kind of water, or the gear (machine, grinder): those are what the cook observed, not dials you may turn — your job is to set an extraction, not to tell them what to buy. Return them unchanged. Never change the brewing method either: a V60 recipe stays a V60. Return the COMPLETE coffee parameters of the next version in the coffee object (not only what changes), with the new value in its own field, plus the complete step list — never write a value only in a step text. Leave ingredients empty: a coffee has none. changeSummary names the single variable and its move, as "label old → new", with the arrow character U+2192 between the two (e.g. "Mouture Niveau 12 → Niveau 10", "Température 93 → 95°C"). Also return tips: the COMPLETE tips list of the next version — keep the current tips, and when a remark carries advice that changes nothing in the extraction (how to serve it, which beans suit it, how to store them), fold it in as a short reworded tip.'
 
 export namespace Ai {
   export const analyzeImport = async (source: ImportSource) => {
@@ -541,6 +543,29 @@ Reminder: all tips you produce must be written in French.`
     return parts.length ? ` [Extraction: ${parts.join(', ')}]` : ''
   }
 
+  // The coffee parameters, block by block, as the prompt shows them — the state the
+  // single moved variable starts from. A field the cook never filled in is left out
+  // rather than shown empty: nothing to iterate on there.
+  const formatCoffeeParameters = (parameters: ImportCoffeeParameters): string => {
+    const lines = [
+      ['Beans', parameters.beans],
+      ['Water', parameters.water],
+      ['Extraction', parameters.extraction],
+      ['Milk', parameters.milk],
+      ['Gear', parameters.gear],
+    ] as const
+    return (
+      lines
+        .flatMap(([label, block]) => {
+          const entries = Object.entries(block ?? {}).filter(([, value]) => value)
+          return entries.length
+            ? [`- ${label}: ${entries.map(([key, value]) => `${key} ${value}`).join(', ')}`]
+            : []
+        })
+        .join('\n') || '—'
+    )
+  }
+
   const proposalPrompt = (context: ProposalContext): string => {
     const ingredients =
       context.currentIngredients.map((i) => `- ${i.name} : ${i.quantity}`).join('\n') || '—'
@@ -565,10 +590,11 @@ Reminder: all tips you produce must be written in French.`
 MANDATORY: write every generated value — change summary, rationale, ingredient names and quantities, step text — in French. The reader is a French speaker; never answer in English.
 
 ${iterationRule(context.type)}
-${context.method ? `\nBrewing method (fixed, never change it): ${context.method}\n` : ''}
-Current ingredients:
-${ingredients}
-
+${context.method ? `\nBrewing method (fixed, never change it): ${context.method}\n` : ''}${
+  context.currentCoffee
+    ? `\nCurrent coffee parameters:\n${formatCoffeeParameters(context.currentCoffee)}\n`
+    : `\nCurrent ingredients:\n${ingredients}\n`
+}
 Current steps:
 ${steps}
 
@@ -577,7 +603,9 @@ ${tips}
 
 ${request}
 
-Propose an iteration: an improvement of this recipe. Fill changeSummary (a short summary of what changes), rationale (why), ingredients, steps and tips (the COMPLETE lists of the next version).
+Propose an iteration: an improvement of this recipe. Fill changeSummary (a short summary of what changes), rationale (why), ${
+      context.currentCoffee ? 'coffee (the COMPLETE parameters)' : 'ingredients'
+    }, steps and tips (the COMPLETE lists of the next version).
 
 Reminder: all text values you produce must be written in French.`
   }

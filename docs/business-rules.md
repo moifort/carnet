@@ -14,9 +14,17 @@ the digest; this doc is the spec. The mechanics of building a domain live in
   `VersionContent = DishContent | ThermomixContent | CoffeeContent`, tagged by `kind`.
   `DishContent` = `ingredients` + plain-text `steps`; `ThermomixContent` = `ingredients` + nested
   `steps: ThermomixStep[]` where each `ThermomixStep = { text; settings }` (settings total — `{}`
-  = a plain step); `CoffeeContent` is shaped the same, its `CoffeeStep.settings` carrying
-  `grind` / `water` (poured at that step) / `temperature` / `time` / `yield` (what lands in the
-  cup). **Invariant `content.kind === recipe.type`** is enforced in
+  = a plain step). **`CoffeeContent` has no ingredient list**: a coffee is described by
+  `CoffeeParameters` — `beans` (name / country / producer / `roastedOn` / dose), `water` (kind /
+  amount / temperature), `extraction` (grind / time / yield), an optional `milk`, and `gear`
+  (machine / grinder) — plus `steps` that may legitimately be empty. The four blocks are total
+  (`{}` = nothing filled in); `milk` is **absent** on a drink that has none, its absence being the
+  information. Its `CoffeeStep.settings` are unchanged (`grind` / `water` poured at that step /
+  `temperature` / `time` / `yield`), and only a method with real gestures carries steps — an
+  espresso is wholly described by its parameters. `restDays` derives, at read time, how many full
+  days the beans rested between `beans.roastedOn` and the version's `createdAt`: frozen by
+  construction, absent without a roast date or with one in the future.
+  **Invariant `content.kind === recipe.type`** is enforced in
   `RecipeCommand.create`/`addVersion`, returning `'content-type-mismatch' as const` on a mismatch.
   GraphQL mirrors it: a `VersionContent` union (Pothos `unionType`, `resolveType` on `kind`) and a
   `VersionContentInput @oneOf { dish, thermomix, coffee }` (`isOneOf: true`).
@@ -123,8 +131,8 @@ The prompts in `server/system/ai/index.ts`:
   (`1 c. à café (6 g)` for salt) — quantities already in metric weight/volume and countable
   pieces stay bare.
 - A proposal must apply a remark's concrete value change into the right structured field (a
-  Thermomix time/temperature/speed in the step `settings`, a grind/water/temperature/time/yield
-  in a coffee step's, a duration in the dish step text, a quantity on the ingredient) and
+  Thermomix time/temperature/speed in the step `settings`, a grind/time/yield/dose/water in the
+  coffee's `parameters`, a duration in the dish step text, a quantity on the ingredient) and
   summarise each change in `changeSummary` as `old → new` — the
   arrow being U+2192 and nothing else, a substitution written like a value change
   (`Citrons jaunes 2-3 pièces → Pomelo 1 pièce`) — several changes joined by `, `
@@ -133,13 +141,17 @@ The prompts in `server/system/ai/index.ts`:
   deltas", the model has answered with the comma as the separator *inside* a change.
 - **How far one iteration may go depends on the type** (`iterationRule`):
   - *Cooking* (`dish`, `thermomix`) — several coherent elements may move at once.
-  - *Coffee* — **exactly one variable per version**: the grind, the dose, the water amount
-    (the ratio), the temperature, the brew time or the yield. Never two. That is the whole point
-    of the notebook here: with a single variable moved, the next tasting says what that variable
-    did; move two and the attempt teaches nothing. When the remarks call for several changes, the
-    model applies the one that most likely explains what was tasted and names in its `rationale`
-    what it is holding back for the iteration after. The brewing method is never changed — a V60
-    recipe stays a V60 (`ProposalContext.method` states it).
+  - *Coffee* — **exactly one variable per version**, from a closed list: the grind, the dose, the
+    water amount (the ratio), the water temperature, the brew time, the yield or the milk. Never
+    two. That is the whole point of the notebook here: with a single variable moved, the next
+    tasting says what that variable did; move two and the attempt teaches nothing. When the
+    remarks call for several changes, the model applies the one that most likely explains what was
+    tasted and names in its `rationale` what it is holding back for the iteration after. The
+    **beans** (name, country, producer, roast date), the **kind of water** and the **gear** are
+    off-limits: they are what the cook observed, not dials — the model sets an extraction, it does
+    not recommend a purchase. The brewing method is never changed either — a V60 recipe stays a
+    V60 (`ProposalContext.method` states it), and `ProposalContext.currentCoffee` is where the
+    iteration starts from.
 
 ## The plan and the monthly AI allowance
 
