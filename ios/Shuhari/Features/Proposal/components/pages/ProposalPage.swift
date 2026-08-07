@@ -27,6 +27,9 @@ struct ProposalPage: View {
     /// The base steps with their machine settings, so a Thermomix step that only
     /// changed a time, a temperature or a speed still reads as changed.
     let baseSteps: [ThermomixStep]
+    /// The same with their extraction settings, so a coffee step that only changed
+    /// a grind or a temperature still reads as changed.
+    let baseCoffeeSteps: [CoffeeStep]
     /// The base version's tips, to mark what the proposal changes.
     let baseTips: [String]
     let isWorking: Bool
@@ -50,6 +53,8 @@ struct ProposalPage: View {
         /// This step's read-only Thermomix settings (`.plain` for a dish step or a
         /// Thermomix step with no machine settings).
         let settings: ThermomixSettings
+        /// Its read-only extraction settings (`.plain` on anything but a coffee).
+        let extraction: CoffeeSettings
     }
 
     private struct EditableTip: Identifiable {
@@ -72,6 +77,7 @@ struct ProposalPage: View {
         nextVersionNumber: Int,
         baseIngredients: [Ingredient],
         baseSteps: [ThermomixStep],
+        baseCoffeeSteps: [CoffeeStep] = [],
         baseTips: [String] = [],
         isWorking: Bool,
         suggestedRecipeTitle: String,
@@ -84,6 +90,7 @@ struct ProposalPage: View {
         self.nextVersionNumber = nextVersionNumber
         self.baseIngredients = baseIngredients
         self.baseSteps = baseSteps
+        self.baseCoffeeSteps = baseCoffeeSteps
         self.baseTips = baseTips
         self.isWorking = isWorking
         self.suggestedRecipeTitle = suggestedRecipeTitle
@@ -98,10 +105,19 @@ struct ProposalPage: View {
         self._tips = State(initialValue: proposal.tips.map { EditableTip(text: $0) })
     }
 
-    /// The proposal's steps as editable rows, each keeping its own settings — a dish
-    /// step (or a plain Thermomix step) carries `.plain`.
+    /// The proposal's steps as editable rows, each keeping its own settings — a
+    /// step that sets nothing (a dish step, or a machine/brewing step with no
+    /// setting) carries `.plain` on both sides.
     private static func editableSteps(from content: VersionContent) -> [EditableStep] {
-        content.stepsWithSettings.map { EditableStep(text: $0.text, settings: $0.settings) }
+        let machine = content.stepsWithSettings
+        let extraction = content.stepsWithExtraction
+        return machine.indices.map { index in
+            EditableStep(
+                text: machine[index].text,
+                settings: machine[index].settings,
+                extraction: extraction[index].settings
+            )
+        }
     }
 
     var body: some View {
@@ -219,6 +235,15 @@ struct ProposalPage: View {
                                 reverse: step.settings.reverse
                             )
                         }
+                        if !step.extraction.isEmpty {
+                            CoffeeSettingBadges(
+                                grind: step.extraction.grind,
+                                water: step.extraction.water,
+                                temperature: step.extraction.temperature,
+                                time: step.extraction.time,
+                                cupYield: step.extraction.cupYield
+                            )
+                        }
                     }
                 }
             }
@@ -263,10 +288,14 @@ struct ProposalPage: View {
     }
 
     /// A step differs when the base version carries no step with the exact same
-    /// text AND the exact same machine settings — a Thermomix step retimed or
-    /// reheated changes without a word of its text moving.
+    /// text AND the exact same settings — a Thermomix step retimed or reheated, or
+    /// a coffee step reground, changes without a word of its text moving. On a
+    /// coffee that is the whole point: the one variable that moved is the change.
     private func stepDiffers(_ step: EditableStep) -> Bool {
-        !baseSteps.contains(ThermomixStep(text: step.text, settings: step.settings))
+        if case .coffee = proposal.content {
+            return !baseCoffeeSteps.contains(CoffeeStep(text: step.text, settings: step.extraction))
+        }
+        return !baseSteps.contains(ThermomixStep(text: step.text, settings: step.settings))
     }
 
     // MARK: - Accepted proposal
@@ -282,14 +311,14 @@ struct ProposalPage: View {
 
     /// The COMPLETE proposal to accept: the AI summary, rationale and `basedOn`
     /// carried through unchanged, the ingredients and steps from the form's current
-    /// state. The content arm mirrors the proposal's — a Thermomix step keeps its
-    /// own settings, so there is nothing to re-align.
+    /// state. The content arm mirrors the proposal's — each step keeps its own
+    /// settings, so there is nothing to re-align.
     private var currentProposal: ProposalEdit {
         // Drop emptied steps; each surviving row already carries its own settings.
         let survivingSteps = steps.compactMap { row -> EditableStep? in
             let text = row.text.trimmingCharacters(in: .whitespacesAndNewlines)
             guard !text.isEmpty else { return nil }
-            return EditableStep(text: text, settings: row.settings)
+            return EditableStep(text: text, settings: row.settings, extraction: row.extraction)
         }
         let content: VersionContent
         switch proposal.content {
@@ -299,6 +328,11 @@ struct ProposalPage: View {
             content = .thermomix(
                 ingredients: currentIngredients,
                 steps: survivingSteps.map { ThermomixStep(text: $0.text, settings: $0.settings) }
+            )
+        case .coffee:
+            content = .coffee(
+                ingredients: currentIngredients,
+                steps: survivingSteps.map { CoffeeStep(text: $0.text, settings: $0.extraction) }
             )
         }
 

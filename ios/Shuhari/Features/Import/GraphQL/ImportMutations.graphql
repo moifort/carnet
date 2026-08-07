@@ -3,6 +3,7 @@ mutation AnalyzeImport($photos: [String!]!, $url: String, $text: String) {
     title
     type
     category
+    method
     sourceLabel
     ingredients {
       name
@@ -10,11 +11,18 @@ mutation AnalyzeImport($photos: [String!]!, $url: String, $text: String) {
     }
     steps {
       text
-      settings {
+      thermomix {
         time
         temperature
         speed
         reverse
+      }
+      coffee {
+        grind
+        water
+        temperature
+        time
+        yield
       }
     }
     tips

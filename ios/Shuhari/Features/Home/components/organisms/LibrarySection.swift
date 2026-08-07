@@ -1,15 +1,16 @@
 import SwiftUI
 
 /// The paginated library, always cut into sections along the axis it is sorted on:
-/// the month of the last update ("Juillet 2026") or the dish course ("Entrée",
-/// "Plat", …), the server ordering the rows within a section either way. Each row
-/// navigates into the recipe sheet and prefetches the next page as it appears; a
-/// `LoadMoreRow` sentinel closes the list while more pages remain. Composes as
-/// `Section`s / rows directly inside a `List`.
+/// the month of the last update ("Juillet 2026"), the dish course ("Entrée",
+/// "Plat", …) or the brew method ("Espresso", "V60", …), the server ordering the
+/// rows within a section either way. Each row navigates into the recipe sheet and
+/// prefetches the next page as it appears; a `LoadMoreRow` sentinel closes the
+/// list while more pages remain. Composes as `Section`s / rows directly inside a
+/// `List`. Serves both the cooking notebook and the coffee tab.
 struct LibrarySection: View {
     let recipes: [LibraryRecipe]
     /// The section axis: `.month` for the "Dernière modification" sort, `.course`
-    /// for the "Type de plat" sort.
+    /// for "Type de plat", `.method` for the coffee tab's "Méthode".
     let grouping: LibraryGrouping
     var hasMore: Bool = false
     var loadMoreFailed: Bool = false
@@ -24,6 +25,10 @@ struct LibrarySection: View {
             }
         case .course:
             ForEach(LibraryCourseGroup.grouping(recipes)) { group in
+                section(group.label, group.recipes)
+            }
+        case .method:
+            ForEach(LibraryMethodGroup.grouping(recipes)) { group in
                 section(group.label, group.recipes)
             }
         }
@@ -81,6 +86,14 @@ struct LibrarySection: View {
     NavigationStack {
         List {
             LibrarySection(recipes: Fixtures.libraryRecipes, grouping: .course)
+        }
+    }
+}
+
+#Preview("Par méthode") {
+    NavigationStack {
+        List {
+            LibrarySection(recipes: Fixtures.coffeeRecipes, grouping: .method)
         }
     }
 }

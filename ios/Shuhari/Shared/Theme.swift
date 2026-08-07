@@ -13,6 +13,9 @@ enum Theme {
         static let changed = Self.attempt
         /// Thermomix machine settings.
         static let thermomix = Color.teal
+        /// Coffee extraction settings — the machine-settings badge in the coffee
+        /// tab, kept apart from the Thermomix teal so the two never read alike.
+        static let coffee = Color.brown
         /// A recipe kept as a favourite — the heart, wherever it appears.
         static let favorite = Color.red
 

@@ -1,6 +1,7 @@
 query RecipeList(
-  $type: RecipeType
+  $types: [RecipeType!]
   $category: DishCategory
+  $method: BrewMethod
   $favorite: Boolean
   $sort: RecipeSort
   $order: SortOrder
@@ -8,8 +9,9 @@ query RecipeList(
   $after: RecipeId
 ) {
   recipes(
-    type: $type
+    types: $types
     category: $category
+    method: $method
     favorite: $favorite
     sort: $sort
     order: $order
@@ -21,6 +23,7 @@ query RecipeList(
       title
       type
       category
+      method
       favorite
       updatedAt
       versionCount

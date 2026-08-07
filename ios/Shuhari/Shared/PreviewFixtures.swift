@@ -206,6 +206,105 @@ enum Fixtures {
         versionToOpen: risottoV2
     )
 
+    // MARK: - Coffee
+
+    static let v60Ingredients = [
+        Ingredient(name: "Café (Éthiopie Guji, torréfaction claire)", quantity: "18 g"),
+        Ingredient(name: "Eau", quantity: "300 g"),
+    ]
+
+    static let v60Steps = [
+        CoffeeStep(
+            text: "Rincer le filtre à l’eau chaude et jeter l’eau de rinçage.",
+            settings: .plain
+        ),
+        CoffeeStep(
+            text: "Moudre le café et le déposer dans le cône.",
+            settings: CoffeeSettings(
+                grind: "moyenne", water: nil, temperature: nil, time: nil, cupYield: nil
+            )
+        ),
+        CoffeeStep(
+            text: "Verser l’eau de pré-infusion et laisser gonfler.",
+            settings: CoffeeSettings(
+                grind: nil, water: "50 g", temperature: "94°C", time: "45 s", cupYield: nil
+            )
+        ),
+        CoffeeStep(
+            text: "Verser le reste de l’eau en spirale, en trois fois.",
+            settings: CoffeeSettings(
+                grind: nil, water: "250 g", temperature: "94°C", time: "2 min 30", cupYield: "300 g"
+            )
+        ),
+    ]
+
+    static let v60V1 = RecipeVersion(
+        number: 1, basedOn: nil, change: nil, why: nil, originKind: .import,
+        originDetail: "Photo du sachet",
+        content: .coffee(ingredients: v60Ingredients, steps: v60Steps),
+        tips: ["Rincer le filtre à l’eau chaude avant de doser."],
+        recipeId: "v60",
+        rating: 3, remarks: "Un peu acide, ça manque de corps.",
+        executedAt: date.addingTimeInterval(-86_400 * 5),
+        photoUrl: nil,
+        createdAt: date.addingTimeInterval(-86_400 * 6)
+    )
+
+    /// The one-variable-per-iteration rule made visible: only the grind moved.
+    static let v60V2 = RecipeVersion(
+        number: 2,
+        basedOn: 1,
+        change: "Mouture moyenne → fine",
+        why: "Une tasse acide est sous-extraite : resserrer la mouture allonge le contact.",
+        originKind: .aiProposal,
+        originDetail: nil,
+        content: .coffee(
+            ingredients: v60Ingredients,
+            steps: v60Steps.map {
+                $0.settings.grind == nil
+                    ? $0
+                    : CoffeeStep(
+                        text: $0.text,
+                        settings: CoffeeSettings(
+                            grind: "fine", water: nil, temperature: nil, time: nil, cupYield: nil
+                        )
+                    )
+            }
+        ),
+        tips: ["Rincer le filtre à l’eau chaude avant de doser."],
+        recipeId: "v60",
+        rating: 5, remarks: "Beaucoup plus rond.",
+        executedAt: date.addingTimeInterval(-86_400),
+        photoUrl: nil,
+        createdAt: date.addingTimeInterval(-86_400 * 2)
+    )
+
+    static let v60 = Recipe(
+        id: "v60",
+        title: "V60 Éthiopie Guji",
+        type: .coffee,
+        category: .drink,
+        method: .v60,
+        favorite: true,
+        createdAt: date.addingTimeInterval(-86_400 * 6),
+        updatedAt: date,
+        versions: [v60V1, v60V2],
+        bestRating: 5,
+        versionToOpen: v60V2
+    )
+
+    /// A page of coffees spanning several brewing methods — backs the coffee tab
+    /// in previews and the debug gallery.
+    static let coffeeRecipes = [
+        LibraryRecipe(id: "espresso", title: "Espresso Brésil Santa Lúcia", type: .coffee, category: .drink, method: .espresso, favorite: true, versionCount: 5, toTestCount: 1, bestRating: 5, updatedAt: Date()),
+        LibraryRecipe(id: "flat-white", title: "Flat white du matin", type: .coffee, category: .drink, method: .flatWhite, favorite: false, versionCount: 2, toTestCount: 0, bestRating: 4, updatedAt: Date().addingTimeInterval(-2 * 86_400)),
+        LibraryRecipe(id: "bialetti", title: "Bialetti 3 tasses", type: .coffee, category: .drink, method: .moka, favorite: false, versionCount: 1, toTestCount: 0, bestRating: 3, updatedAt: Date().addingTimeInterval(-9 * 86_400)),
+        LibraryRecipe(id: "v60", title: "V60 Éthiopie Guji", type: .coffee, category: .drink, method: .v60, favorite: true, versionCount: 2, toTestCount: 0, bestRating: 5, updatedAt: Date().addingTimeInterval(-12 * 86_400)),
+        LibraryRecipe(id: "chemex", title: "Chemex du dimanche", type: .coffee, category: .drink, method: .chemex, favorite: false, versionCount: 3, toTestCount: 1, bestRating: 4, updatedAt: Date().addingTimeInterval(-38 * 86_400)),
+        LibraryRecipe(id: "moccamaster", title: "Moccamaster 1 L", type: .coffee, category: .drink, method: .drip, favorite: false, versionCount: 1, toTestCount: 0, bestRating: nil, updatedAt: Date().addingTimeInterval(-41 * 86_400)),
+        LibraryRecipe(id: "french-press", title: "French press dosage double", type: .coffee, category: .drink, method: .frenchPress, favorite: false, versionCount: 2, toTestCount: 0, bestRating: 3, updatedAt: Date().addingTimeInterval(-44 * 86_400)),
+    ]
+
     // MARK: - Fresh import (nothing rated yet, v1 never tried)
 
     /// A just-imported recipe: a single untried v1, nothing rated yet. The recipe sheet
@@ -295,6 +394,35 @@ enum Fixtures {
         )
     )
 
+    /// A coffee proposal, and the one-variable rule made visible: the summary names
+    /// a single change, and the rationale says what is being held back for the next
+    /// version rather than piling it on now.
+    static let proposalCoffee = Proposal(
+        basedOn: 2,
+        changeSummary: "Température 94 → 92°C",
+        rationale: "La tasse est encore un peu astringente : baisser la température seule dit si c’est bien l’extraction. Si ça ne suffit pas, on desserrera la mouture à l’itération suivante.",
+        // Built off v2 (the version it iterates on), so the only thing that moves is
+        // the temperature — exactly what the rule promises.
+        content: .coffee(
+            ingredients: v60Ingredients,
+            steps: v60V2.content.stepsWithExtraction.map {
+                $0.settings.temperature == nil
+                    ? $0
+                    : CoffeeStep(
+                        text: $0.text,
+                        settings: CoffeeSettings(
+                            grind: $0.settings.grind,
+                            water: $0.settings.water,
+                            temperature: "92°C",
+                            time: $0.settings.time,
+                            cupYield: $0.settings.cupYield
+                        )
+                    )
+            }
+        ),
+        tips: ["Rincer le filtre à l’eau chaude avant de doser."]
+    )
+
     static let importAnalysis = ImportAnalysis(
         title: "Cookies aux noix de pécan",
         type: .dish,
@@ -311,7 +439,7 @@ enum Fixtures {
             "Incorporer l’œuf puis les poudres.",
             "Ajouter les noix de pécan torréfiées.",
             "Cuire 12 min à 180 °C.",
-        ].map { ThermomixStep(text: $0, settings: .plain) },
+        ].map { ImportStep(text: $0, thermomix: .plain, coffee: .plain) },
         tips: [
             "Réserver la pâte 1 h au frais avant de former les boules.",
             "Se congèlent crus, à cuire sans décongeler.",
@@ -324,8 +452,19 @@ enum Fixtures {
         type: .thermomix,
         category: .main,
         ingredients: risottoIngredients,
-        steps: risottoSteps,
+        steps: risottoSteps.map { ImportStep(text: $0.text, thermomix: $0.settings, coffee: .plain) },
         sourceLabel: "Photo du livre Thermomix"
+    )
+
+    static let importAnalysisCoffee = ImportAnalysis(
+        title: "V60 Éthiopie Guji",
+        type: .coffee,
+        category: .drink,
+        method: .v60,
+        ingredients: v60Ingredients,
+        steps: v60Steps.map { ImportStep(text: $0.text, thermomix: .plain, coffee: $0.settings) },
+        tips: ["Rincer le filtre à l’eau chaude avant de doser."],
+        sourceLabel: "Photo du sachet"
     )
 
     /// A page of library rows spanning both cooking types and a couple of months —

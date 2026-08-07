@@ -49,15 +49,23 @@ enum ImportAPI {
             title: normalizedTitle(analysis.title),
             type: RecipeType(graphql: analysis.type),
             category: DishCategory(graphql: analysis.category),
+            method: BrewMethod(graphql: analysis.method),
             ingredients: analysis.ingredients.map { Ingredient(name: $0.name, quantity: $0.quantity) },
             steps: analysis.steps.map { step in
-                ThermomixStep(
+                ImportStep(
                     text: step.text,
-                    settings: ThermomixSettings(
-                        time: step.settings.time,
-                        temperature: step.settings.temperature,
-                        speed: step.settings.speed,
-                        reverse: step.settings.reverse ?? false
+                    thermomix: ThermomixSettings(
+                        time: step.thermomix.time,
+                        temperature: step.thermomix.temperature,
+                        speed: step.thermomix.speed,
+                        reverse: step.thermomix.reverse ?? false
+                    ),
+                    coffee: CoffeeSettings(
+                        grind: step.coffee.grind,
+                        water: step.coffee.water,
+                        temperature: step.coffee.temperature,
+                        time: step.coffee.time,
+                        cupYield: step.coffee.yield
                     )
                 )
             },
@@ -68,19 +76,30 @@ enum ImportAPI {
 
     /// Create a recipe and its v1 from a confirmed preview. Returns the recipe id.
     /// The content arm mirrors the detected type: a dish keeps plain-text steps, a
-    /// Thermomix recipe keeps each step's machine settings.
+    /// Thermomix recipe its machine settings, a coffee its extraction settings —
+    /// the settings the type does not use are dropped here.
     static func create(_ analysis: ImportAnalysis) async throws -> String {
         let content: VersionContent
         switch analysis.type {
         case .dish:
             content = .dish(ingredients: analysis.ingredients, steps: analysis.steps.map(\.text))
         case .thermomix:
-            content = .thermomix(ingredients: analysis.ingredients, steps: analysis.steps)
+            content = .thermomix(
+                ingredients: analysis.ingredients,
+                steps: analysis.steps.map(\.asThermomixStep)
+            )
+        case .coffee:
+            content = .coffee(
+                ingredients: analysis.ingredients,
+                steps: analysis.steps.map(\.asCoffeeStep)
+            )
         }
         return try await RecipeAPI.createRecipe(
             title: analysis.title,
             type: analysis.type,
             category: analysis.category,
+            // A coffee always carries a method; the server rejects one without.
+            method: analysis.type == .coffee ? (analysis.method ?? .other) : nil,
             content: content,
             tips: analysis.tips,
             sourceLabel: analysis.sourceLabel

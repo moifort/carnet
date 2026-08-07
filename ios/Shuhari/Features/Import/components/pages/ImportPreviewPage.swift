@@ -20,6 +20,10 @@ struct ImportPreviewPage: View {
     @State private var title: String
     @State private var type: RecipeType
     @State private var category: DishCategory
+    /// The brew method, only ever shown (and sent) when the type is coffee. It
+    /// keeps a value across a type switch so toggling back restores what the AI
+    /// detected.
+    @State private var method: BrewMethod
     @State private var ingredients: [EditableIngredient]
     @State private var stepTexts: [String]
     @State private var tipTexts: [String]
@@ -37,6 +41,7 @@ struct ImportPreviewPage: View {
         self._title = State(initialValue: analysis.title)
         self._type = State(initialValue: analysis.type)
         self._category = State(initialValue: analysis.category)
+        self._method = State(initialValue: analysis.method ?? .other)
         self._ingredients = State(initialValue: analysis.ingredients.map {
             EditableIngredient(name: $0.name, quantity: $0.quantity)
         })
@@ -65,15 +70,29 @@ struct ImportPreviewPage: View {
                 )
                 .accessibilityIdentifier("import-type-picker")
 
-                IconPicker(
-                    title: "Catégorie",
-                    systemImage: "tag",
-                    options: DishCategory.allCases,
-                    icon: \.iconImage,
-                    label: \.label,
-                    selection: $category
-                )
-                .accessibilityIdentifier("import-category-picker")
+                // A coffee is filed by how it is brewed, not by a dish course — the
+                // two pickers are the same slot, the type decides which one shows.
+                if type == .coffee {
+                    IconPicker(
+                        title: "Méthode",
+                        systemImage: "cup.and.saucer",
+                        options: BrewMethod.allCases,
+                        icon: \.iconImage,
+                        label: \.label,
+                        selection: $method
+                    )
+                    .accessibilityIdentifier("import-method-picker")
+                } else {
+                    IconPicker(
+                        title: "Catégorie",
+                        systemImage: "tag",
+                        options: DishCategory.allCases,
+                        icon: \.iconImage,
+                        label: \.label,
+                        selection: $category
+                    )
+                    .accessibilityIdentifier("import-category-picker")
+                }
             }
 
             if !ingredients.isEmpty {
@@ -161,35 +180,59 @@ struct ImportPreviewPage: View {
             VStack(alignment: .leading, spacing: 6) {
                 TextField("Étape", text: $stepTexts[index], axis: .vertical)
                     .lineLimit(1...6)
-                thermomixBadges(at: index)
+                stepBadges(at: index)
             }
         }
     }
 
+    /// The settings the AI extracted for this step, read-only next to the editable
+    /// text: the machine ones on a Thermomix recipe, the extraction ones on a
+    /// coffee. The detected type decides which, so switching it in the picker
+    /// switches the badges too.
     @ViewBuilder
-    private func thermomixBadges(at index: Int) -> some View {
-        if let step = analysis.steps[safe: index], !step.settings.isEmpty {
-            ThermomixSettingBadges(
-                time: step.settings.time,
-                temperature: step.settings.temperature,
-                speed: step.settings.speed,
-                reverse: step.settings.reverse
-            )
+    private func stepBadges(at index: Int) -> some View {
+        if let step = analysis.steps[safe: index] {
+            switch type {
+            case .thermomix where !step.thermomix.isEmpty:
+                ThermomixSettingBadges(
+                    time: step.thermomix.time,
+                    temperature: step.thermomix.temperature,
+                    speed: step.thermomix.speed,
+                    reverse: step.thermomix.reverse
+                )
+            case .coffee where !step.coffee.isEmpty:
+                CoffeeSettingBadges(
+                    grind: step.coffee.grind,
+                    water: step.coffee.water,
+                    temperature: step.coffee.temperature,
+                    time: step.coffee.time,
+                    cupYield: step.coffee.cupYield
+                )
+            default:
+                EmptyView()
+            }
         }
     }
 
     private var edited: ImportAnalysis {
         // Drop blank steps (the server rejects empty StepText); each surviving step
-        // keeps its own settings (`.plain` when it has none).
+        // keeps both its settings objects (`.plain` when it has none) — the type
+        // picked here decides which of the two is kept on create.
         let trimmedSteps = stepTexts.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
         let keptIndices = trimmedSteps.indices.filter { !trimmedSteps[$0].isEmpty }
         let steps = keptIndices.map { index in
-            ThermomixStep(text: trimmedSteps[index], settings: analysis.steps[safe: index]?.settings ?? .plain)
+            ImportStep(
+                text: trimmedSteps[index],
+                thermomix: analysis.steps[safe: index]?.thermomix ?? .plain,
+                coffee: analysis.steps[safe: index]?.coffee ?? .plain
+            )
         }
         return ImportAnalysis(
             title: title.trimmingCharacters(in: .whitespacesAndNewlines),
             type: type,
             category: category,
+            // A coffee always carries a method; anything else carries none.
+            method: type == .coffee ? method : nil,
             ingredients: ingredients.compactMap { row in
                 let name = row.name.trimmingCharacters(in: .whitespacesAndNewlines)
                 let quantity = row.quantity.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -223,6 +266,12 @@ private extension Array {
 #Preview("Thermomix") {
     NavigationStack {
         ImportPreviewPage(analysis: Fixtures.importAnalysisThermomix, isSaving: false, onCancel: {}, onSave: { _ in })
+    }
+}
+
+#Preview("Café") {
+    NavigationStack {
+        ImportPreviewPage(analysis: Fixtures.importAnalysisCoffee, isSaving: false, onCancel: {}, onSave: { _ in })
     }
 }
 #endif

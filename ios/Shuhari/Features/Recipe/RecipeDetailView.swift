@@ -134,9 +134,15 @@ struct RecipeDetailView: View {
                 .sheet(isPresented: $showEdit) {
                     RecipeEditSheet(
                         initialTitle: recipe.title,
-                        initialCategory: recipe.category
-                    ) { title, category in
-                        try await RecipeAPI.updateRecipe(id: recipeId, title: title, category: category)
+                        initialCategory: recipe.category,
+                        initialMethod: recipe.method
+                    ) { title, category, method in
+                        try await RecipeAPI.updateRecipe(
+                            id: recipeId,
+                            title: title,
+                            category: category,
+                            method: method
+                        )
                         await viewModel.load()
                         // The library behind carries the new name and re-files the row
                         // under its new course.

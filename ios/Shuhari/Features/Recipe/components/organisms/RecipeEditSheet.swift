@@ -1,28 +1,39 @@
 import SwiftUI
 
-/// A minimal edit sheet for what a recipe can be retouched on: its title and its
-/// course. The type stays fixed — a dish never becomes a Thermomix recipe, its
-/// versions are shaped by it.
+/// A minimal edit sheet for what a recipe can be retouched on: its title, and the
+/// axis it is filed on — its dish course, or its brew method when it is a coffee.
+/// The type stays fixed — a dish never becomes a Thermomix recipe, its versions
+/// are shaped by it.
 struct RecipeEditSheet: View {
     let initialTitle: String
     let initialCategory: DishCategory
-    let onSave: (_ title: String, _ category: DishCategory) async throws -> Void
+    /// Set on a coffee and on nothing else: it swaps the course picker for the
+    /// method one, and it is what gets saved.
+    let initialMethod: BrewMethod?
+    let onSave: (_ title: String, _ category: DishCategory, _ method: BrewMethod?) async throws -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var title: String
     @State private var category: DishCategory
+    @State private var method: BrewMethod
     @State private var error = ErrorPresenter()
+
+    /// A coffee is filed by how it is brewed, everything else by its course.
+    private var isCoffee: Bool { initialMethod != nil }
 
     init(
         initialTitle: String,
         initialCategory: DishCategory,
-        onSave: @escaping (_ title: String, _ category: DishCategory) async throws -> Void
+        initialMethod: BrewMethod? = nil,
+        onSave: @escaping (_ title: String, _ category: DishCategory, _ method: BrewMethod?) async throws -> Void
     ) {
         self.initialTitle = initialTitle
         self.initialCategory = initialCategory
+        self.initialMethod = initialMethod
         self.onSave = onSave
         self._title = State(initialValue: initialTitle)
         self._category = State(initialValue: initialCategory)
+        self._method = State(initialValue: initialMethod ?? .other)
     }
 
     var body: some View {
@@ -33,15 +44,27 @@ struct RecipeEditSheet: View {
                         .accessibilityIdentifier("edit-title-field")
                 }
                 Section {
-                    IconPicker(
-                        title: "Catégorie",
-                        systemImage: "tag",
-                        options: DishCategory.allCases,
-                        icon: \.iconImage,
-                        label: \.label,
-                        selection: $category
-                    )
-                    .accessibilityIdentifier("edit-category-picker")
+                    if isCoffee {
+                        IconPicker(
+                            title: "Méthode",
+                            systemImage: "cup.and.saucer",
+                            options: BrewMethod.allCases,
+                            icon: \.iconImage,
+                            label: \.label,
+                            selection: $method
+                        )
+                        .accessibilityIdentifier("edit-method-picker")
+                    } else {
+                        IconPicker(
+                            title: "Catégorie",
+                            systemImage: "tag",
+                            options: DishCategory.allCases,
+                            icon: \.iconImage,
+                            label: \.label,
+                            selection: $category
+                        )
+                        .accessibilityIdentifier("edit-category-picker")
+                    }
                 }
             }
             .navigationTitle("Modifier")
@@ -60,7 +83,8 @@ struct RecipeEditSheet: View {
                             await error.run {
                                 try await onSave(
                                     title.trimmingCharacters(in: .whitespacesAndNewlines),
-                                    category
+                                    category,
+                                    isCoffee ? method : nil
                                 )
                             } onSuccess: { dismiss() }
                         }
@@ -78,12 +102,23 @@ struct RecipeEditSheet: View {
     }
 }
 
-#Preview {
+#Preview("Plat") {
+    Text("Fond")
+        .sheet(isPresented: .constant(true)) {
+            RecipeEditSheet(
+                initialTitle: "Bœuf bourguignon",
+                initialCategory: .main
+            ) { _, _, _ in }
+        }
+}
+
+#Preview("Café") {
     Text("Fond")
         .sheet(isPresented: .constant(true)) {
             RecipeEditSheet(
                 initialTitle: "Espresso — Brésil Santa Lúcia",
-                initialCategory: .drink
-            ) { _, _ in }
+                initialCategory: .drink,
+                initialMethod: .espresso
+            ) { _, _, _ in }
         }
 }

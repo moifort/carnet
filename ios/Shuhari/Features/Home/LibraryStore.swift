@@ -1,12 +1,22 @@
 import Foundation
 
-/// The paginated library read-model, backing the notebook's recipe list. Accumulates
-/// server pages of the `recipes(...)` query and reloads page 0 whenever the sort or
-/// a facet changes. Mirrors the vinarium `WineListViewModel` pattern:
-/// generation token against stale responses, prefetch threshold for infinite scroll,
-/// a `LoadMoreRow` sentinel that flips to a retry button on failure.
+/// The paginated library read-model, backing both the notebook's recipe list and
+/// the coffee tab's. Accumulates server pages of the `recipes(...)` query and
+/// reloads page 0 whenever the sort or a facet changes. Mirrors the vinarium
+/// `WineListViewModel` pattern: generation token against stale responses, prefetch
+/// threshold for infinite scroll, a `LoadMoreRow` sentinel that flips to a retry
+/// button on failure.
 @MainActor @Observable
 final class LibraryStore {
+    /// Which recipe types this store reads — the one thing that tells the notebook
+    /// (`RecipeType.cooking`) and the coffee tab (`[.coffee]`) apart. Fixed for the
+    /// store's life: a tab never changes what it is about.
+    private let types: [RecipeType]
+
+    init(types: [RecipeType] = RecipeType.cooking) {
+        self.types = types
+    }
+
     /// Pages accumulated from the server, in the current sort order.
     private(set) var items: [LibraryRecipe] = []
     /// Starts true to avoid a "Aucune recette" flash before the first load().
@@ -34,6 +44,12 @@ final class LibraryStore {
     /// single course is meaningless) regardless of `sort`.
     var category: DishCategory? {
         didSet { if oldValue != category { scheduleReload() } }
+    }
+
+    /// Server-side brew-method facet, the coffee tab's counterpart of `category`.
+    /// `nil` = every method. Coerces the ordering the same way when set.
+    var method: BrewMethod? {
+        didSet { if oldValue != method { scheduleReload() } }
     }
 
     private let pageSize = 20
@@ -147,7 +163,9 @@ final class LibraryStore {
 
     private func fetchPage(after: String?) async throws -> RecipePage {
         try await LibraryAPI.list(
+            types: types,
             category: category,
+            method: method,
             favorite: favorite,
             sort: sort,
             limit: pageSize,

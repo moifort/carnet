@@ -22,6 +22,7 @@ enum RecipeAPI {
         title: String,
         type: RecipeType,
         category: DishCategory,
+        method: BrewMethod? = nil,
         content: VersionContent,
         tips: [String] = [],
         sourceLabel: String?
@@ -29,6 +30,7 @@ enum RecipeAPI {
         let input = ShuhariGraphQL.CreateRecipeInput(
             category: category.graphQLValue,
             content: GraphQLHelpers.versionContentInput(content),
+            method: GraphQLHelpers.graphQLNullable(method?.graphQLValue),
             sourceLabel: GraphQLHelpers.graphQLNullable(sourceLabel),
             tips: tips,
             title: title,
@@ -57,17 +59,20 @@ enum RecipeAPI {
         )
     }
 
-    /// Retouch the aggregate: rename it, refile it under another course, mark it a
-    /// favourite, or any combination. A field left nil is left alone.
+    /// Retouch the aggregate: rename it, refile it under another course or another
+    /// brew method, mark it a favourite, or any combination. A field left nil is
+    /// left alone. The type itself is fixed for good.
     static func updateRecipe(
         id: String,
         title: String? = nil,
         category: DishCategory? = nil,
+        method: BrewMethod? = nil,
         favorite: Bool? = nil
     ) async throws {
         let input = ShuhariGraphQL.UpdateRecipeInput(
             category: GraphQLHelpers.graphQLNullable(category?.graphQLValue),
             favorite: GraphQLHelpers.graphQLNullable(favorite),
+            method: GraphQLHelpers.graphQLNullable(method?.graphQLValue),
             title: GraphQLHelpers.graphQLNullable(title)
         )
         _ = try await GraphQLHelpers.perform(
@@ -94,6 +99,7 @@ func mapRecipe(_ r: ShuhariGraphQL.RecipeQuery.Data.Recipe) -> Recipe {
         title: r.title,
         type: RecipeType(graphql: r.type),
         category: DishCategory(graphql: r.category),
+        method: BrewMethod(graphql: r.method),
         favorite: r.favorite,
         warnings: r.warnings,
         createdAt: GraphQLHelpers.parseISO8601(r.createdAt) ?? Date(),
@@ -155,6 +161,23 @@ func mapVersionContent(_ c: ShuhariGraphQL.VersionContentFields) -> VersionConte
                         temperature: step.settings.temperature,
                         speed: step.settings.speed,
                         reverse: step.settings.reverse ?? false
+                    )
+                )
+            }
+        )
+    }
+    if let coffee = c.asCoffeeContent {
+        return .coffee(
+            ingredients: coffee.ingredients.map { Ingredient(name: $0.name, quantity: $0.quantity) },
+            steps: coffee.coffeeSteps.map { step in
+                CoffeeStep(
+                    text: step.text,
+                    settings: CoffeeSettings(
+                        grind: step.settings.grind,
+                        water: step.settings.water,
+                        temperature: step.settings.temperature,
+                        time: step.settings.time,
+                        cupYield: step.settings.yield
                     )
                 )
             }

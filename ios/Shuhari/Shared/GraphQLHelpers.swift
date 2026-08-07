@@ -96,9 +96,22 @@ enum GraphQLHelpers {
         )
     }
 
+    /// One step's extraction settings as the API spells them. Total like the
+    /// Thermomix ones: a step that sets nothing is an input with every field absent.
+    static func coffeeSettingsInput(_ settings: CoffeeSettings) -> ShuhariGraphQL.CoffeeSettingsInput {
+        ShuhariGraphQL.CoffeeSettingsInput(
+            grind: graphQLNullable(settings.grind),
+            temperature: graphQLNullable(settings.temperature),
+            time: graphQLNullable(settings.time),
+            water: graphQLNullable(settings.water),
+            yield: graphQLNullable(settings.cupYield)
+        )
+    }
+
     /// A version body as the `content` oneOf input: EXACTLY ONE arm is set,
     /// matching the recipe type — `dish` for plain-text steps, `thermomix` for
-    /// steps carrying their machine settings.
+    /// steps carrying their machine settings, `coffee` for steps carrying their
+    /// extraction settings.
     static func versionContentInput(_ content: VersionContent) -> ShuhariGraphQL.VersionContentInput {
         switch content {
         case .dish(let ingredients, let steps):
@@ -111,6 +124,13 @@ enum GraphQLHelpers {
                 ingredients: ingredients.map { ShuhariGraphQL.IngredientInput(name: $0.name, quantity: $0.quantity) },
                 steps: steps.map {
                     ShuhariGraphQL.ThermomixStepInput(settings: thermomixSettingsInput($0.settings), text: $0.text)
+                }
+            ))
+        case .coffee(let ingredients, let steps):
+            return .coffee(ShuhariGraphQL.CoffeeContentInput(
+                ingredients: ingredients.map { ShuhariGraphQL.IngredientInput(name: $0.name, quantity: $0.quantity) },
+                steps: steps.map {
+                    ShuhariGraphQL.CoffeeStepInput(settings: coffeeSettingsInput($0.settings), text: $0.text)
                 }
             ))
         }

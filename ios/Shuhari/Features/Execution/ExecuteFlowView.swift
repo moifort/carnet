@@ -84,6 +84,7 @@ struct ExecuteFlowView: View {
                     nextVersionNumber: recipe.nextVersionNumber,
                     baseIngredients: base?.ingredients ?? [],
                     baseSteps: base?.content.stepsWithSettings ?? [],
+                    baseCoffeeSteps: base?.content.stepsWithExtraction ?? [],
                     baseTips: base?.tips ?? [],
                     isWorking: isAcceptingProposal,
                     suggestedRecipeTitle: recipe.title,

@@ -22,6 +22,22 @@ fragment VersionContentFields on VersionContent {
       }
     }
   }
+  ... on CoffeeContent {
+    ingredients {
+      name
+      quantity
+    }
+    coffeeSteps: steps {
+      text
+      settings {
+        grind
+        water
+        temperature
+        time
+        yield
+      }
+    }
+  }
 }
 
 fragment VersionFields on Version {
@@ -51,6 +67,7 @@ query Recipe($id: RecipeId!) {
     title
     type
     category
+    method
     favorite
     warnings
     createdAt

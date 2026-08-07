@@ -50,6 +50,8 @@ struct DebugGallery: View {
             RecipeDetailGalleryScreen(recipe: Fixtures.bourguignon)
         case "recipe-thermomix":
             RecipeDetailGalleryScreen(recipe: Fixtures.risotto)
+        case "recipe-coffee":
+            RecipeDetailGalleryScreen(recipe: Fixtures.v60)
         case "warnings-edit":
             Color.clear
                 .sheet(isPresented: .constant(true)) {
@@ -105,6 +107,22 @@ struct DebugGallery: View {
                     onCreateRecipe: { _, _ in }
                 )
             }
+        case "proposal-coffee":
+            NavigationStack {
+                ProposalPage(
+                    proposal: Fixtures.proposalCoffee,
+                    nextVersionNumber: 3,
+                    baseIngredients: Fixtures.v60V2.ingredients,
+                    baseSteps: Fixtures.v60V2.content.stepsWithSettings,
+                    baseCoffeeSteps: Fixtures.v60V2.content.stepsWithExtraction,
+                    baseTips: Fixtures.v60V2.tips,
+                    isWorking: false,
+                    suggestedRecipeTitle: Fixtures.v60.title,
+                    onClose: {},
+                    onValidate: { _ in },
+                    onCreateRecipe: { _, _ in }
+                )
+            }
         case "tips-section":
             // The recipe sheet's closing section on its own — it sits below the steps,
             // too far down the sheet to be seen without scrolling.
@@ -137,7 +155,16 @@ struct DebugGallery: View {
                     RecipeEditSheet(
                         initialTitle: Fixtures.bourguignon.title,
                         initialCategory: Fixtures.bourguignon.category
-                    ) { _, _ in }
+                    ) { _, _, _ in }
+                }
+        case "recipe-edit-coffee":
+            Color.clear
+                .sheet(isPresented: .constant(true)) {
+                    RecipeEditSheet(
+                        initialTitle: Fixtures.v60.title,
+                        initialCategory: Fixtures.v60.category,
+                        initialMethod: Fixtures.v60.method
+                    ) { _, _, _ in }
                 }
         case "improve":
             Color.clear
@@ -164,6 +191,10 @@ struct DebugGallery: View {
         case "import-preview-thermomix":
             NavigationStack {
                 ImportPreviewPage(analysis: Fixtures.importAnalysisThermomix, isSaving: false, onCancel: {}, onSave: { _ in })
+            }
+        case "import-preview-coffee":
+            NavigationStack {
+                ImportPreviewPage(analysis: Fixtures.importAnalysisCoffee, isSaving: false, onCancel: {}, onSave: { _ in })
             }
         case "ai-thinking":
             AIThinkingCard(message: "Analyse IA…")

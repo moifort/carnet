@@ -10,18 +10,23 @@ struct RecipePage: Sendable {
 }
 
 /// The paginated recipe library — the `recipes(...)` query: it scrolls infinitely
-/// and sorts server-side, and is the notebook's sole read model.
+/// and sorts server-side, and is the sole read model of both the cooking notebook
+/// and the coffee tab. Which tab is asking is `types`: the notebook reads
+/// `RecipeType.cooking`, the coffee tab `[.coffee]`.
 enum LibraryAPI {
     static func list(
-        category: DishCategory?,
+        types: [RecipeType],
+        category: DishCategory? = nil,
+        method: BrewMethod? = nil,
         favorite: Bool,
         sort: RecipeSortOption,
         limit: Int,
         after: String?
     ) async throws -> RecipePage {
         let query = ShuhariGraphQL.RecipeListQuery(
-            type: .none,
+            types: .some(types.map(\.graphQLValue)),
             category: category.map { .some($0.graphQLValue) } ?? .none,
+            method: method.map { .some($0.graphQLValue) } ?? .none,
             favorite: favorite ? .some(true) : .none,
             sort: .some(.case(gqlSort(sort))),
             order: .some(.case(gqlOrder(sort))),
@@ -37,6 +42,7 @@ enum LibraryAPI {
                     title: recipe.title,
                     type: RecipeType(graphql: recipe.type),
                     category: DishCategory(graphql: recipe.category),
+                    method: BrewMethod(graphql: recipe.method),
                     favorite: recipe.favorite,
                     versionCount: recipe.versionCount,
                     toTestCount: recipe.toTestCount,
@@ -52,12 +58,13 @@ enum LibraryAPI {
 
 // MARK: - Mapping helpers
 
-/// The category sort is a fixed business order — the server ignores `order` for it —
-/// but a valid value is still required on the wire.
+/// The category and method sorts are fixed business orders — the server ignores
+/// `order` for them — but a valid value is still required on the wire.
 private func gqlSort(_ sort: RecipeSortOption) -> ShuhariGraphQL.RecipeSort {
     switch sort {
     case .lastModified: .updatedAt
     case .dishCategory: .category
+    case .brewMethod: .method
     }
 }
 
@@ -65,5 +72,6 @@ private func gqlOrder(_ sort: RecipeSortOption) -> ShuhariGraphQL.SortOrder {
     switch sort {
     case .lastModified: .desc
     case .dishCategory: .desc
+    case .brewMethod: .desc
     }
 }

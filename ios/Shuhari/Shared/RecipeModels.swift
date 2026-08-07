@@ -39,39 +39,86 @@ struct ThermomixStep: Sendable, Hashable {
     let settings: ThermomixSettings
 }
 
+// MARK: - Coffee
+
+/// The extraction settings for one brewing step (display-oriented strings —
+/// "fine" and "Niveau 12" are valid grinds, no computation is ever done on them).
+struct CoffeeSettings: Sendable, Hashable {
+    /// How fine the coffee is ground ("fine", "Niveau 12").
+    let grind: String?
+    /// The water poured at THIS step ("50 g" for a bloom) — not the total.
+    let water: String?
+    let temperature: String?
+    let time: String?
+    /// What lands in the cup ("36 g" for a double espresso).
+    let cupYield: String?
+
+    var isEmpty: Bool {
+        grind == nil && water == nil && temperature == nil && time == nil && cupYield == nil
+    }
+
+    /// A step carrying no extraction setting. The single spelling of "plain step" —
+    /// every brewing step always carries its settings, `.plain` when it has none.
+    static let plain = CoffeeSettings(
+        grind: nil, water: nil, temperature: nil, time: nil, cupYield: nil
+    )
+}
+
+/// One brewing step: its instruction plus the extraction settings that go with it
+/// (`.plain` for a plain step — the settings are total, never a hole).
+struct CoffeeStep: Sendable, Hashable {
+    let text: String
+    let settings: CoffeeSettings
+}
+
 // MARK: - Version content
 
 /// A version's body, tagged by recipe type: a cooked dish carries plain-text
 /// steps, a Thermomix recipe carries steps that each embed their machine
-/// settings. Adding a recipe type later is one more case here.
+/// settings, a coffee steps that each embed their extraction settings. Adding a
+/// recipe type later is one more case here.
 enum VersionContent: Sendable, Hashable {
     case dish(ingredients: [Ingredient], steps: [String])
     case thermomix(ingredients: [Ingredient], steps: [ThermomixStep])
+    case coffee(ingredients: [Ingredient], steps: [CoffeeStep])
 
     /// The ingredient list, whichever variant this is.
     var ingredients: [Ingredient] {
         switch self {
         case .dish(let ingredients, _): ingredients
         case .thermomix(let ingredients, _): ingredients
+        case .coffee(let ingredients, _): ingredients
         }
     }
 
-    /// The plain step instructions, whichever variant this is (a Thermomix step's
-    /// machine settings are dropped — this is the text-only view of the method).
+    /// The plain step instructions, whichever variant this is (a step's machine or
+    /// extraction settings are dropped — this is the text-only view of the method).
     var stepTexts: [String] {
         switch self {
         case .dish(_, let steps): steps
         case .thermomix(_, let steps): steps.map(\.text)
+        case .coffee(_, let steps): steps.map(\.text)
         }
     }
 
-    /// The steps with their machine settings attached (a dish step carries
-    /// `.plain`) — the shape a diff compares, since a Thermomix step can change
-    /// through its settings alone, its text untouched.
+    /// The steps with their machine settings attached (anything that is not a
+    /// Thermomix step carries `.plain`) — the shape a diff compares, since a
+    /// Thermomix step can change through its settings alone, its text untouched.
     var stepsWithSettings: [ThermomixStep] {
         switch self {
         case .dish(_, let steps): steps.map { ThermomixStep(text: $0, settings: .plain) }
         case .thermomix(_, let steps): steps
+        case .coffee(_, let steps): steps.map { ThermomixStep(text: $0.text, settings: .plain) }
+        }
+    }
+
+    /// The same, for the extraction settings: a coffee step can change through its
+    /// grind or its temperature alone, its text untouched.
+    var stepsWithExtraction: [CoffeeStep] {
+        switch self {
+        case .coffee(_, let steps): steps
+        case .dish(_, let steps): steps.map { CoffeeStep(text: $0, settings: .plain) }
+        case .thermomix(_, let steps): steps.map { CoffeeStep(text: $0.text, settings: .plain) }
         }
     }
 }
@@ -182,8 +229,12 @@ struct Recipe: Identifiable, Sendable {
     let id: String
     let title: String
     let type: RecipeType
-    /// The dish course — fixed at import, shared across all versions.
+    /// The dish course — fixed at import, shared across all versions. A coffee is
+    /// always a `.drink`; its own axis is `method`.
     let category: DishCategory
+    /// How it is brewed — fixed at import, shared across all versions, and nil on
+    /// anything that is not a coffee.
+    var method: BrewMethod? = nil
     /// Marked as a favourite by the cook — what the library's favourites lens lists.
     let favorite: Bool
     /// The cook's recipe-level cautions ("Le fouet doit être mis dès le début") —
@@ -226,19 +277,34 @@ struct Recipe: Identifiable, Sendable {
 
 // MARK: - Import
 
+/// One extracted step: its text plus the settings that go with it — the machine
+/// ones on a Thermomix recipe, the extraction ones on a coffee. One preview
+/// carries every recipe type, so the two are named after their context rather
+/// than both claiming `settings`. Both are total (`.plain` sets nothing).
+struct ImportStep: Sendable, Hashable {
+    let text: String
+    let thermomix: ThermomixSettings
+    let coffee: CoffeeSettings
+
+    var asThermomixStep: ThermomixStep { ThermomixStep(text: text, settings: thermomix) }
+    var asCoffeeStep: CoffeeStep { CoffeeStep(text: text, settings: coffee) }
+}
+
 /// Structured recipe extracted from an import source (editable preview). Its steps
-/// each carry their own Thermomix settings (`.plain` for a plain dish step), so
-/// they read the same whatever the detected `type`.
+/// each carry both settings objects, so they read the same whatever the detected
+/// `type` — only the matching one is kept when the recipe is created.
 struct ImportAnalysis: Sendable, Hashable {
     var title: String
     var type: RecipeType
     /// The dish course detected by the AI (editable before create).
     var category: DishCategory
+    /// The brew method detected by the AI (editable before create) — nil on
+    /// anything that is not a coffee.
+    var method: BrewMethod?
     /// The recipe's components with quantities (empty when none).
     var ingredients: [Ingredient] = []
-    /// The extracted steps, each carrying its own Thermomix settings (`.plain` for a
-    /// plain step).
-    var steps: [ThermomixStep]
+    /// The extracted steps, each carrying its own settings.
+    var steps: [ImportStep]
     /// The cooking tips found in the source (empty when it carries none).
     var tips: [String] = []
     var sourceLabel: String?
