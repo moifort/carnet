@@ -1,5 +1,5 @@
 import type { Brand } from 'ts-brand'
-import type { DishCategory, RecipeType } from '~/domain/recipe/types'
+import type { BrewMethod, DishCategory, RecipeType } from '~/domain/recipe/types'
 
 export type ImportHash = Brand<string, 'ImportHash'>
 
@@ -19,16 +19,35 @@ export type ImportThermomixSettings = {
   reverse?: boolean
 }
 
-// One extracted step: its text plus the Thermomix settings that go with it. Plain
-// strings — the domain layer validates and pairs them when the user confirms. An
-// empty settings object `{}` is a plain (non-machine) step.
-export type ImportStep = { text: string; settings: ImportThermomixSettings }
+// Extraction settings for one step as extracted by Gemini. Plain strings — the
+// domain layer validates them into branded types when the user confirms. Every
+// field absent (`{}`) means the step carries no extraction setting.
+export type ImportCoffeeSettings = {
+  grind?: string
+  water?: string
+  temperature?: string
+  time?: string
+  yield?: string
+}
+
+// One extracted step: its text plus the settings that go with it — the machine
+// ones on a Thermomix recipe, the extraction ones on a coffee. The two are named
+// after their context rather than both being `settings`, since this one wire
+// carries every recipe type. Plain strings, both total: an empty object `{}` is a
+// step that sets nothing (and is what every step of a dish carries).
+export type ImportStep = {
+  text: string
+  thermomix: ImportThermomixSettings
+  coffee: ImportCoffeeSettings
+}
 
 // Raw structured recipe extracted by Gemini. Plain strings — the domain layer
 // validates them into branded types when the user confirms the import.
 export type ImportAnalysis = {
   type: RecipeType
   category: DishCategory
+  // How the coffee is brewed — absent on anything that is not one.
+  method?: BrewMethod
   title: string
   sourceLabel?: string
   ingredients: { name: string; quantity: string }[]
@@ -49,8 +68,11 @@ export type CachedImport = {
 export type ProposalContext = {
   type: RecipeType
   category: DishCategory
+  // The brew method the iteration must stay within — a V60 recipe never becomes an
+  // espresso one. Absent on anything that is not a coffee.
+  method?: BrewMethod
   currentIngredients: { name: string; quantity: string }[]
-  // Each step carries its own Thermomix settings (an empty object is a plain step).
+  // Each step carries its own settings (an empty object is a step that sets nothing).
   currentSteps: ImportStep[]
   // The tips of the version iterated on — the proposal returns the complete
   // updated list of the next version (advice found in the remarks lands here).

@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test'
+import type { CoffeeContent } from '~/domain/recipe/content/coffee'
 import type { DishContent } from '~/domain/recipe/content/dish'
 import type { ThermomixContent } from '~/domain/recipe/content/thermomix'
 import type {
+  CoffeeGrind,
+  CoffeeTemperature,
+  CoffeeTime,
+  CoffeeYield,
   Ingredient,
   IngredientName,
   IngredientQuantity,
@@ -66,7 +71,7 @@ const dishContent = (): DishContent => ({
   steps: stepList('Saisir', 'Mijoter'),
 })
 
-const recipeInput = (opts: { type?: 'dish' | 'thermomix' } = {}) => {
+const recipeInput = (opts: { type?: 'dish' | 'thermomix' | 'coffee' } = {}) => {
   const type = opts.type ?? ('dish' as const)
   const content =
     type === 'thermomix'
@@ -75,8 +80,22 @@ const recipeInput = (opts: { type?: 'dish' | 'thermomix' } = {}) => {
           ingredients: [],
           steps: stepList('Saisir', 'Mijoter').map((text) => ({ text, settings: {} })),
         } as ThermomixContent)
-      : dishContent()
-  return { type, category: 'main' as const, title: 'Blanquette' as RecipeTitle, content, tips: [] }
+      : type === 'coffee'
+        ? ({
+            kind: 'coffee',
+            ingredients: [],
+            steps: stepList('Moudre', 'Extraire').map((text) => ({ text, settings: {} })),
+          } as CoffeeContent)
+        : dishContent()
+  return {
+    type,
+    category: 'main' as const,
+    // A brew method belongs to a coffee and to nothing else.
+    ...(type === 'coffee' ? { method: 'v60' as const } : {}),
+    title: 'Blanquette' as RecipeTitle,
+    content,
+    tips: [],
+  }
 }
 
 const baseProposal = (): AiProposal => ({
@@ -87,8 +106,8 @@ const baseProposal = (): AiProposal => ({
     { name: 'Bouillon', quantity: '650 ml' },
   ],
   steps: [
-    { text: 'Saisir', settings: {} },
-    { text: 'Mijoter', settings: {} },
+    { text: 'Saisir', thermomix: {}, coffee: {} },
+    { text: 'Mijoter', thermomix: {}, coffee: {} },
   ],
   tips: ['Servir avec du riz'],
 })
@@ -100,8 +119,8 @@ const baseAnalysis = (): ImportAnalysis => ({
   sourceLabel: 'Grand-mère',
   ingredients: [{ name: 'Veau', quantity: '800 g' }],
   steps: [
-    { text: 'Saisir', settings: {} },
-    { text: 'Mijoter', settings: {} },
+    { text: 'Saisir', thermomix: {}, coffee: {} },
+    { text: 'Mijoter', thermomix: {}, coffee: {} },
   ],
   tips: ['Servir avec du riz'],
 })
@@ -168,8 +187,12 @@ describe('ProposalUseCase.fromAttempt', () => {
     proposal = {
       ...baseProposal(),
       steps: [
-        { text: 'Saisir', settings: { time: '5 min', temperature: '120°C', speed: '1' } },
-        { text: 'Mijoter', settings: {} },
+        {
+          text: 'Saisir',
+          thermomix: { time: '5 min', temperature: '120°C', speed: '1' },
+          coffee: {},
+        },
+        { text: 'Mijoter', thermomix: {}, coffee: {} },
       ],
     }
     const thermomix = await RecipeCommand.create(userId, recipeInput({ type: 'thermomix' }))
@@ -201,6 +224,44 @@ describe('ProposalUseCase.fromAttempt', () => {
       kind: 'dish',
       ingredients: PROPOSAL_INGREDIENTS,
       steps: stepList('Saisir', 'Mijoter'),
+    })
+  })
+
+  test('keeps a coffee proposal’s extraction settings, and only those', async () => {
+    proposal = {
+      ...baseProposal(),
+      steps: [
+        // The same proposal carries both settings objects; each type reads its own.
+        {
+          text: 'Moudre',
+          thermomix: { speed: '1' },
+          coffee: { grind: 'fine' },
+        },
+        {
+          text: 'Extraire',
+          thermomix: {},
+          coffee: { temperature: '93°C', time: '28 s', yield: '36 g' },
+        },
+      ],
+    }
+    const coffee = await RecipeCommand.create(userId, recipeInput({ type: 'coffee' }))
+    if (typeof coffee === 'string') throw new Error('expected a recipe')
+    const coffeeProposal = await ProposalUseCase.fromAttempt(userId, coffee.id, V1, ATTEMPT)
+    if (typeof coffeeProposal === 'string') throw new Error('expected a proposal')
+    expect(coffeeProposal.content).toEqual({
+      kind: 'coffee',
+      ingredients: PROPOSAL_INGREDIENTS,
+      steps: [
+        { text: 'Moudre' as StepText, settings: { grind: 'fine' as CoffeeGrind } },
+        {
+          text: 'Extraire' as StepText,
+          settings: {
+            temperature: '93°C' as CoffeeTemperature,
+            time: '28 s' as CoffeeTime,
+            yield: '36 g' as CoffeeYield,
+          },
+        },
+      ],
     })
   })
 })

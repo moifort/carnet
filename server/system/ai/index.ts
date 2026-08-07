@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { DISH_CATEGORY_VALUES, RECIPE_TYPE_VALUES } from '~/domain/recipe/types'
+import { BREW_METHOD_VALUES, DISH_CATEGORY_VALUES, RECIPE_TYPE_VALUES } from '~/domain/recipe/types'
 import {
   ImportHash,
   parseImportResponse,
@@ -10,6 +10,7 @@ import * as repository from '~/system/ai/repository'
 import type {
   ImportHash as ImportHashType,
   ImportSource,
+  ImportStep,
   Proposal,
   ProposalContext,
   TipsContext,
@@ -27,6 +28,7 @@ type GeminiResponse = { candidates?: { content: { parts: { text?: string }[] } }
 type GeminiPart = { text: string } | { inline_data: { mime_type: string; data: string } }
 
 const RECIPE_TYPE_ENUM = [...RECIPE_TYPE_VALUES]
+const BREW_METHOD_ENUM = [...BREW_METHOD_VALUES]
 
 // Shared ingredient/step item shapes so the import and proposal schemas can't drift.
 const ingredientsSchemaProperty = {
@@ -82,6 +84,45 @@ const thermomixSettingsSchemaProperty = {
   propertyOrdering: ['time', 'temperature', 'speed', 'reverse'],
 }
 
+// Nested extraction settings for one brewing step. Every field is null on a step
+// that sets nothing (or on a recipe that is not a coffee).
+const coffeeSettingsSchemaProperty = {
+  type: 'object',
+  nullable: true,
+  description: 'Extraction settings for this step; null (or every field null) when it has none',
+  properties: {
+    grind: {
+      type: 'string',
+      nullable: true,
+      description:
+        'Grind size (e.g. "fine", "moyenne", "grossière", "Niveau 12"); null when the step has none',
+    },
+    water: {
+      type: 'string',
+      nullable: true,
+      description:
+        'Water poured at THIS step (e.g. "50 g" for a bloom, "300 g"); null when the step has none',
+    },
+    temperature: {
+      type: 'string',
+      nullable: true,
+      description: 'Water temperature (e.g. "93°C"); null when the step has none',
+    },
+    time: {
+      type: 'string',
+      nullable: true,
+      description: 'Duration of this step (e.g. "28 s", "4 min"); null when the step has none',
+    },
+    yield: {
+      type: 'string',
+      nullable: true,
+      description:
+        'What lands in the cup at the end of this step (e.g. "36 g" for a double espresso); null when the step has none',
+    },
+  },
+  propertyOrdering: ['grind', 'water', 'temperature', 'time', 'yield'],
+}
+
 const stepsSchemaProperty = {
   type: 'array',
   description: 'Short, actionable steps in order, written in French',
@@ -94,10 +135,12 @@ const stepsSchemaProperty = {
       },
       // Always return the step object; its settings are null on a step that is not
       // performed on the Thermomix (never skip or drop the step itself).
-      settings: thermomixSettingsSchemaProperty,
+      thermomix: thermomixSettingsSchemaProperty,
+      // Same, for a coffee's extraction settings.
+      coffee: coffeeSettingsSchemaProperty,
     },
     required: ['text'],
-    propertyOrdering: ['text', 'settings'],
+    propertyOrdering: ['text', 'thermomix', 'coffee'],
   },
 }
 
@@ -121,12 +164,22 @@ const importResponseSchema = {
     type: {
       type: 'string',
       enum: RECIPE_TYPE_ENUM,
-      description: 'Experiment type: dish (cooked recipe) or thermomix (Thermomix)',
+      description:
+        'Experiment type: dish (cooked recipe), thermomix (Thermomix) or coffee (brewed coffee)',
     },
     category: {
       type: 'string',
       enum: DISH_CATEGORY_VALUES,
       description: 'Dish category: starter, main, dessert, soup, sauce, baking or drink',
+    },
+    method: {
+      type: 'string',
+      nullable: true,
+      enum: BREW_METHOD_ENUM,
+      description:
+        'How the coffee is brewed; null on anything that is not of type coffee. One of: ' +
+        'espresso, americano, flat-white, cappuccino, latte, moka (Bialetti), v60, chemex, ' +
+        'drip (filter machine, Moccamaster), aeropress, french-press, cold-brew, other',
     },
     title: {
       type: 'string',
@@ -146,6 +199,7 @@ const importResponseSchema = {
     'recipeFound',
     'type',
     'category',
+    'method',
     'title',
     'sourceLabel',
     'ingredients',
@@ -182,17 +236,30 @@ const IMPORT_INSTRUCTIONS = `You are the assistant of a culinary experimentation
 
 Rules:
 - MANDATORY: write every generated value — title, ingredient names and quantities, step text — in French. The reader is a French speaker; never answer in English.
-- Determine the type: dish (cooked recipe) or thermomix (Thermomix recipe).
-- Determine the dish category: starter, main, dessert, soup, sauce, baking (pastry, bread, viennoiserie) or drink (cocktail, smoothie, hot or cold beverage). When in doubt, pick main.
+- Determine the type: dish (cooked recipe), thermomix (Thermomix recipe) or coffee (a brewed coffee — espresso, filter, pour-over, stovetop, immersion, or a milk drink built on an espresso).
+- Determine the dish category: starter, main, dessert, soup, sauce, baking (pastry, bread, viennoiserie) or drink (cocktail, smoothie, hot or cold beverage). When in doubt, pick main. For type coffee, always answer drink.
 - ingredients: the ORDERED list of the recipe's components with their quantity (e.g. Gin → 50 ml, Beurre → 170 g, Fraise → 3 pièces). Include EVERY ingredient visible in the source, each with its quantity and unit. This is the recipe's "shopping list". The NAME stays short: the ingredient alone, never its transient preparation ("Pommes de terre", not "Pommes de terre épluchées et coupées en rondelles" — the preparation belongs in the steps). An intrinsic variety, type or grade stays in the name, in parentheses ("Pommes de terre (Marbella)", "Farine (T45)"). A QUANTITY in an imprecise kitchen unit (spoon, pinch, glass, cup…) carries its estimated gram equivalent in parentheses, specific to that ingredient ("1 c. à café (6 g)" for salt) — quantities already in metric weight/volume and countable pieces stay as-is.
 - steps: short steps, imperative mood, in order. Precise settings (oven temperature, duration, ratio…) stay in the step text.
 - tips: the cooking tips found in the source — serving suggestions, storage/freezing advice, technique pointers ("Servir avec du riz", "Se congèle bien"). One short sentence per tip. A tip is neither an ingredient nor a step: never duplicate the method here. Empty array when the source carries none.
-- For a Thermomix recipe (type thermomix): for every step performed on the Thermomix, fill the nested settings object (time, temperature, speed, reverse) exactly as stated in the recipe (time "3 min" / "30 s" / "1 h 10 min"; temperature "100°C" or "Varoma"; speed "0,5" to "10", "pétrin", "mijotage" or "turbo"). ALWAYS return every step as an object: use null for every missing setting, and set settings to null (or leave its fields null) when the step is not done on the Thermomix or when the recipe is not of type thermomix — never omit or merge a step because it carries no setting.
-- Be concise: every value stays short (ingredient name ≤120, quantity ≤60, step ≤300, title ≤200, Thermomix setting ≤20 characters).
+- For a Thermomix recipe (type thermomix): for every step performed on the Thermomix, fill the nested thermomix object (time, temperature, speed, reverse) exactly as stated in the recipe (time "3 min" / "30 s" / "1 h 10 min"; temperature "100°C" or "Varoma"; speed "0,5" to "10", "pétrin", "mijotage" or "turbo"). ALWAYS return every step as an object: use null for every missing setting, and set thermomix to null (or leave its fields null) when the step is not done on the Thermomix or when the recipe is not of type thermomix — never omit or merge a step because it carries no setting.
+- For a coffee (type coffee):
+  - method: how it is brewed. espresso, americano, flat-white, cappuccino or latte for a machine drink; moka for a stovetop pot (Bialetti); v60 or chemex for a pour-over; drip for a filter machine (Moccamaster, cafetière filtre); aeropress; french-press; cold-brew. Use other ONLY when none of these fits — never force a coffee into a method it was not made with.
+  - ingredients: what goes in, with its weight — the dose of coffee ("Café" → "18 g"), the total water ("Eau" → "300 g"), the milk ("Lait" → "150 ml"), and the beans themselves when the source names them ("Café (Éthiopie Guji, torréfaction claire)" → "18 g"). Prefer grams over millilitres for water, as the source states it.
+  - steps: the brewing gestures in order (grind, rinse the filter, bloom, pour, plunge, steam the milk…). For every step that carries an extraction parameter, fill the nested coffee object: grind ("fine", "moyenne", "grossière", or a grinder setting like "Niveau 12"), water (the amount poured AT THAT STEP — "50 g" for a bloom, not the total), temperature ("93°C"), time ("28 s", "4 min"), yield (what lands in the cup at that step — "36 g" for a double espresso). Use null for every missing setting, and set coffee to null when the step carries none or the recipe is not of type coffee — never omit or merge a step because it carries no setting.
+  - The whole point is reproducibility: a dose, a grind, a temperature, a time or a yield stated in the source goes into the structured field, never only in the step text.
+- Be concise: every value stays short (ingredient name ≤120, quantity ≤60, step ≤300, title ≤200, Thermomix setting ≤20, extraction setting ≤30 characters).
 - If the source contains no usable recipe (unreadable image or one without a recipe, off-topic page or text), set recipeFound to false and leave every other field empty or null. Otherwise set recipeFound to true.
 - Use null for any missing information.
 
 Reminder: all text values you produce must be written in French.`
+
+const CUISINE_ITERATION_RULE =
+  'For a dish or a Thermomix recipe, you may adjust several coherent elements at once. Return the COMPLETE ingredient and step list of the next version (not only what changes), plus a short summary of the changes. When the remarks ask for a precise adjustment (a new cooking time, temperature, speed or quantity), apply that exact value in the right structured field — a Thermomix time/temperature/speed in the step settings, a duration in the dish step text, a quantity on the ingredient — and record every change in changeSummary as "old → new", with the arrow character U+2192 between the two, whether the change is a new value or one ingredient replacing another. Also return tips: the COMPLETE tips list of the next version — keep the current tips, and when a remark carries advice that changes nothing in the method (a serving suggestion, storage advice, a technique pointer like "la prochaine fois, servir avec du riz"), fold it in as a short reworded tip instead of forcing it into an ingredient or a step.'
+
+// The scientific constraint of the notebook, and the reason a coffee log is worth
+// keeping: change one thing, taste, learn what that one thing did.
+const COFFEE_ITERATION_RULE =
+  'For a coffee, change EXACTLY ONE variable in this version — the grind, the dose, the water amount (the ratio), the water temperature, the brew time, or the yield. Never two. This is the whole point: with a single variable moved, the next tasting says what that variable did; move two and the result teaches nothing. When the remarks call for several changes, pick the ONE that most likely explains what was tasted (a sour, under-extracted cup asks for a finer grind, a hotter water or a longer contact; a bitter, over-extracted one for the opposite), apply it, and say in the rationale which change you are holding back for the iteration after this one. Never change the brewing method: a V60 recipe stays a V60. Return the COMPLETE ingredient and step list of the next version (not only what changes), with the new value written in the right structured field — a grind/water/temperature/time/yield in that step\'s extraction settings, a dose on the ingredient — never only in the step text. changeSummary names the single variable and its move, as "label old → new", with the arrow character U+2192 between the two (e.g. "Mouture 18 → 16 (plus fine)", "Température 93 → 95°C"). Also return tips: the COMPLETE tips list of the next version — keep the current tips, and when a remark carries advice that changes nothing in the extraction (how to serve it, which beans suit it, how to store them), fold it in as a short reworded tip instead of forcing it into an ingredient or a step.'
 
 export namespace Ai {
   export const analyzeImport = async (source: ImportSource) => {
@@ -253,9 +320,8 @@ export namespace Ai {
     const ingredients =
       context.currentIngredients.map((i) => `- ${i.name} : ${i.quantity}`).join('\n') || '—'
     const steps =
-      context.currentSteps
-        .map((s, i) => `${i + 1}. ${s.text}${formatThermomix(s.settings)}`)
-        .join('\n') || '—'
+      context.currentSteps.map((s, i) => `${i + 1}. ${s.text}${formatSettings(s)}`).join('\n') ||
+      '—'
     const tips = context.currentTips.map((t) => `- ${t}`).join('\n') || '—'
 
     return `You are the assistant of a culinary experimentation notebook. The cook wants to add tips to this recipe — serving suggestions, storage advice, technique pointers. Merge them into the recipe's tips list.
@@ -298,14 +364,18 @@ Reminder: all tips you produce must be written in French.`
     return [{ text: `${IMPORT_INSTRUCTIONS}\n\nRecipe text:\n${source.text}` }]
   }
 
-  // Cuisine-scoped iteration rule (dish + thermomix). Coffee and cocktail will get
-  // their own rules later — no speculative abstraction here.
-  const cuisineIterationRule = (_type: ProposalContext['type']) =>
-    'For a dish or a Thermomix recipe, you may adjust several coherent elements at once. Return the COMPLETE ingredient and step list of the next version (not only what changes), plus a short summary of the changes. When the remarks ask for a precise adjustment (a new cooking time, temperature, speed or quantity), apply that exact value in the right structured field — a Thermomix time/temperature/speed in the step settings, a duration in the dish step text, a quantity on the ingredient — and record every change in changeSummary as "old → new", with the arrow character U+2192 between the two, whether the change is a new value or one ingredient replacing another. Also return tips: the COMPLETE tips list of the next version — keep the current tips, and when a remark carries advice that changes nothing in the method (a serving suggestion, storage advice, a technique pointer like "la prochaine fois, servir avec du riz"), fold it in as a short reworded tip instead of forcing it into an ingredient or a step.'
+  // How far one iteration may go, and it differs by type: cooking converges faster
+  // when several coherent elements move together, coffee only tells you anything
+  // when a single variable moves at a time.
+  const iterationRule = (type: ProposalContext['type']) =>
+    type === 'coffee' ? COFFEE_ITERATION_RULE : CUISINE_ITERATION_RULE
 
-  const formatThermomix = (
-    settings: ProposalContext['currentSteps'][number]['settings'],
-  ): string => {
+  // A step's settings, spelled out for the prompt — the machine ones, then the
+  // extraction ones. A step that sets nothing adds nothing.
+  const formatSettings = (step: ImportStep): string =>
+    `${formatThermomix(step.thermomix)}${formatCoffee(step.coffee)}`
+
+  const formatThermomix = (settings: ImportStep['thermomix']): string => {
     const parts = [
       settings.time && `time ${settings.time}`,
       settings.temperature && `temperature ${settings.temperature}`,
@@ -315,13 +385,24 @@ Reminder: all tips you produce must be written in French.`
     return parts.length ? ` [Thermomix: ${parts.join(', ')}]` : ''
   }
 
+  const formatCoffee = (settings: ImportStep['coffee']): string => {
+    const parts = [
+      settings.grind && `grind ${settings.grind}`,
+      settings.water && `water ${settings.water}`,
+      settings.temperature && `temperature ${settings.temperature}`,
+      settings.time && `time ${settings.time}`,
+      settings.yield && `yield ${settings.yield}`,
+    ].filter(Boolean)
+    return parts.length ? ` [Extraction: ${parts.join(', ')}]` : ''
+  }
+
   const proposalPrompt = (context: ProposalContext): string => {
     const ingredients =
       context.currentIngredients.map((i) => `- ${i.name} : ${i.quantity}`).join('\n') || '—'
     const steps =
       context.currentSteps
         // Each step carries its own settings — an empty settings object is a plain step.
-        .map((s, i) => `${i + 1}. ${s.text}${formatThermomix(s.settings)}`)
+        .map((s, i) => `${i + 1}. ${s.text}${formatSettings(s)}`)
         .join('\n') || '—'
     const tips = context.currentTips.map((t) => `- ${t}`).join('\n') || '—'
     // The proposal answers either the cooks that were run, or — when the cook asked
@@ -338,8 +419,8 @@ Reminder: all tips you produce must be written in French.`
 
 MANDATORY: write every generated value — change summary, rationale, ingredient names and quantities, step text — in French. The reader is a French speaker; never answer in English.
 
-${cuisineIterationRule(context.type)}
-
+${iterationRule(context.type)}
+${context.method ? `\nBrewing method (fixed, never change it): ${context.method}\n` : ''}
 Current ingredients:
 ${ingredients}
 
@@ -372,15 +453,15 @@ Reminder: all text values you produce must be written in French.`
   }
 
   const hashSource = (source: ImportSource): ImportHashType => {
-    // 'v10' salts the cache: bumped from 'v9' because quantities in imprecise
-    // kitchen units gained their gram equivalent — so previously-analysed sources
-    // re-run instead of serving a stale, gram-less result.
+    // 'v11' salts the cache: bumped from 'v10' because coffee became a recipe type,
+    // with a brew method and per-step extraction settings — so previously-analysed
+    // sources re-run instead of serving a stale result that knows none of it.
     const material =
       source.kind === 'photos'
-        ? `v10|${source.photos.join('|')}`
+        ? `v11|${source.photos.join('|')}`
         : source.kind === 'url'
-          ? `v10|url:${source.url}`
-          : `v10|text:${source.text}`
+          ? `v11|url:${source.url}`
+          : `v11|text:${source.text}`
     return ImportHash(createHash('sha256').update(material).digest('hex'))
   }
 }

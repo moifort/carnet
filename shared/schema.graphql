@@ -317,9 +317,14 @@ type ImportAnalysis {
   """The dish category detected by the AI"""
   category: DishCategory!
   ingredients: [ImportIngredient!]!
+
+  """
+  The brew method detected by the AI — `null` on anything that is not a coffee
+  """
+  method: BrewMethod
   sourceLabel: String
 
-  """The extracted steps, each carrying its own Thermomix settings"""
+  """The extracted steps, each carrying its own settings"""
   steps: [ImportStep!]!
 
   """
@@ -328,6 +333,17 @@ type ImportAnalysis {
   tips: [String!]!
   title: String!
   type: RecipeType!
+}
+
+"""
+Extraction settings for one step extracted by the AI (unvalidated preview)
+"""
+type ImportCoffeeSettings {
+  grind: String
+  temperature: String
+  time: String
+  water: String
+  yield: String
 }
 
 """A recipe ingredient extracted by the AI (unvalidated preview)"""
@@ -348,12 +364,19 @@ type ImportResult {
 }
 
 """
-A recipe step extracted by the AI (unvalidated preview): its text plus the Thermomix settings that go with it (every field `null` = a plain step).
+A recipe step extracted by the AI (unvalidated preview): its text plus the settings that go with it — the machine ones on a Thermomix recipe, the extraction ones on a coffee (every field `null` = a step that sets nothing).
 """
 type ImportStep {
-  """The step’s Thermomix settings (every field `null` = a plain step)"""
-  settings: ImportThermomixSettings!
+  """
+  The step’s extraction settings (every field `null` = a step that sets nothing)
+  """
+  coffee: ImportCoffeeSettings!
   text: String!
+
+  """
+  The step’s Thermomix settings (every field `null` = a step that sets nothing)
+  """
+  thermomix: ImportThermomixSettings!
 }
 
 """
@@ -731,7 +754,7 @@ type Proposal {
   changeSummary: String!
 
   """
-  The complete body of the suggested version (not just what changed) — a `DishContent` or a `ThermomixContent` depending on the recipe type
+  The complete body of the suggested version (not just what changed) — a `DishContent`, a `ThermomixContent` or a `CoffeeContent` depending on the recipe type
   """
   content: VersionContent!
 

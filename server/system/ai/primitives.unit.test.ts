@@ -29,23 +29,28 @@ describe('parseImportResponse — Thermomix steps', () => {
     const result = parsedImport({
       ...base,
       steps: [
-        { text: 'Mixer les oignons', settings: { time: '5 s', temperature: null, speed: '5' } },
-        { text: 'Servir', settings: { time: null, temperature: null, speed: null, reverse: null } },
+        { text: 'Mixer les oignons', thermomix: { time: '5 s', temperature: null, speed: '5' } },
+        {
+          text: 'Servir',
+          thermomix: { time: null, temperature: null, speed: null, reverse: null },
+        },
         {
           text: 'Cuire',
-          settings: { time: '14 min', temperature: '100°C', speed: '1', reverse: true },
+          thermomix: { time: '14 min', temperature: '100°C', speed: '1', reverse: true },
         },
       ],
     })
 
     // The AI's explicit nulls are normalized away at the parse boundary: an absent
-    // setting is an absent key, a plain step an entry whose settings are `{}`.
+    // setting is an absent key, a step that sets nothing an entry whose settings
+    // are `{}` — and a Thermomix step never carries extraction settings.
     expect(result.steps).toEqual([
-      { text: 'Mixer les oignons', settings: { time: '5 s', speed: '5' } },
-      { text: 'Servir', settings: {} },
+      { text: 'Mixer les oignons', thermomix: { time: '5 s', speed: '5' }, coffee: {} },
+      { text: 'Servir', thermomix: {}, coffee: {} },
       {
         text: 'Cuire',
-        settings: { time: '14 min', temperature: '100°C', speed: '1', reverse: true },
+        thermomix: { time: '14 min', temperature: '100°C', speed: '1', reverse: true },
+        coffee: {},
       },
     ])
   })
@@ -54,12 +59,12 @@ describe('parseImportResponse — Thermomix steps', () => {
     const result = parsedImport({
       ...base,
       type: 'dish',
-      steps: [{ text: 'Émincer' }, { text: 'Saisir', settings: { time: null, reverse: false } }],
+      steps: [{ text: 'Émincer' }, { text: 'Saisir', thermomix: { time: null, reverse: false } }],
     })
 
     expect(result.steps).toEqual([
-      { text: 'Émincer', settings: {} },
-      { text: 'Saisir', settings: {} },
+      { text: 'Émincer', thermomix: {}, coffee: {} },
+      { text: 'Saisir', thermomix: {}, coffee: {} },
     ])
   })
 
@@ -67,9 +72,48 @@ describe('parseImportResponse — Thermomix steps', () => {
     const result = parsedImport({ ...base, steps: ['Mixer', 'Servir'] })
 
     expect(result.steps).toEqual([
-      { text: 'Mixer', settings: {} },
-      { text: 'Servir', settings: {} },
+      { text: 'Mixer', thermomix: {}, coffee: {} },
+      { text: 'Servir', thermomix: {}, coffee: {} },
     ])
+  })
+})
+
+describe('parseImportResponse — coffee', () => {
+  const coffeeBase = { type: 'coffee', title: 'Espresso' }
+
+  test('keeps each brewing step paired with its normalized extraction settings', () => {
+    const result = parsedImport({
+      ...coffeeBase,
+      method: 'espresso',
+      steps: [
+        { text: 'Moudre', coffee: { grind: 'fine', water: null, yield: null } },
+        {
+          text: 'Extraire',
+          coffee: { grind: null, water: null, temperature: '93°C', time: '28 s', yield: '36 g' },
+        },
+      ],
+    })
+
+    expect(result.method).toBe('espresso')
+    expect(result.steps).toEqual([
+      { text: 'Moudre', thermomix: {}, coffee: { grind: 'fine' } },
+      {
+        text: 'Extraire',
+        thermomix: {},
+        coffee: { temperature: '93°C', time: '28 s', yield: '36 g' },
+      },
+    ])
+  })
+
+  test('falls back to `other` rather than forcing a method the coffee was not made with', () => {
+    expect(parsedImport({ ...coffeeBase, method: 'siphon', steps: ['Infuser'] }).method).toBe(
+      'other',
+    )
+    expect(parsedImport({ ...coffeeBase, method: null, steps: ['Infuser'] }).method).toBe('other')
+  })
+
+  test('hangs no method on a recipe that is not a coffee', () => {
+    expect(parsedImport({ ...base, method: 'v60', steps: ['Mixer'] }).method).toBeUndefined()
   })
 })
 
@@ -136,14 +180,14 @@ describe('parseImportResponse — clamps oversized AI strings to domain limits',
       type: 'thermomix',
       title: 'T'.repeat(500),
       ingredients: [{ name: 'N'.repeat(200), quantity: 'Q'.repeat(200) }],
-      steps: [{ text: 'E'.repeat(500), settings: { time: 't'.repeat(50) } }],
+      steps: [{ text: 'E'.repeat(500), thermomix: { time: 't'.repeat(50) } }],
     })
 
     expect(result.title.length).toBe(RECIPE_MAX.title)
     expect(result.ingredients[0].name.length).toBe(RECIPE_MAX.ingredientName)
     expect(result.ingredients[0].quantity.length).toBe(RECIPE_MAX.ingredientQuantity)
     expect(result.steps[0].text.length).toBe(RECIPE_MAX.stepText)
-    expect(result.steps[0].settings.time?.length).toBe(RECIPE_MAX.thermomix)
+    expect(result.steps[0].thermomix.time?.length).toBe(RECIPE_MAX.thermomix)
 
     // Backstop against drift: the clamped values pass the domain constructors,
     // so createRecipe can never 400 on these lengths.
@@ -151,7 +195,7 @@ describe('parseImportResponse — clamps oversized AI strings to domain limits',
     expect(() => IngredientName(result.ingredients[0].name)).not.toThrow()
     expect(() => IngredientQuantity(result.ingredients[0].quantity)).not.toThrow()
     expect(() => StepText(result.steps[0].text)).not.toThrow()
-    expect(() => ThermomixTime(result.steps[0].settings.time ?? '')).not.toThrow()
+    expect(() => ThermomixTime(result.steps[0].thermomix.time ?? '')).not.toThrow()
   })
 })
 
@@ -164,14 +208,14 @@ describe('parseImportResponse — drops blank items instead of failing', () => {
         { name: 'Gin', quantity: '30 ml' },
         { name: '   ', quantity: 'x' },
       ],
-      steps: [{ text: 'Mixer', settings: { time: '5 s' } }, { text: '   ' }, { text: 'Servir' }],
+      steps: [{ text: 'Mixer', thermomix: { time: '5 s' } }, { text: '   ' }, { text: 'Servir' }],
     })
 
     expect(result.ingredients).toEqual([{ name: 'Gin', quantity: '30 ml' }])
     // Blank step dropped; each surviving step keeps its own settings.
     expect(result.steps).toEqual([
-      { text: 'Mixer', settings: { time: '5 s' } },
-      { text: 'Servir', settings: {} },
+      { text: 'Mixer', thermomix: { time: '5 s' }, coffee: {} },
+      { text: 'Servir', thermomix: {}, coffee: {} },
     ])
   })
 
@@ -180,11 +224,11 @@ describe('parseImportResponse — drops blank items instead of failing', () => {
       type: 'dish',
       title: 'Soupe',
       ingredients: [{ name: 'Eau', quantity: '1 L' }, { quantity: '2' }, { name: null }],
-      steps: [{ settings: { time: '5 s' } }, 'Servir'],
+      steps: [{ thermomix: { time: '5 s' } }, 'Servir'],
     })
 
     expect(result.ingredients).toEqual([{ name: 'Eau', quantity: '1 L' }])
-    expect(result.steps).toEqual([{ text: 'Servir', settings: {} }])
+    expect(result.steps).toEqual([{ text: 'Servir', thermomix: {}, coffee: {} }])
   })
 
   test('falls back to a default title when the AI returns a blank or null one', () => {
@@ -221,7 +265,7 @@ describe('parseImportResponse — no recipe found', () => {
     const result = parsedImport({ type: 'dish', title: 'Soupe', steps: ['Cuire'] })
 
     expect(result.title).toBe('Soupe')
-    expect(result.steps).toEqual([{ text: 'Cuire', settings: {} }])
+    expect(result.steps).toEqual([{ text: 'Cuire', thermomix: {}, coffee: {} }])
   })
 
   test('parses normally when recipeFound is true and a recipe is present', () => {
@@ -249,7 +293,11 @@ describe('parseProposalResponse — full next-version proposal', () => {
           { name: 'Bouillon', quantity: '650 ml' },
         ],
         steps: [
-          { text: 'Saisir', settings: { time: '5 min', temperature: '120°C', speed: '1' } },
+          {
+            text: 'Saisir',
+            thermomix: { time: '5 min', temperature: '120°C', speed: '1' },
+            coffee: {},
+          },
           { text: 'Mijoter' },
         ],
       }),
@@ -262,8 +310,12 @@ describe('parseProposalResponse — full next-version proposal', () => {
       { name: 'Bouillon', quantity: '650 ml' },
     ])
     expect(result.steps).toEqual([
-      { text: 'Saisir', settings: { time: '5 min', temperature: '120°C', speed: '1' } },
-      { text: 'Mijoter', settings: {} },
+      {
+        text: 'Saisir',
+        thermomix: { time: '5 min', temperature: '120°C', speed: '1' },
+        coffee: {},
+      },
+      { text: 'Mijoter', thermomix: {}, coffee: {} },
     ])
   })
 
@@ -294,7 +346,7 @@ describe('parseProposalResponse — full next-version proposal', () => {
     )
 
     expect(result.ingredients).toEqual([{ name: 'Sel', quantity: '5 g' }])
-    expect(result.steps).toEqual([{ text: 'Saler', settings: {} }])
+    expect(result.steps).toEqual([{ text: 'Saler', thermomix: {}, coffee: {} }])
   })
 })
 

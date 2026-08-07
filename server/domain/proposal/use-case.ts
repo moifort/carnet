@@ -18,28 +18,49 @@ import type {
 import type { AcceptedProposal, Proposal } from './types'
 
 // Turn the untrusted AI proposal into branded, discriminated content. A dish keeps
-// plain-text steps; a Thermomix recipe keeps each step's settings, paired and
-// normalized by the shared `VersionContent` constructor (misaligned or empty
-// settings collapse to plain steps).
-const brandProposal = (type: RecipeType, proposal: AiProposal): VersionContent =>
-  type === 'thermomix'
-    ? brandVersionContent({
-        kind: 'thermomix',
-        ingredients: proposal.ingredients,
-        steps: proposal.steps,
-      })
-    : brandVersionContent({
-        kind: 'dish',
-        ingredients: proposal.ingredients,
-        steps: proposal.steps.map((s) => s.text),
-      })
+// plain-text steps; a Thermomix recipe and a coffee each keep their own per-step
+// settings, paired and normalized by the shared `VersionContent` constructor
+// (misaligned or empty settings collapse to steps that set nothing).
+const brandProposal = (type: RecipeType, proposal: AiProposal): VersionContent => {
+  const ingredients = proposal.ingredients
+  if (type === 'thermomix')
+    return brandVersionContent({
+      kind: 'thermomix',
+      ingredients,
+      steps: proposal.steps.map((s) => ({ text: s.text, settings: s.thermomix })),
+    })
+  if (type === 'coffee')
+    return brandVersionContent({
+      kind: 'coffee',
+      ingredients,
+      steps: proposal.steps.map((s) => ({ text: s.text, settings: s.coffee })),
+    })
+  return brandVersionContent({
+    kind: 'dish',
+    ingredients,
+    steps: proposal.steps.map((s) => s.text),
+  })
+}
 
 // Rebuild the AI context steps from a stored version's content: a dish exposes
-// plain steps (empty settings), a Thermomix recipe its per-step settings.
-const contextSteps = (content: VersionContent): ImportStep[] =>
-  content.kind === 'thermomix'
-    ? content.steps.map((s) => ({ text: s.text as string, settings: s.settings }))
-    : content.steps.map((text) => ({ text: text as string, settings: {} }))
+// steps that set nothing, a Thermomix recipe and a coffee their own per-step
+// settings. Both settings objects are always present — `{}` when the step sets
+// nothing — so the wire never carries a hole.
+const contextSteps = (content: VersionContent): ImportStep[] => {
+  if (content.kind === 'thermomix')
+    return content.steps.map((s) => ({
+      text: s.text as string,
+      thermomix: s.settings,
+      coffee: {},
+    }))
+  if (content.kind === 'coffee')
+    return content.steps.map((s) => ({
+      text: s.text as string,
+      thermomix: {},
+      coffee: s.settings,
+    }))
+  return content.steps.map((text) => ({ text: text as string, thermomix: {}, coffee: {} }))
+}
 
 // What asks for the next version: the cook that was run, or the improvement the cook
 // described. Everything else about the proposal is the same either way.
@@ -70,6 +91,8 @@ export namespace ProposalUseCase {
     const context: ProposalContext = {
       type: recipe.type,
       category: recipe.category,
+      // A coffee iterates within its brewing method; it never changes it.
+      ...(recipe.method ? { method: recipe.method } : {}),
       currentIngredients: version.content.ingredients.map((i) => ({
         name: i.name as string,
         quantity: i.quantity as string,

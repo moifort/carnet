@@ -13,7 +13,7 @@ const proposal: AiProposal = {
   changeSummary: 'Bouillon 700 → 650 ml',
   rationale: 'Trop liquide au dernier essai',
   ingredients: [{ name: 'Bouillon', quantity: '650 ml' }],
-  steps: [{ text: 'Mijoter 40 min', settings: {} }],
+  steps: [{ text: 'Mijoter 40 min', thermomix: {}, coffee: {} }],
   tips: [],
 }
 mock.module('~/system/ai', () => ({

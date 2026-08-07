@@ -1,8 +1,17 @@
-import { DishCategoryEnum, RecipeTypeEnum } from '~/domain/recipe/infrastructure/graphql/enums'
+import {
+  BrewMethodEnum,
+  DishCategoryEnum,
+  RecipeTypeEnum,
+} from '~/domain/recipe/infrastructure/graphql/enums'
 import { VersionContentUnion } from '~/domain/recipe/infrastructure/graphql/types'
 import type { Tip } from '~/domain/recipe/types'
 import { builder } from '~/domain/shared/graphql/builder'
-import type { ImportAnalysis, ImportStep, ImportThermomixSettings } from '~/system/ai/types'
+import type {
+  ImportAnalysis,
+  ImportCoffeeSettings,
+  ImportStep,
+  ImportThermomixSettings,
+} from '~/system/ai/types'
 import type { Proposal } from '../../types'
 
 export const ProposalType = builder.objectRef<Proposal>('Proposal').implement({
@@ -30,8 +39,8 @@ export const ProposalType = builder.objectRef<Proposal>('Proposal').implement({
     content: t.field({
       type: VersionContentUnion,
       description:
-        'The complete body of the suggested version (not just what changed) — a `DishContent` or ' +
-        'a `ThermomixContent` depending on the recipe type',
+        'The complete body of the suggested version (not just what changed) — a `DishContent`, ' +
+        'a `ThermomixContent` or a `CoffeeContent` depending on the recipe type',
       resolve: (d) => d.content,
     }),
     tips: t.field({
@@ -87,16 +96,35 @@ const ImportThermomixSettingsType = builder
     }),
   })
 
+const ImportCoffeeSettingsType = builder
+  .objectRef<ImportCoffeeSettings>('ImportCoffeeSettings')
+  .implement({
+    description: 'Extraction settings for one step extracted by the AI (unvalidated preview)',
+    fields: (t) => ({
+      grind: t.exposeString('grind', { nullable: true }),
+      water: t.exposeString('water', { nullable: true }),
+      temperature: t.exposeString('temperature', { nullable: true }),
+      time: t.exposeString('time', { nullable: true }),
+      yield: t.exposeString('yield', { nullable: true }),
+    }),
+  })
+
 const ImportStepType = builder.objectRef<ImportStep>('ImportStep').implement({
   description:
-    'A recipe step extracted by the AI (unvalidated preview): its text plus the Thermomix ' +
-    'settings that go with it (every field `null` = a plain step).',
+    'A recipe step extracted by the AI (unvalidated preview): its text plus the settings that ' +
+    'go with it — the machine ones on a Thermomix recipe, the extraction ones on a coffee ' +
+    '(every field `null` = a step that sets nothing).',
   fields: (t) => ({
     text: t.exposeString('text'),
-    settings: t.field({
+    thermomix: t.field({
       type: ImportThermomixSettingsType,
-      description: 'The step’s Thermomix settings (every field `null` = a plain step)',
-      resolve: (s) => s.settings,
+      description: 'The step’s Thermomix settings (every field `null` = a step that sets nothing)',
+      resolve: (s) => s.thermomix,
+    }),
+    coffee: t.field({
+      type: ImportCoffeeSettingsType,
+      description: 'The step’s extraction settings (every field `null` = a step that sets nothing)',
+      resolve: (s) => s.coffee,
     }),
   }),
 })
@@ -109,12 +137,18 @@ export const ImportAnalysisType = builder.objectRef<ImportAnalysis>('ImportAnaly
       type: DishCategoryEnum,
       description: 'The dish category detected by the AI',
     }),
+    method: t.field({
+      type: BrewMethodEnum,
+      nullable: true,
+      description: 'The brew method detected by the AI — `null` on anything that is not a coffee',
+      resolve: (a) => a.method ?? null,
+    }),
     title: t.exposeString('title'),
     sourceLabel: t.exposeString('sourceLabel', { nullable: true }),
     ingredients: t.field({ type: [ImportIngredientType], resolve: (a) => a.ingredients }),
     steps: t.field({
       type: [ImportStepType],
-      description: 'The extracted steps, each carrying its own Thermomix settings',
+      description: 'The extracted steps, each carrying its own settings',
       resolve: (a) => a.steps,
     }),
     tips: t.exposeStringList('tips', {

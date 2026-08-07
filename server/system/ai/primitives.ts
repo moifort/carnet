@@ -1,9 +1,10 @@
 import { make } from 'ts-brand'
 import { z } from 'zod'
 import { RECIPE_MAX } from '~/domain/recipe/limits'
-import { DISH_CATEGORY_VALUES, RECIPE_TYPE_VALUES } from '~/domain/recipe/types'
+import { BREW_METHOD_VALUES, DISH_CATEGORY_VALUES, RECIPE_TYPE_VALUES } from '~/domain/recipe/types'
 import type {
   ImportAnalysis,
+  ImportCoffeeSettings,
   ImportHash as ImportHashType,
   ImportStep,
   ImportThermomixSettings,
@@ -84,17 +85,46 @@ const settingsSchema = z
     }),
   )
 
-// A step comes back as an object carrying the text plus its nested Thermomix
-// settings; a bare string (schema-less fallback) is tolerated as a plain step.
-// A plain step is the empty settings object `{}` — never a hole in the list.
+// The same, for a coffee step's extraction settings.
+const coffeeSettingsSchema = z
+  .object({
+    grind: optionalClamped(RECIPE_MAX.coffee),
+    water: optionalClamped(RECIPE_MAX.coffee),
+    temperature: optionalClamped(RECIPE_MAX.coffee),
+    time: optionalClamped(RECIPE_MAX.coffee),
+    yield: optionalClamped(RECIPE_MAX.coffee),
+  })
+  .transform(
+    ({ grind, water, temperature, time, yield: cupYield }): ImportCoffeeSettings => ({
+      ...(grind ? { grind } : {}),
+      ...(water ? { water } : {}),
+      ...(temperature ? { temperature } : {}),
+      ...(time ? { time } : {}),
+      ...(cupYield ? { yield: cupYield } : {}),
+    }),
+  )
+
+// A step comes back as an object carrying the text plus its nested settings — the
+// machine ones on a Thermomix recipe, the extraction ones on a coffee; a bare
+// string (schema-less fallback) is tolerated as a step that sets nothing. Both
+// settings objects are total: `{}` is the empty one, never a hole in the list.
 const stepSchema = z.union([
-  clamped(RECIPE_MAX.stepText).transform((text): ImportStep => ({ text, settings: {} })),
+  clamped(RECIPE_MAX.stepText).transform(
+    (text): ImportStep => ({ text, thermomix: {}, coffee: {} }),
+  ),
   z
     .object({
       text: clampedField(RECIPE_MAX.stepText),
-      settings: nullAsAbsent(settingsSchema),
+      thermomix: nullAsAbsent(settingsSchema),
+      coffee: nullAsAbsent(coffeeSettingsSchema),
     })
-    .transform(({ text, settings }): ImportStep => ({ text, settings: settings ?? {} })),
+    .transform(
+      ({ text, thermomix, coffee }): ImportStep => ({
+        text,
+        thermomix: thermomix ?? {},
+        coffee: coffee ?? {},
+      }),
+    ),
 ])
 
 // Drop blank ingredients and cap the count. Shared by import and proposal.
@@ -123,6 +153,9 @@ export const ImportAnalysisSchema = z
     type: z.enum(RECIPE_TYPE_VALUES),
     // Best-effort detection: an unknown/missing category defaults to 'main'.
     category: z.enum(DISH_CATEGORY_VALUES).catch('main'),
+    // Only meaningful on a coffee; an unknown value falls back to 'other' rather
+    // than forcing the recipe into a brewing method it was never made with.
+    method: z.enum(BREW_METHOD_VALUES).nullish().catch('other'),
     title: clampedField(RECIPE_MAX.title),
     sourceLabel: optionalClamped(SOURCE_LABEL_MAX),
     ingredients: z.array(ingredientSchema).default([]),
@@ -133,6 +166,10 @@ export const ImportAnalysisSchema = z
     (raw): ImportAnalysis => ({
       type: raw.type,
       category: raw.category,
+      // A method belongs to a coffee and to nothing else — the invariant
+      // `RecipeCommand.create` enforces. A coffee whose method Gemini left out
+      // still gets one, so the import can always be saved.
+      ...(raw.type === 'coffee' ? { method: raw.method ?? 'other' } : {}),
       // Title is required downstream; never let a blank one through.
       title: raw.title || 'Recette importée',
       ...(raw.sourceLabel ? { sourceLabel: raw.sourceLabel } : {}),
