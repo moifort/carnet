@@ -208,10 +208,21 @@ enum Fixtures {
 
     // MARK: - Coffee
 
-    static let v60Ingredients = [
-        Ingredient(name: "Café (Éthiopie Guji, torréfaction claire)", quantity: "18 g"),
-        Ingredient(name: "Eau", quantity: "300 g"),
-    ]
+    /// A V60 as it is actually logged: the bag, the water, the dials, the gear —
+    /// and steps on top, because a pour-over does have gestures.
+    static let v60Parameters = CoffeeParameters(
+        beans: CoffeeBeans(
+            name: "Belleville — Guji",
+            country: "Éthiopie",
+            producer: "Coop. Hambela",
+            roastedOn: date.addingTimeInterval(-86_400 * 20),
+            dose: "18 g"
+        ),
+        water: CoffeeWaterSpec(kind: "Volvic", amount: "300 g", temperature: "94°C"),
+        extraction: CoffeeExtraction(grind: "moyenne", time: "3 min 15", cupYield: "300 g"),
+        milk: nil,
+        gear: CoffeeGear(machine: "Hario V60 02", grinder: "Comandante C40")
+    )
 
     static let v60Steps = [
         CoffeeStep(
@@ -239,9 +250,9 @@ enum Fixtures {
     ]
 
     static let v60V1 = RecipeVersion(
-        number: 1, basedOn: nil, change: nil, why: nil, originKind: .import,
+        number: 1, restDays: 14, basedOn: nil, change: nil, why: nil, originKind: .import,
         originDetail: "Photo du sachet",
-        content: .coffee(ingredients: v60Ingredients, steps: v60Steps),
+        content: .coffee(parameters: v60Parameters, steps: v60Steps),
         tips: ["Rincer le filtre à l’eau chaude avant de doser."],
         recipeId: "v60",
         rating: 3, remarks: "Un peu acide, ça manque de corps.",
@@ -259,7 +270,7 @@ enum Fixtures {
         originKind: .aiProposal,
         originDetail: nil,
         content: .coffee(
-            ingredients: v60Ingredients,
+            parameters: v60Parameters,
             steps: v60Steps.map {
                 $0.settings.grind == nil
                     ? $0
@@ -404,7 +415,7 @@ enum Fixtures {
         // Built off v2 (the version it iterates on), so the only thing that moves is
         // the temperature — exactly what the rule promises.
         content: .coffee(
-            ingredients: v60Ingredients,
+            parameters: v60Parameters,
             steps: v60V2.content.stepsWithExtraction.map {
                 $0.settings.temperature == nil
                     ? $0
@@ -461,7 +472,10 @@ enum Fixtures {
         type: .coffee,
         category: .drink,
         method: .v60,
-        ingredients: v60Ingredients,
+        // A coffee import carries no ingredient list: the bag and the dials are
+        // parameters.
+        ingredients: [],
+        coffee: v60Parameters,
         steps: v60Steps.map { ImportStep(text: $0.text, thermomix: .plain, coffee: $0.settings) },
         tips: ["Rincer le filtre à l’eau chaude avant de doser."],
         sourceLabel: "Photo du sachet"

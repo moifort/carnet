@@ -8,6 +8,7 @@ import type { Tip } from '~/domain/recipe/types'
 import { builder } from '~/domain/shared/graphql/builder'
 import type {
   ImportAnalysis,
+  ImportCoffeeParameters,
   ImportCoffeeSettings,
   ImportStep,
   ImportThermomixSettings,
@@ -109,6 +110,87 @@ const ImportCoffeeSettingsType = builder
     }),
   })
 
+// The parameter blocks of an extracted coffee. Flat string fields, all nullable:
+// this is the editable preview, where "the source did not say" is the normal case
+// and the cook fills the rest in before confirming.
+const ImportCoffeeBeansType = builder
+  .objectRef<NonNullable<ImportCoffeeParameters['beans']>>('ImportCoffeeBeans')
+  .implement({
+    description: 'The coffee itself as extracted by the AI (unvalidated preview)',
+    fields: (t) => ({
+      name: t.exposeString('name', { nullable: true }),
+      country: t.exposeString('country', { nullable: true }),
+      producer: t.exposeString('producer', { nullable: true }),
+      roastedOn: t.exposeString('roastedOn', {
+        nullable: true,
+        description: 'The roast date as the source states it, ISO 8601 — `null` when not stated',
+      }),
+      dose: t.exposeString('dose', { nullable: true }),
+    }),
+  })
+
+const ImportCoffeeWaterType = builder
+  .objectRef<NonNullable<ImportCoffeeParameters['water']>>('ImportCoffeeWater')
+  .implement({
+    description: 'The water as extracted by the AI (unvalidated preview)',
+    fields: (t) => ({
+      kind: t.exposeString('kind', { nullable: true }),
+      amount: t.exposeString('amount', { nullable: true }),
+      temperature: t.exposeString('temperature', { nullable: true }),
+    }),
+  })
+
+const ImportCoffeeExtractionType = builder
+  .objectRef<NonNullable<ImportCoffeeParameters['extraction']>>('ImportCoffeeExtraction')
+  .implement({
+    description: 'The extraction dials as extracted by the AI (unvalidated preview)',
+    fields: (t) => ({
+      grind: t.exposeString('grind', { nullable: true }),
+      time: t.exposeString('time', { nullable: true }),
+      yield: t.exposeString('yield', { nullable: true }),
+    }),
+  })
+
+const ImportCoffeeMilkType = builder
+  .objectRef<NonNullable<ImportCoffeeParameters['milk']>>('ImportCoffeeMilk')
+  .implement({
+    description: 'The milk as extracted by the AI (unvalidated preview)',
+    fields: (t) => ({
+      kind: t.exposeString('kind', { nullable: true }),
+      amount: t.exposeString('amount', { nullable: true }),
+      temperature: t.exposeString('temperature', { nullable: true }),
+    }),
+  })
+
+const ImportCoffeeGearType = builder
+  .objectRef<NonNullable<ImportCoffeeParameters['gear']>>('ImportCoffeeGear')
+  .implement({
+    description: 'The gear as extracted by the AI (unvalidated preview)',
+    fields: (t) => ({
+      machine: t.exposeString('machine', { nullable: true }),
+      grinder: t.exposeString('grinder', { nullable: true }),
+    }),
+  })
+
+const ImportCoffeeParametersType = builder
+  .objectRef<ImportCoffeeParameters>('ImportCoffeeParameters')
+  .implement({
+    description:
+      'The coffee parameters extracted by the AI (unvalidated preview) — `null` on anything ' +
+      'that is not a coffee. `milk` is `null` on a drink that has none.',
+    fields: (t) => ({
+      beans: t.field({ type: ImportCoffeeBeansType, resolve: (p) => p.beans }),
+      water: t.field({ type: ImportCoffeeWaterType, resolve: (p) => p.water }),
+      extraction: t.field({ type: ImportCoffeeExtractionType, resolve: (p) => p.extraction }),
+      milk: t.field({
+        type: ImportCoffeeMilkType,
+        nullable: true,
+        resolve: (p) => p.milk ?? null,
+      }),
+      gear: t.field({ type: ImportCoffeeGearType, resolve: (p) => p.gear }),
+    }),
+  })
+
 const ImportStepType = builder.objectRef<ImportStep>('ImportStep').implement({
   description:
     'A recipe step extracted by the AI (unvalidated preview): its text plus the settings that ' +
@@ -145,7 +227,19 @@ export const ImportAnalysisType = builder.objectRef<ImportAnalysis>('ImportAnaly
     }),
     title: t.exposeString('title'),
     sourceLabel: t.exposeString('sourceLabel', { nullable: true }),
-    ingredients: t.field({ type: [ImportIngredientType], resolve: (a) => a.ingredients }),
+    ingredients: t.field({
+      type: [ImportIngredientType],
+      description: 'The extracted ingredients — always empty on a coffee, which has none',
+      resolve: (a) => a.ingredients,
+    }),
+    coffee: t.field({
+      type: ImportCoffeeParametersType,
+      nullable: true,
+      description:
+        'The extracted coffee parameters — `null` on anything that is not a coffee. What a ' +
+        'coffee carries instead of an ingredient list.',
+      resolve: (a) => a.coffee ?? null,
+    }),
     steps: t.field({
       type: [ImportStepType],
       description: 'The extracted steps, each carrying its own settings',

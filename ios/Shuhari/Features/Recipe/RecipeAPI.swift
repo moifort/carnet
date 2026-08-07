@@ -168,7 +168,30 @@ func mapVersionContent(_ c: ShuhariGraphQL.VersionContentFields) -> VersionConte
     }
     if let coffee = c.asCoffeeContent {
         return .coffee(
-            ingredients: coffee.ingredients.map { Ingredient(name: $0.name, quantity: $0.quantity) },
+            parameters: CoffeeParameters(
+                beans: CoffeeBeans(
+                    name: coffee.beans.name,
+                    country: coffee.beans.country,
+                    producer: coffee.beans.producer,
+                    roastedOn: coffee.beans.roastedOn.flatMap { GraphQLHelpers.parseISO8601($0) },
+                    dose: coffee.beans.dose
+                ),
+                water: CoffeeWaterSpec(
+                    kind: coffee.water.kind,
+                    amount: coffee.water.amount,
+                    temperature: coffee.water.temperature
+                ),
+                extraction: CoffeeExtraction(
+                    grind: coffee.extraction.grind,
+                    time: coffee.extraction.time,
+                    cupYield: coffee.extraction.yield
+                ),
+                // A nil block is a drink with no milk at all — not an empty one.
+                milk: coffee.milk.map {
+                    CoffeeMilk(kind: $0.kind, amount: $0.amount, temperature: $0.temperature)
+                },
+                gear: CoffeeGear(machine: coffee.gear.machine, grinder: coffee.gear.grinder)
+            ),
             steps: coffee.coffeeSteps.map { step in
                 CoffeeStep(
                     text: step.text,

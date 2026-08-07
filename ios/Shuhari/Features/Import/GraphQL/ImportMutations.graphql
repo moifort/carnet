@@ -9,6 +9,34 @@ mutation AnalyzeImport($photos: [String!]!, $url: String, $text: String) {
       name
       quantity
     }
+    coffee {
+      beans {
+        name
+        country
+        producer
+        roastedOn
+        dose
+      }
+      water {
+        kind
+        amount
+        temperature
+      }
+      extraction {
+        grind
+        time
+        yield
+      }
+      milk {
+        kind
+        amount
+        temperature
+      }
+      gear {
+        machine
+        grinder
+      }
+    }
     steps {
       text
       thermomix {

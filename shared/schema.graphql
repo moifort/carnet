@@ -565,6 +565,13 @@ type Entitlement {
 type ImportAnalysis {
   """The dish category detected by the AI"""
   category: DishCategory!
+
+  """
+  The extracted coffee parameters — `null` on anything that is not a coffee. What a coffee carries instead of an ingredient list.
+  """
+  coffee: ImportCoffeeParameters
+
+  """The extracted ingredients — always empty on a coffee, which has none"""
   ingredients: [ImportIngredient!]!
 
   """
@@ -584,6 +591,50 @@ type ImportAnalysis {
   type: RecipeType!
 }
 
+"""The coffee itself as extracted by the AI (unvalidated preview)"""
+type ImportCoffeeBeans {
+  country: String
+  dose: String
+  name: String
+  producer: String
+
+  """
+  The roast date as the source states it, ISO 8601 — `null` when not stated
+  """
+  roastedOn: String
+}
+
+"""The extraction dials as extracted by the AI (unvalidated preview)"""
+type ImportCoffeeExtraction {
+  grind: String
+  time: String
+  yield: String
+}
+
+"""The gear as extracted by the AI (unvalidated preview)"""
+type ImportCoffeeGear {
+  grinder: String
+  machine: String
+}
+
+"""The milk as extracted by the AI (unvalidated preview)"""
+type ImportCoffeeMilk {
+  amount: String
+  kind: String
+  temperature: String
+}
+
+"""
+The coffee parameters extracted by the AI (unvalidated preview) — `null` on anything that is not a coffee. `milk` is `null` on a drink that has none.
+"""
+type ImportCoffeeParameters {
+  beans: ImportCoffeeBeans!
+  extraction: ImportCoffeeExtraction!
+  gear: ImportCoffeeGear!
+  milk: ImportCoffeeMilk
+  water: ImportCoffeeWater!
+}
+
 """
 Extraction settings for one step extracted by the AI (unvalidated preview)
 """
@@ -593,6 +644,13 @@ type ImportCoffeeSettings {
   time: String
   water: String
   yield: String
+}
+
+"""The water as extracted by the AI (unvalidated preview)"""
+type ImportCoffeeWater {
+  amount: String
+  kind: String
+  temperature: String
 }
 
 """A recipe ingredient extracted by the AI (unvalidated preview)"""

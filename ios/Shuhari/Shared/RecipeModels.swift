@@ -71,6 +71,105 @@ struct CoffeeStep: Sendable, Hashable {
     let settings: CoffeeSettings
 }
 
+/// The bag in the cupboard: what the coffee IS. Every field is optional — a cook
+/// who only knows the dose still logs the dose.
+struct CoffeeBeans: Sendable, Hashable {
+    let name: String?
+    let country: String?
+    let producer: String?
+    let roastedOn: Date?
+    let dose: String?
+
+    var isEmpty: Bool {
+        name == nil && country == nil && producer == nil && roastedOn == nil && dose == nil
+    }
+
+    static let empty = CoffeeBeans(
+        name: nil, country: nil, producer: nil, roastedOn: nil, dose: nil
+    )
+}
+
+/// The water, which is half the cup: what it is (free text — a tap has a hardness,
+/// a bottle has a brand), how much of it, how hot.
+struct CoffeeWaterSpec: Sendable, Hashable {
+    let kind: String?
+    let amount: String?
+    let temperature: String?
+
+    var isEmpty: Bool { kind == nil && amount == nil && temperature == nil }
+
+    static let empty = CoffeeWaterSpec(kind: nil, amount: nil, temperature: nil)
+}
+
+/// The three dials the cook actually turns between two attempts.
+struct CoffeeExtraction: Sendable, Hashable {
+    let grind: String?
+    let time: String?
+    /// What lands in the cup ("36 g" for a double espresso).
+    let cupYield: String?
+
+    var isEmpty: Bool { grind == nil && time == nil && cupYield == nil }
+
+    static let empty = CoffeeExtraction(grind: nil, time: nil, cupYield: nil)
+}
+
+/// The milk of a milk drink. `nil` on the parameters IS the information — an
+/// espresso has none — never an unfilled field.
+struct CoffeeMilk: Sendable, Hashable {
+    let kind: String?
+    let amount: String?
+    let temperature: String?
+
+    var isEmpty: Bool { kind == nil && amount == nil && temperature == nil }
+
+    static let empty = CoffeeMilk(kind: nil, amount: nil, temperature: nil)
+}
+
+/// What brews it and what grinds it. Versioned along with the rest, so a version
+/// stays reproducible on its own.
+struct CoffeeGear: Sendable, Hashable {
+    let machine: String?
+    let grinder: String?
+
+    var isEmpty: Bool { machine == nil && grinder == nil }
+
+    static let empty = CoffeeGear(machine: nil, grinder: nil)
+}
+
+/// Everything a coffee version is set by, minus its gestures — the unit the edit
+/// sheet writes back whole. A coffee has no ingredient list: its dose, its water
+/// and its milk are here.
+struct CoffeeParameters: Sendable, Hashable {
+    let beans: CoffeeBeans
+    let water: CoffeeWaterSpec
+    let extraction: CoffeeExtraction
+    let milk: CoffeeMilk?
+    let gear: CoffeeGear
+
+    var isEmpty: Bool {
+        beans.isEmpty && water.isEmpty && extraction.isEmpty && milk == nil && gear.isEmpty
+    }
+
+    static let empty = CoffeeParameters(
+        beans: .empty, water: .empty, extraction: .empty, milk: nil, gear: .empty
+    )
+}
+
+/// The free-text values a cook has already used, per field — what each coffee
+/// field suggests as they type. Suggestions only: any new value is accepted, and
+/// using one is what adds it.
+struct CoffeeVocabulary: Sendable, Hashable {
+    var beanNames: [String] = []
+    var countries: [String] = []
+    var producers: [String] = []
+    var waterKinds: [String] = []
+    var milkKinds: [String] = []
+    var machines: [String] = []
+    var grinders: [String] = []
+
+    static let empty = CoffeeVocabulary()
+}
+
 // MARK: - Version content
 
 /// A version's body, tagged by recipe type: a cooked dish carries plain-text
@@ -80,15 +179,21 @@ struct CoffeeStep: Sendable, Hashable {
 enum VersionContent: Sendable, Hashable {
     case dish(ingredients: [Ingredient], steps: [String])
     case thermomix(ingredients: [Ingredient], steps: [ThermomixStep])
-    case coffee(ingredients: [Ingredient], steps: [CoffeeStep])
+    case coffee(parameters: CoffeeParameters, steps: [CoffeeStep])
 
-    /// The ingredient list, whichever variant this is.
+    /// The ingredient list, whichever variant this is. A coffee has none: its dose,
+    /// its water and its milk are parameters.
     var ingredients: [Ingredient] {
         switch self {
         case .dish(let ingredients, _): ingredients
         case .thermomix(let ingredients, _): ingredients
-        case .coffee(let ingredients, _): ingredients
+        case .coffee: []
         }
+    }
+
+    /// The coffee parameters, or nil on anything that is not a coffee.
+    var coffeeParameters: CoffeeParameters? {
+        if case .coffee(let parameters, _) = self { parameters } else { nil }
     }
 
     /// The plain step instructions, whichever variant this is (a step's machine or
@@ -139,6 +244,11 @@ enum VersionOriginKind: Sendable {
 /// `executedAt != nil`.
 struct RecipeVersion: Identifiable, Sendable {
     let number: Int
+    /// How many full days the beans rested between the roast and this version —
+    /// counted to its creation, so it is frozen and comparable from one attempt to
+    /// the next. nil on anything that is not a coffee, and on a coffee with no
+    /// roast date.
+    var restDays: Int?
     /// The version this one iterates on — the attempt it was built from. nil on the
     /// original v1, which builds on nothing. Drives the attempt-diff base.
     let basedOn: Int?
@@ -301,9 +411,13 @@ struct ImportAnalysis: Sendable, Hashable {
     /// The brew method detected by the AI (editable before create) — nil on
     /// anything that is not a coffee.
     var method: BrewMethod?
-    /// The recipe's components with quantities (empty when none).
+    /// The recipe's components with quantities (empty when none, and always empty
+    /// on a coffee — its dose, its water and its milk are parameters).
     var ingredients: [Ingredient] = []
-    /// The extracted steps, each carrying its own settings.
+    /// The extracted coffee parameters — nil on anything that is not a coffee.
+    var coffee: CoffeeParameters?
+    /// The extracted steps, each carrying its own settings. Empty on a coffee whose
+    /// parameters say everything, e.g. an espresso.
     var steps: [ImportStep]
     /// The cooking tips found in the source (empty when it carries none).
     var tips: [String] = []

@@ -57,6 +57,31 @@ enum ImportAPI {
             category: DishCategory(graphql: analysis.category),
             method: BrewMethod(graphql: analysis.method),
             ingredients: analysis.ingredients.map { Ingredient(name: $0.name, quantity: $0.quantity) },
+            coffee: analysis.coffee.map { coffee in
+                CoffeeParameters(
+                    beans: CoffeeBeans(
+                        name: coffee.beans.name,
+                        country: coffee.beans.country,
+                        producer: coffee.beans.producer,
+                        roastedOn: coffee.beans.roastedOn.flatMap { GraphQLHelpers.parseISO8601($0) },
+                        dose: coffee.beans.dose
+                    ),
+                    water: CoffeeWaterSpec(
+                        kind: coffee.water.kind,
+                        amount: coffee.water.amount,
+                        temperature: coffee.water.temperature
+                    ),
+                    extraction: CoffeeExtraction(
+                        grind: coffee.extraction.grind,
+                        time: coffee.extraction.time,
+                        cupYield: coffee.extraction.yield
+                    ),
+                    milk: coffee.milk.map {
+                        CoffeeMilk(kind: $0.kind, amount: $0.amount, temperature: $0.temperature)
+                    },
+                    gear: CoffeeGear(machine: coffee.gear.machine, grinder: coffee.gear.grinder)
+                )
+            },
             steps: analysis.steps.map { step in
                 ImportStep(
                     text: step.text,
@@ -96,7 +121,7 @@ enum ImportAPI {
             )
         case .coffee:
             content = .coffee(
-                ingredients: analysis.ingredients,
+                parameters: analysis.coffee ?? .empty,
                 steps: analysis.steps.map(\.asCoffeeStep)
             )
         }

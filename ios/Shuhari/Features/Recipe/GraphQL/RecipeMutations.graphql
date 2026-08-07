@@ -20,3 +20,17 @@ mutation UpdateWarnings($recipeId: RecipeId!, $warnings: [Warning!]!) {
     warnings
   }
 }
+
+mutation UpdateCoffeeParameters(
+  $recipeId: RecipeId!
+  $versionNumber: VersionNumber!
+  $parameters: CoffeeParametersInput!
+) {
+  updateCoffeeParameters(
+    recipeId: $recipeId
+    versionNumber: $versionNumber
+    parameters: $parameters
+  ) {
+    ...VersionFields
+  }
+}

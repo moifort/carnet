@@ -1,0 +1,11 @@
+query CoffeeVocabulary {
+  coffeeVocabulary {
+    beanNames
+    countries
+    producers
+    waterKinds
+    milkKinds
+    machines
+    grinders
+  }
+}

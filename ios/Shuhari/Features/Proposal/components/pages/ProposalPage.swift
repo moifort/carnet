@@ -329,9 +329,11 @@ struct ProposalPage: View {
                 ingredients: currentIngredients,
                 steps: survivingSteps.map { ThermomixStep(text: $0.text, settings: $0.settings) }
             )
-        case .coffee:
+        case .coffee(let parameters, _):
+            // The proposed parameters go through untouched: the form edits steps,
+            // and a coffee's dials are corrected from the recipe sheet instead.
             content = .coffee(
-                ingredients: currentIngredients,
+                parameters: parameters,
                 steps: survivingSteps.map { CoffeeStep(text: $0.text, settings: $0.extraction) }
             )
         }

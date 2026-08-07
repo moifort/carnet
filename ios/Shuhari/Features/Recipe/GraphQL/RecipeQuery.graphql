@@ -23,9 +23,31 @@ fragment VersionContentFields on VersionContent {
     }
   }
   ... on CoffeeContent {
-    ingredients {
+    beans {
       name
-      quantity
+      country
+      producer
+      roastedOn
+      dose
+    }
+    water {
+      kind
+      amount
+      temperature
+    }
+    extraction {
+      grind
+      time
+      yield
+    }
+    milk {
+      kind
+      amount
+      temperature
+    }
+    gear {
+      machine
+      grinder
     }
     coffeeSteps: steps {
       text
@@ -42,6 +64,7 @@ fragment VersionContentFields on VersionContent {
 
 fragment VersionFields on Version {
   number
+  restDays
   basedOn
   change
   why

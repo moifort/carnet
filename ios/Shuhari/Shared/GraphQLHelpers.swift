@@ -68,6 +68,13 @@ enum GraphQLHelpers {
         return withFraction.date(from: string) ?? withoutFraction.date(from: string)
     }
 
+    /// Encode a date back into the ISO-8601 string a GraphQL DateTime scalar takes.
+    static func formatISO8601(_ date: Date) -> String {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return formatter.string(from: date)
+    }
+
     /// Wrap an optional Swift value into the GraphQLNullable form expected by
     /// generated operation initializers (`.some(...)` vs `.none`).
     static func graphQLNullable<T>(_ value: T?) -> GraphQLNullable<T> {
@@ -126,14 +133,78 @@ enum GraphQLHelpers {
                     ShuhariGraphQL.ThermomixStepInput(settings: thermomixSettingsInput($0.settings), text: $0.text)
                 }
             ))
-        case .coffee(let ingredients, let steps):
+        case .coffee(let parameters, let steps):
             return .coffee(ShuhariGraphQL.CoffeeContentInput(
-                ingredients: ingredients.map { ShuhariGraphQL.IngredientInput(name: $0.name, quantity: $0.quantity) },
+                beans: .some(beansInput(parameters.beans)),
+                extraction: .some(extractionInput(parameters.extraction)),
+                gear: .some(gearInput(parameters.gear)),
+                // No milk block at all on a drink that has none: the server reads
+                // its absence as the information, not as an unfilled form.
+                milk: parameters.milk.map { .some(milkInput($0)) } ?? .null,
                 steps: steps.map {
                     ShuhariGraphQL.CoffeeStepInput(settings: coffeeSettingsInput($0.settings), text: $0.text)
-                }
+                },
+                water: .some(waterInput(parameters.water))
             ))
         }
+    }
+
+    /// A coffee version's parameters as the correction mutation expects them. An
+    /// empty field is sent absent, never as an empty string: the server reads
+    /// absence as "nothing known", and a blank would fail its branded constructor.
+    static func coffeeParametersInput(
+        _ parameters: CoffeeParameters
+    ) -> ShuhariGraphQL.CoffeeParametersInput {
+        ShuhariGraphQL.CoffeeParametersInput(
+            beans: .some(beansInput(parameters.beans)),
+            extraction: .some(extractionInput(parameters.extraction)),
+            gear: .some(gearInput(parameters.gear)),
+            milk: parameters.milk.map { .some(milkInput($0)) } ?? .null,
+            water: .some(waterInput(parameters.water))
+        )
+    }
+
+    private static func beansInput(_ beans: CoffeeBeans) -> ShuhariGraphQL.CoffeeBeansInput {
+        ShuhariGraphQL.CoffeeBeansInput(
+            country: graphQLNullable(beans.country),
+            dose: graphQLNullable(beans.dose),
+            name: graphQLNullable(beans.name),
+            producer: graphQLNullable(beans.producer),
+            roastedOn: beans.roastedOn.map { .some(formatISO8601($0)) } ?? .null
+        )
+    }
+
+    private static func waterInput(_ water: CoffeeWaterSpec) -> ShuhariGraphQL.CoffeeWaterSpecInput {
+        ShuhariGraphQL.CoffeeWaterSpecInput(
+            amount: graphQLNullable(water.amount),
+            kind: graphQLNullable(water.kind),
+            temperature: graphQLNullable(water.temperature)
+        )
+    }
+
+    private static func extractionInput(
+        _ extraction: CoffeeExtraction
+    ) -> ShuhariGraphQL.CoffeeExtractionInput {
+        ShuhariGraphQL.CoffeeExtractionInput(
+            grind: graphQLNullable(extraction.grind),
+            time: graphQLNullable(extraction.time),
+            yield: graphQLNullable(extraction.cupYield)
+        )
+    }
+
+    private static func milkInput(_ milk: CoffeeMilk) -> ShuhariGraphQL.CoffeeMilkInput {
+        ShuhariGraphQL.CoffeeMilkInput(
+            amount: graphQLNullable(milk.amount),
+            kind: graphQLNullable(milk.kind),
+            temperature: graphQLNullable(milk.temperature)
+        )
+    }
+
+    private static func gearInput(_ gear: CoffeeGear) -> ShuhariGraphQL.CoffeeGearInput {
+        ShuhariGraphQL.CoffeeGearInput(
+            grinder: graphQLNullable(gear.grinder),
+            machine: graphQLNullable(gear.machine)
+        )
     }
 }
 
