@@ -8,7 +8,8 @@ import SwiftUI
 ///
 /// The leading icon is what the recipe is filed by: its course for a dish, its
 /// brew method for a coffee — every coffee is a `drink`, so the course icon would
-/// say the same thing on every row of the coffee tab.
+/// say the same thing on every row of the coffee tab. For the same reason a coffee
+/// row carries no type chip: the coffee tab holds nothing else.
 struct LibraryRow: View {
     let title: String
     let type: RecipeType
@@ -40,8 +41,13 @@ struct LibraryRow: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
-                    Chip(image: type.iconImage(filled: false), compact: true)
-                        .accessibilityLabel(type.label)
+                    // The type chip only tells a dish from a Thermomix: the coffee tab
+                    // holds nothing but coffees, so the chip would repeat itself on
+                    // every row — as the leading icon would.
+                    if type != .coffee {
+                        Chip(image: type.iconImage(filled: false), compact: true)
+                            .accessibilityLabel(type.label)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)

@@ -163,6 +163,7 @@ func mapRecipe(_ r: ShuhariGraphQL.RecipeQuery.Data.Recipe) -> Recipe {
 func mapVersion(_ v: ShuhariGraphQL.VersionFields) -> RecipeVersion {
     RecipeVersion(
         number: v.number,
+        restDays: v.restDays,
         basedOn: v.basedOn,
         change: v.change,
         why: v.why,

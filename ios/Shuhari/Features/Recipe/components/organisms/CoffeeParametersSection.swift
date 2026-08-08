@@ -36,29 +36,29 @@ struct CoffeeParametersSection: View {
     var big: Bool = false
 
     var body: some View {
-        block("Café", icon: "cup.and.saucer", rows: [
+        block("Café", rows: [
             ("Café", item.beanName),
             ("Pays", item.country),
             ("Producteur", item.producer),
             ("Torréfaction", roastValue),
             ("Dose", item.dose),
         ])
-        block("Eau", icon: "drop", rows: [
+        block("Eau", rows: [
             ("Type", item.waterKind),
             ("Quantité", item.waterAmount),
             ("Température", item.waterTemperature),
         ])
-        block("Extraction", icon: "timer", rows: [
+        block("Extraction", rows: [
             ("Mouture", item.grind),
             ("Temps", item.time),
             ("En tasse", item.cupYield),
         ])
-        block("Lait", icon: "mug", rows: [
+        block("Lait", rows: [
             ("Type", item.milkKind),
             ("Quantité", item.milkAmount),
             ("Température", item.milkTemperature),
         ])
-        block("Matériel", icon: "wrench.and.screwdriver", rows: [
+        block("Matériel", rows: [
             ("Machine", item.machine),
             ("Moulin", item.grinder),
         ])
@@ -74,7 +74,7 @@ struct CoffeeParametersSection: View {
     }
 
     @ViewBuilder
-    private func block(_ title: String, icon: String, rows: [(String, String?)]) -> some View {
+    private func block(_ title: String, rows: [(String, String?)]) -> some View {
         let filled = rows.compactMap { label, value in value.map { (label: label, value: $0) } }
         if !filled.isEmpty {
             Section {
@@ -89,7 +89,7 @@ struct CoffeeParametersSection: View {
                     .accessibilityElement(children: .combine)
                 }
             } header: {
-                Label(title, systemImage: icon)
+                Text(title)
                     .font(big ? .headline : .subheadline)
             }
         }
