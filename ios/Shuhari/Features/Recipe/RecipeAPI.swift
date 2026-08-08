@@ -81,6 +81,21 @@ enum RecipeAPI {
         )
     }
 
+    /// Correct one version's rating — the verdict mistyped, or never logged. In
+    /// place: no version created, and the photo and remarks of the attempt stay
+    /// (unlike recording an attempt, which replaces the whole outcome). A version
+    /// that had never been cooked counts as cooked from here on.
+    static func updateRating(recipeId: String, versionNumber: Int, rating: Int) async throws {
+        _ = try await GraphQLHelpers.perform(
+            GraphQLClient.shared.apollo,
+            mutation: ShuhariGraphQL.UpdateRatingMutation(
+                recipeId: recipeId,
+                versionNumber: versionNumber,
+                rating: rating
+            )
+        )
+    }
+
     /// Correct one coffee version's parameters — the roast date read wrong, the
     /// grinder left out. Full replacement, in place: no version is created and the
     /// brewing steps are untouched.

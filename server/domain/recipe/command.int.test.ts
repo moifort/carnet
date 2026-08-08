@@ -652,6 +652,81 @@ describe('RecipeCommand.updateTips', () => {
   })
 })
 
+describe('RecipeCommand.updateRating', () => {
+  test('corrects the verdict, leaving the rest of the attempt alone', async () => {
+    const recipe = await RecipeCommand.create(userId, newInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+    await RecipeCommand.recordAttempt(userId, {
+      recipeId: recipe.id,
+      versionNumber: 1 as VersionNumber,
+      rating: 2 as Rating,
+      remarks: 'Trop cuit' as Remarks,
+      photoPath: 'photos/first-try.jpg',
+    })
+    const executedAt = fake.snapshot('recipe-versions').get(`${recipe.id}_1`)?.executedAt as Date
+    const batchesBefore = fake.batches.length
+
+    const result = await RecipeCommand.updateRating(
+      userId,
+      recipe.id,
+      1 as VersionNumber,
+      4 as Rating,
+    )
+    if (typeof result === 'string') throw new Error(`expected a version, got ${result}`)
+
+    expect(result.rating).toBe(4 as Rating)
+    // Correcting the note is not re-cooking: what the attempt left behind stays.
+    expect(result.remarks).toBe('Trop cuit' as Remarks)
+    expect(result.photoPath).toBe('photos/first-try.jpg')
+    expect(result.executedAt).toEqual(executedAt)
+
+    const stored = fake.snapshot('recipe-versions').get(`${recipe.id}_1`)
+    expect(stored?.rating).toBe(4 as Rating)
+    expect(stored?.photoPath).toBe('photos/first-try.jpg')
+    // No version created, and version + recipe bump land in one batch.
+    expect(fake.snapshot('recipes').get(recipe.id)?.lastVersionNumber).toBe(1 as VersionNumber)
+    expect(fake.directWrites).toEqual([])
+    expect(fake.batches.length).toBe(batchesBefore + 1)
+  })
+
+  test('rating a version never cooked marks it cooked and off the to-cook list', async () => {
+    const recipe = await RecipeCommand.create(userId, newInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+    await RecipeCommand.addVersion(userId, recipe.id, {
+      change: 'Version végétarienne',
+      basedOn: 1 as VersionNumber,
+      content: { kind: 'dish', ingredients: [], steps: steps('Saisir') },
+      tips: [],
+    })
+    expect(fake.snapshot('recipe-versions').get(`${recipe.id}_2`)?.toTest).toBe(true)
+
+    const result = await RecipeCommand.updateRating(
+      userId,
+      recipe.id,
+      2 as VersionNumber,
+      5 as Rating,
+    )
+    if (typeof result === 'string') throw new Error(`expected a version, got ${result}`)
+
+    expect(result.rating).toBe(5 as Rating)
+    expect(result.executedAt).toBeInstanceOf(Date)
+    expect(result).not.toHaveProperty('toTest')
+    expect(fake.snapshot('recipe-versions').get(`${recipe.id}_2`)).not.toHaveProperty('toTest')
+  })
+
+  test('returns not-found for an unknown recipe or version', async () => {
+    expect(
+      await RecipeCommand.updateRating(userId, 'nope' as RecipeId, 1 as VersionNumber, 3 as Rating),
+    ).toBe('not-found')
+
+    const recipe = await RecipeCommand.create(userId, newInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+    expect(
+      await RecipeCommand.updateRating(userId, recipe.id, 9 as VersionNumber, 3 as Rating),
+    ).toBe('not-found')
+  })
+})
+
 describe('RecipeCommand.updateWarnings', () => {
   const warnings = (...w: string[]) => w.map((x) => x as Warning)
 
@@ -815,7 +890,7 @@ describe('a version’s updatedAt', () => {
     expect(v1?.updatedAt).toEqual(new Date('2026-03-11T08:00:00.000Z'))
   })
 
-  test('recording the attempt, the tips or the parameters moves it', async () => {
+  test('recording the attempt, the rating, the tips or the parameters moves it', async () => {
     at('2026-03-11T08:00:00.000Z')
     const recipe = await RecipeCommand.create(userId, {
       type: 'coffee' as const,
@@ -835,6 +910,13 @@ describe('a version’s updatedAt', () => {
     })
     if (typeof executed === 'string') throw new Error(`expected a version, got ${executed}`)
     expect(executed.updatedAt).toEqual(new Date('2026-03-12T09:00:00.000Z'))
+
+    at('2026-03-12T18:00:00.000Z')
+    const rerated = await RecipeCommand.updateRating(userId, recipe.id, V1, 5 as Rating)
+    if (typeof rerated === 'string') throw new Error(`expected a version, got ${rerated}`)
+    expect(rerated.updatedAt).toEqual(new Date('2026-03-12T18:00:00.000Z'))
+    // The cook date is when the version was cooked, and a corrected note is not a cook.
+    expect(rerated.executedAt).toEqual(new Date('2026-03-12T09:00:00.000Z'))
 
     at('2026-03-13T10:00:00.000Z')
     const retipped = await RecipeCommand.updateTips(userId, recipe.id, V1, [

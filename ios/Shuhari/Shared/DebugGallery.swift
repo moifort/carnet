@@ -160,8 +160,10 @@ struct DebugGallery: View {
                 .sheet(isPresented: .constant(true)) {
                     RecipeEditSheet(
                         initialTitle: Fixtures.bourguignon.title,
-                        initialCategory: Fixtures.bourguignon.category
-                    ) { _, _, _ in }
+                        initialCategory: Fixtures.bourguignon.category,
+                        versionNumber: Fixtures.bourguignon.versionToOpen.number,
+                        initialRating: Fixtures.bourguignon.versionToOpen.rating
+                    ) { _, _, _, _ in }
                 }
         case "coffee-parameters-edit":
             CoffeeParametersEditSheet(
@@ -181,8 +183,10 @@ struct DebugGallery: View {
                     RecipeEditSheet(
                         initialTitle: Fixtures.v60.title,
                         initialCategory: Fixtures.v60.category,
-                        initialMethod: Fixtures.v60.method
-                    ) { _, _, _ in }
+                        initialMethod: Fixtures.v60.method,
+                        versionNumber: Fixtures.v60.versionToOpen.number,
+                        initialRating: Fixtures.v60.versionToOpen.rating
+                    ) { _, _, _, _ in }
                 }
         case "improve":
             Color.clear

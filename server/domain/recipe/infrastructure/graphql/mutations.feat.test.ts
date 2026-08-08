@@ -249,6 +249,63 @@ describe('recordAttempt mutation', () => {
   })
 })
 
+describe('updateRating mutation', () => {
+  test('corrects the note without re-cooking the version', async () => {
+    const id = await createdId()
+    await execute(
+      `mutation { recordAttempt(input: { recipeId: "${id}", versionNumber: 1, rating: 2, remarks: "Trop cuit" }) { number } }`,
+    )
+    const result = await execute(`
+      mutation {
+        updateRating(recipeId: "${id}", versionNumber: 1, rating: 5) {
+          number
+          rating
+          tried
+          remarks
+        }
+      }
+    `)
+    expect(result.errors).toBeUndefined()
+    expect(result.data?.updateRating).toMatchObject({
+      number: 1,
+      rating: 5,
+      tried: true,
+      remarks: 'Trop cuit',
+    })
+    expect([...fake.snapshot('recipe-versions').keys()]).toEqual([`${id}_1`])
+  })
+
+  test('rates a version that was never cooked, and stops it owing a try', async () => {
+    const id = await createdId()
+    const result = await execute(`
+      mutation {
+        updateRating(recipeId: "${id}", versionNumber: 1, rating: 3) { number rating tried }
+      }
+    `)
+    expect(result.errors).toBeUndefined()
+    expect(result.data?.updateRating).toMatchObject({ number: 1, rating: 3, tried: true })
+  })
+
+  test('rejects a rating outside 1..5 before it reaches the domain', async () => {
+    const id = await createdId()
+    const result = await execute(`
+      mutation { updateRating(recipeId: "${id}", versionNumber: 1, rating: 0) { number } }
+    `)
+    expect(result.errors?.[0]?.extensions?.code).toBe('BAD_USER_INPUT')
+  })
+
+  test('surfaces an unknown recipe as NOT_FOUND', async () => {
+    const result = await execute(`
+      mutation {
+        updateRating(recipeId: "11111111-1111-4111-8111-111111111111", versionNumber: 1, rating: 3) {
+          number
+        }
+      }
+    `)
+    expect(result.errors?.[0]?.extensions?.code).toBe('NOT_FOUND')
+  })
+})
+
 describe('updateTips mutation', () => {
   test('rewrites the tips in place, without creating a version', async () => {
     const id = await createdId()

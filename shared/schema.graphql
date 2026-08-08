@@ -999,6 +999,27 @@ type Mutation {
   ): Version!
 
   """
+  Correct one version’s rating — the verdict you mistyped, or the one you never logged. Rewrites the rating in place: no version is created, and the photo and remarks of the attempt are left untouched (unlike recordAttempt, which replaces the whole outcome). A version that had never been cooked counts as cooked from here on, and leaves the list of versions still to test. Returns the updated version.
+  
+  ```graphql
+  updateRating(recipeId: "9f1c-a3b2", versionNumber: 2, rating: 4) {
+    number
+    rating
+  }
+  ```
+  """
+  updateRating(
+    """The corrected rating, 1 to 5"""
+    rating: Rating!
+
+    """Which recipe the version belongs to"""
+    recipeId: RecipeId!
+
+    """Which version’s rating to correct, e.g. `2`"""
+    versionNumber: VersionNumber!
+  ): Version!
+
+  """
   Retouch a recipe: rename it, refile it under another course, mark it as a favourite, or any combination. Returns the updated recipe.
   
   ```graphql

@@ -373,6 +373,18 @@ identifies it. `RecipeHeaderBadges(methodLabel:methodIcon:)` — nil on anything
 A coffee also has **no portion slider**: `IngredientScaling` has no list to multiply. Doubling a
 dose is an edit of the parameters.
 
+### Correcting the note
+
+`RecipeEditSheet` (recipe menu → « Modifier ») edits the recipe's title and the axis it is filed
+on, plus one thing that belongs to the *version* on screen: its note, section-titled « Note de la
+version *n* » so it is clear which one is being re-rated. The stars are the same `StarRating` the
+capture page uses. The sheet's single Save runs `updateRecipe`, then `updateRating` only when the
+cook moved the note — a rating that did not change costs no call.
+
+A version never rated shows empty stars: rating it there is the one way to log a cook after the
+fact, and the server then treats it as cooked (see
+[business-rules](business-rules.md#lineage-and-attempts)).
+
 ### Correcting the parameters
 
 `CoffeeParametersEditSheet` (recipe menu → « Modifier les paramètres », coffee only) rewrites the

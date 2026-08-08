@@ -154,17 +154,29 @@ struct RecipeDetailView: View {
                     }
                 }
                 .sheet(isPresented: $showEdit) {
+                    let version = displayedVersion(recipe)
                     RecipeEditSheet(
                         initialTitle: recipe.title,
                         initialCategory: recipe.category,
-                        initialMethod: recipe.method
-                    ) { title, category, method in
+                        initialMethod: recipe.method,
+                        versionNumber: version.number,
+                        initialRating: version.rating
+                    ) { title, category, method, rating in
                         try await RecipeAPI.updateRecipe(
                             id: recipeId,
                             title: title,
                             category: category,
                             method: method
                         )
+                        // The note lives on the version, not on the recipe, so it
+                        // travels in its own call — and only when the cook moved it.
+                        if let rating, rating != version.rating {
+                            try await RecipeAPI.updateRating(
+                                recipeId: recipeId,
+                                versionNumber: version.number,
+                                rating: rating
+                            )
+                        }
                         await viewModel.load()
                         // The library behind carries the new name and re-files the row
                         // under its new course.

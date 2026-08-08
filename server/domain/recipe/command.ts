@@ -212,6 +212,38 @@ export namespace RecipeCommand {
     })
   }
 
+  // Correct a version's rating in place — the cook is fixing the verdict they gave
+  // (or giving one to a version they cooked without logging it), not re-cooking it:
+  // the photo and the remarks of the attempt are left exactly as they were, unlike
+  // `recordAttempt`, which replaces the whole outcome. A version that had never been
+  // cooked becomes one that has: it gains its `executedAt` and stops owing a try, so
+  // a rating and "still to test" are never both true.
+  export const updateRating = async (
+    userId: UserId,
+    recipeId: RecipeId,
+    versionNumber: VersionNumberT,
+    rating: Rating,
+  ): Promise<RecipeVersion | 'not-found'> => {
+    const recipe = await repository.findBy(userId, recipeId)
+    if (!recipe) return 'not-found' as const
+    const version = await repository.findVersion(recipeId, versionNumber)
+    if (!version) return 'not-found' as const
+    const now = new Date()
+    const { toTest: _cooked, ...rest } = version
+    const updated: RecipeVersion = {
+      ...rest,
+      rating,
+      executedAt: version.executedAt ?? now,
+      updatedAt: now,
+    }
+    const updatedRecipe: Recipe = { ...recipe, updatedAt: now }
+    return atomically(async (batch) => {
+      await repository.saveVersion(updated, batch)
+      await repository.save(updatedRecipe, batch)
+      return updated
+    })
+  }
+
   // Rewrite a version's tips in place — the second overwritable part of the
   // envelope, beside the attempt outcome. No new version: the cook is refining the
   // advice on the version they have, not iterating on it. Full-replacement (the

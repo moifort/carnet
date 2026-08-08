@@ -206,6 +206,50 @@ builder.mutationField('updateTips', (t) =>
   }),
 )
 
+builder.mutationField('updateRating', (t) =>
+  t.field({
+    type: VersionType,
+    description: [
+      'Correct one version’s rating — the verdict you mistyped, or the one you never logged. ' +
+        'Rewrites the rating in place: no version is created, and the photo and remarks of the ' +
+        'attempt are left untouched (unlike recordAttempt, which replaces the whole outcome). A ' +
+        'version that had never been cooked counts as cooked from here on, and leaves the list of ' +
+        'versions still to test. Returns the updated version.',
+      '',
+      '```graphql',
+      'updateRating(recipeId: "9f1c-a3b2", versionNumber: 2, rating: 4) {',
+      '  number',
+      '  rating',
+      '}',
+      '```',
+    ].join('\n'),
+    args: {
+      recipeId: t.arg({
+        type: 'RecipeId',
+        required: true,
+        description: 'Which recipe the version belongs to',
+      }),
+      versionNumber: t.arg({
+        type: 'VersionNumber',
+        required: true,
+        description: 'Which version’s rating to correct, e.g. `2`',
+      }),
+      rating: t.arg({
+        type: 'Rating',
+        required: true,
+        description: 'The corrected rating, 1 to 5',
+      }),
+    },
+    resolve: async (_root, { recipeId, versionNumber, rating }, { userId }) => {
+      const result = await RecipeCommand.updateRating(userId, recipeId, versionNumber, rating)
+      return match(result)
+        .with('not-found', domainError)
+        .with(P.not(P.string), (version) => version)
+        .exhaustive()
+    },
+  }),
+)
+
 builder.mutationField('updateCoffeeParameters', (t) =>
   t.field({
     type: VersionType,

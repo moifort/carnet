@@ -61,10 +61,15 @@ the digest; this doc is the spec. The mechanics of building a domain live in
     are recorded on the version that answers it, via `RecipeCommand.addVersion`'s `attempt`.
     **The version iterated on is never touched.** Nothing at all is persisted until the proposal
     is accepted: refusing it loses the rating, by design.
+- **The note alone is correctable**, through `RecipeCommand.updateRating` — the verdict mistyped,
+  or the cook logged after the fact. It rewrites `rating` and nothing else: the photo and the
+  remarks of the attempt stay (unlike `recordAttempt`, which replaces the whole outcome). Rating a
+  version that had never been cooked makes it one that has — it gains its `executedAt` and drops
+  its `toTest`, so a version is never both rated and still owing a try.
 - **A version is dated by its last edit** (`RecipeVersion.updatedAt`, equal to `createdAt` until
   something is changed on it): the app shows it on the recipe sheet and files the version under
   its month in the history and the to-cook list. Only the cook's own rewrites move it —
-  `recordAttempt`, `updateTips`, `updateCoffeeParameters`. The bookkeeping writes (a child
+  `recordAttempt`, `updateRating`, `updateTips`, `updateCoffeeParameters`. The bookkeeping writes (a child
   re-based by a deletion, a `toTest` flag dropped when the version that answers it is cooked)
   leave it alone: they change nothing the cook wrote, and moving a version to another month
   behind their back is a lie.
