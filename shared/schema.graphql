@@ -227,6 +227,26 @@ scalar CoffeeGrind
 scalar CoffeeGrinder
 
 """
+A coffee extracted from an import source (editable preview): how it is brewed and the dials it is set by. No ingredient list and no steps — a coffee has neither.
+"""
+type CoffeeImportAnalysis {
+  """How the AI read that it is brewed — `OTHER` when nothing else fits"""
+  method: BrewMethod!
+
+  """
+  The dials read off the source. A field is `null` whenever the source says nothing of it — except a value entirely determined by one that WAS read (the water from the dose, at the method’s ratio). The app shows every field anyway, filled or not.
+  """
+  parameters: ImportCoffeeParameters!
+  sourceLabel: String
+
+  """
+  The advice found in the source (unvalidated preview) — empty list when it carries none
+  """
+  tips: [String!]!
+  title: String!
+}
+
+"""
 What brews it, brand and model, e.g. `"Rancilio Silvia"`, `"Hario V60 02"` or `"Moccamaster KBG"`
 """
 scalar CoffeeMachine
@@ -366,6 +386,30 @@ What lands in the cup at the end of a brewing step, e.g. `"36 g"` for a double e
 scalar CoffeeYield
 
 """
+A cooked dish or a Thermomix recipe extracted from an import source (editable preview).
+"""
+type CookingImportAnalysis {
+  """The dish category detected by the AI"""
+  category: DishCategory!
+
+  """The extracted ingredients"""
+  ingredients: [ImportIngredient!]!
+  sourceLabel: String
+
+  """The extracted steps, each carrying its own Thermomix settings"""
+  steps: [ImportStep!]!
+
+  """
+  The cooking tips found in the source (unvalidated preview) — empty list when it carries none
+  """
+  tips: [String!]!
+  title: String!
+
+  """What the AI read it to be — `DISH` or `THERMOMIX`, never `COFFEE`"""
+  type: RecipeType!
+}
+
+"""
 Everything needed to save a brand-new recipe (its `v1`), once you have reviewed the import preview and confirmed it, e.g. `"Grandma’s lasagna"` with its content
 """
 input CreateRecipeInput {
@@ -485,36 +529,6 @@ type Entitlement {
   productId: String
 }
 
-"""Structured recipe extracted from an import source (editable preview)"""
-type ImportAnalysis {
-  """The dish category detected by the AI"""
-  category: DishCategory!
-
-  """
-  The extracted coffee parameters — `null` on anything that is not a coffee. What a coffee carries instead of an ingredient list.
-  """
-  coffee: ImportCoffeeParameters
-
-  """The extracted ingredients — always empty on a coffee, which has none"""
-  ingredients: [ImportIngredient!]!
-
-  """
-  The brew method detected by the AI — `null` on anything that is not a coffee
-  """
-  method: BrewMethod
-  sourceLabel: String
-
-  """The extracted steps, each carrying its own settings"""
-  steps: [ImportStep!]!
-
-  """
-  The cooking tips found in the source (unvalidated preview) — empty list when it carries none
-  """
-  tips: [String!]!
-  title: String!
-  type: RecipeType!
-}
-
 """The coffee itself as extracted by the AI (unvalidated preview)"""
 type ImportCoffeeBeans {
   country: String
@@ -559,17 +573,6 @@ type ImportCoffeeParameters {
   water: ImportCoffeeWater!
 }
 
-"""
-Extraction settings for one step extracted by the AI (unvalidated preview)
-"""
-type ImportCoffeeSettings {
-  grind: String
-  temperature: String
-  time: String
-  water: String
-  yield: String
-}
-
 """The water as extracted by the AI (unvalidated preview)"""
 type ImportCoffeeWater {
   amount: String
@@ -595,13 +598,9 @@ type ImportResult {
 }
 
 """
-A recipe step extracted by the AI (unvalidated preview): its text plus the settings that go with it — the machine ones on a Thermomix recipe, the extraction ones on a coffee (every field `null` = a step that sets nothing).
+A recipe step extracted by the AI (unvalidated preview): its text plus the Thermomix settings that go with it (every field `null` = a step that sets nothing).
 """
 type ImportStep {
-  """
-  The step’s extraction settings (every field `null` = a step that sets nothing)
-  """
-  coffee: ImportCoffeeSettings!
   text: String!
 
   """
@@ -681,9 +680,25 @@ type Mutation {
   ): AcceptProposalResult!
 
   """
-  Analyze an import source (photos, a URL or raw text) into a structured recipe preview. `photos` and `text` may be sent TOGETHER — the pages of a book plus what the cook typed to complete them, read as one recipe; a `url` stands alone. Results are cached server-side by SHA-256. Spends one import of your monthly AI allowance (see quota) — `QUOTA_EXHAUSTED` once it is used up; importing from a URL is a Premium feature and answers `PREMIUM_REQUIRED` otherwise.
+  Analyze an import source (photos, a URL or raw text) into a structured coffee preview: its brew method and its parameters, never an ingredient list nor steps. Use it for the coffee tab; anything cooked goes through `analyzeCookingImport`. `photos` and `text` may be sent TOGETHER — the bag plus what the cook typed to complete it, read as one source; a `url` stands alone. Results are cached server-side by SHA-256. Spends one import of your monthly AI allowance (see quota) — `QUOTA_EXHAUSTED` once it is used up; importing from a URL is a Premium feature and answers `PREMIUM_REQUIRED` otherwise.
   """
-  analyzeImport(
+  analyzeCoffeeImport(
+    """
+    Base64 JPEGs (no data-URL prefix), up to 6 — `[]` when importing from a URL or text alone
+    """
+    photos: [String!]! = []
+
+    """Raw text, on its own or alongside `photos` to complete what they show"""
+    text: String
+
+    """A web page to read — never combined with the rest"""
+    url: String
+  ): CoffeeImportAnalysis!
+
+  """
+  Analyze an import source (photos, a URL or raw text) into a structured recipe preview: a dish or a Thermomix recipe, with its ingredients and its steps. Use it for the notebook tab; a brewed coffee goes through `analyzeCoffeeImport` and is never answered here. `photos` and `text` may be sent TOGETHER — the pages of a book plus what the cook typed to complete them, read as one recipe; a `url` stands alone. Results are cached server-side by SHA-256. Spends one import of your monthly AI allowance (see quota) — `QUOTA_EXHAUSTED` once it is used up; importing from a URL is a Premium feature and answers `PREMIUM_REQUIRED` otherwise.
+  """
+  analyzeCookingImport(
     """
     Base64 JPEGs (no data-URL prefix), up to 6 — `[]` when importing from a URL or text alone
     """
@@ -696,7 +711,7 @@ type Mutation {
 
     """A recipe web page to read — never combined with the rest"""
     url: String
-  ): ImportAnalysis!
+  ): CookingImportAnalysis!
 
   """
   Save a new recipe. Turns a confirmed import preview into a real recipe with its first version (`v1`). Returns the freshly created recipe.

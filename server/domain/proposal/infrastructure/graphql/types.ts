@@ -7,9 +7,9 @@ import { VersionContentUnion } from '~/domain/recipe/infrastructure/graphql/type
 import type { Tip } from '~/domain/recipe/types'
 import { builder } from '~/domain/shared/graphql/builder'
 import type {
-  ImportAnalysis,
+  CoffeeImportAnalysis,
+  CookingImportAnalysis,
   ImportCoffeeParameters,
-  ImportCoffeeSettings,
   ImportStep,
   ImportThermomixSettings,
 } from '~/system/ai/types'
@@ -97,19 +97,6 @@ const ImportThermomixSettingsType = builder
     }),
   })
 
-const ImportCoffeeSettingsType = builder
-  .objectRef<ImportCoffeeSettings>('ImportCoffeeSettings')
-  .implement({
-    description: 'Extraction settings for one step extracted by the AI (unvalidated preview)',
-    fields: (t) => ({
-      grind: t.exposeString('grind', { nullable: true }),
-      water: t.exposeString('water', { nullable: true }),
-      temperature: t.exposeString('temperature', { nullable: true }),
-      time: t.exposeString('time', { nullable: true }),
-      yield: t.exposeString('yield', { nullable: true }),
-    }),
-  })
-
 // The parameter blocks of an extracted coffee. Flat string fields, all nullable:
 // this is the editable preview, where "the source did not say" is the normal case
 // and the cook fills the rest in before confirming.
@@ -193,9 +180,8 @@ const ImportCoffeeParametersType = builder
 
 const ImportStepType = builder.objectRef<ImportStep>('ImportStep').implement({
   description:
-    'A recipe step extracted by the AI (unvalidated preview): its text plus the settings that ' +
-    'go with it — the machine ones on a Thermomix recipe, the extraction ones on a coffee ' +
-    '(every field `null` = a step that sets nothing).',
+    'A recipe step extracted by the AI (unvalidated preview): its text plus the Thermomix ' +
+    'settings that go with it (every field `null` = a step that sets nothing).',
   fields: (t) => ({
     text: t.exposeString('text'),
     thermomix: t.field({
@@ -203,52 +189,67 @@ const ImportStepType = builder.objectRef<ImportStep>('ImportStep').implement({
       description: 'The step’s Thermomix settings (every field `null` = a step that sets nothing)',
       resolve: (s) => s.thermomix,
     }),
-    coffee: t.field({
-      type: ImportCoffeeSettingsType,
-      description: 'The step’s extraction settings (every field `null` = a step that sets nothing)',
-      resolve: (s) => s.coffee,
-    }),
   }),
 })
 
-export const ImportAnalysisType = builder.objectRef<ImportAnalysis>('ImportAnalysis').implement({
-  description: 'Structured recipe extracted from an import source (editable preview)',
-  fields: (t) => ({
-    type: t.expose('type', { type: RecipeTypeEnum }),
-    category: t.expose('category', {
-      type: DishCategoryEnum,
-      description: 'The dish category detected by the AI',
+export const CoffeeImportAnalysisType = builder
+  .objectRef<CoffeeImportAnalysis>('CoffeeImportAnalysis')
+  .implement({
+    description:
+      'A coffee extracted from an import source (editable preview): how it is brewed and the ' +
+      'dials it is set by. No ingredient list and no steps — a coffee has neither.',
+    fields: (t) => ({
+      method: t.expose('method', {
+        type: BrewMethodEnum,
+        description: 'How the AI read that it is brewed — `OTHER` when nothing else fits',
+      }),
+      title: t.exposeString('title'),
+      sourceLabel: t.exposeString('sourceLabel', { nullable: true }),
+      parameters: t.field({
+        type: ImportCoffeeParametersType,
+        description:
+          'The dials read off the source. A field is `null` whenever the source says nothing ' +
+          'of it — except a value entirely determined by one that WAS read (the water from the ' +
+          'dose, at the method’s ratio). The app shows every field anyway, filled or not.',
+        resolve: (a) => a.parameters,
+      }),
+      tips: t.exposeStringList('tips', {
+        description:
+          'The advice found in the source (unvalidated preview) — empty list when it carries none',
+      }),
     }),
-    method: t.field({
-      type: BrewMethodEnum,
-      nullable: true,
-      description: 'The brew method detected by the AI — `null` on anything that is not a coffee',
-      resolve: (a) => a.method ?? null,
+  })
+
+export const CookingImportAnalysisType = builder
+  .objectRef<CookingImportAnalysis>('CookingImportAnalysis')
+  .implement({
+    description:
+      'A cooked dish or a Thermomix recipe extracted from an import source (editable preview).',
+    fields: (t) => ({
+      type: t.expose('type', {
+        type: RecipeTypeEnum,
+        description: 'What the AI read it to be — `DISH` or `THERMOMIX`, never `COFFEE`',
+      }),
+      category: t.expose('category', {
+        type: DishCategoryEnum,
+        description: 'The dish category detected by the AI',
+      }),
+      title: t.exposeString('title'),
+      sourceLabel: t.exposeString('sourceLabel', { nullable: true }),
+      ingredients: t.field({
+        type: [ImportIngredientType],
+        description: 'The extracted ingredients',
+        resolve: (a) => a.ingredients,
+      }),
+      steps: t.field({
+        type: [ImportStepType],
+        description: 'The extracted steps, each carrying its own Thermomix settings',
+        resolve: (a) => a.steps,
+      }),
+      tips: t.exposeStringList('tips', {
+        description:
+          'The cooking tips found in the source (unvalidated preview) — empty list when it ' +
+          'carries none',
+      }),
     }),
-    title: t.exposeString('title'),
-    sourceLabel: t.exposeString('sourceLabel', { nullable: true }),
-    ingredients: t.field({
-      type: [ImportIngredientType],
-      description: 'The extracted ingredients — always empty on a coffee, which has none',
-      resolve: (a) => a.ingredients,
-    }),
-    coffee: t.field({
-      type: ImportCoffeeParametersType,
-      nullable: true,
-      description:
-        'The extracted coffee parameters — `null` on anything that is not a coffee. What a ' +
-        'coffee carries instead of an ingredient list.',
-      resolve: (a) => a.coffee ?? null,
-    }),
-    steps: t.field({
-      type: [ImportStepType],
-      description: 'The extracted steps, each carrying its own settings',
-      resolve: (a) => a.steps,
-    }),
-    tips: t.exposeStringList('tips', {
-      description:
-        'The cooking tips found in the source (unvalidated preview) — empty list when it ' +
-        'carries none',
-    }),
-  }),
-})
+  })

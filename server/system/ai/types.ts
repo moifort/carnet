@@ -12,6 +12,11 @@ export type ImportSource =
   | { kind: 'url'; url: string }
   | { kind: 'text'; text: string }
 
+// What the notebook cooks, as opposed to what it brews. The two are imported by
+// two different flows and never share a prompt: the compromise between an
+// ingredient list and a set of dials is what made the single one lie.
+export type CookingRecipeType = Extract<RecipeType, 'dish' | 'thermomix'>
+
 // Thermomix settings for one step as extracted by Gemini. Plain strings — the
 // domain layer validates them into branded types when the user confirms. Every
 // field absent (`{}`) means the step carries no Thermomix setting.
@@ -20,17 +25,6 @@ export type ImportThermomixSettings = {
   temperature?: string
   speed?: string
   reverse?: boolean
-}
-
-// Extraction settings for one step as extracted by Gemini. Plain strings — the
-// domain layer validates them into branded types when the user confirms. Every
-// field absent (`{}`) means the step carries no extraction setting.
-export type ImportCoffeeSettings = {
-  grind?: string
-  water?: string
-  temperature?: string
-  time?: string
-  yield?: string
 }
 
 // The coffee parameters as extracted by Gemini. Plain strings — the domain layer
@@ -45,81 +39,92 @@ export type ImportCoffeeParameters = {
   gear: { machine?: string; grinder?: string }
 }
 
-// One extracted step: its text plus the settings that go with it — the machine
-// ones on a Thermomix recipe, the extraction ones on a coffee. The two are named
-// after their context rather than both being `settings`, since this one wire
-// carries every recipe type. Plain strings, both total: an empty object `{}` is a
-// step that sets nothing (and is what every step of a dish carries).
-export type ImportStep = {
-  text: string
-  thermomix: ImportThermomixSettings
-  coffee: ImportCoffeeSettings
-}
+// One extracted step: its text plus the Thermomix settings that go with it (`{}` on
+// a step that sets nothing, which is every step of a dish). Cooking only — a coffee
+// has no steps at all, it is wholly described by its parameters.
+export type ImportStep = { text: string; thermomix: ImportThermomixSettings }
 
-// Raw structured recipe extracted by Gemini. Plain strings — the domain layer
-// validates them into branded types when the user confirms the import.
-export type ImportAnalysis = {
-  type: RecipeType
+// A cooked recipe extracted by Gemini. Plain strings — the domain layer validates
+// them into branded types when the cook confirms the import.
+export type CookingImportAnalysis = {
+  type: CookingRecipeType
   category: DishCategory
-  // How the coffee is brewed — absent on anything that is not one.
-  method?: BrewMethod
   title: string
   sourceLabel?: string
-  // The ingredient list — on a dish and a Thermomix recipe only. A coffee has none:
-  // its dose, its water and its milk are parameters.
   ingredients: { name: string; quantity: string }[]
-  // The parameters of a coffee — absent on anything that is not one.
-  coffee?: ImportCoffeeParameters
   steps: ImportStep[]
   // Cooking tips found in the source (serving, storage, technique) — `[]` when
   // the source carries none.
   tips: string[]
 }
 
-export type CachedImport = {
+// A coffee extracted by Gemini: how it is brewed and the dials it is set by. No
+// ingredient list, no steps — a coffee has neither.
+export type CoffeeImportAnalysis = {
+  method: BrewMethod
+  title: string
+  sourceLabel?: string
+  parameters: ImportCoffeeParameters
+  tips: string[]
+}
+
+// The analysis cache, keyed by a hash of the source AND of the flow that read it:
+// the same photo read as a coffee or as a dish are two different analyses.
+export type CachedImport<T> = {
   importHash: ImportHash
-  result: ImportAnalysis
+  result: T
   cachedAt: Date
 }
 
-// Context handed to the proposal model: the full current version, plus what asks for
-// the next one — the attempts run against it, or the improvement the cook wants.
-export type ProposalContext = {
-  type: RecipeType
-  category: DishCategory
-  // The brew method the iteration must stay within — a V60 recipe never becomes an
-  // espresso one. Absent on anything that is not a coffee.
-  method?: BrewMethod
-  currentIngredients: { name: string; quantity: string }[]
-  // The parameters of the coffee version being iterated on — where the extraction
-  // starts from. Absent on anything that is not a coffee.
-  currentCoffee?: ImportCoffeeParameters
-  // Each step carries its own settings (an empty object is a step that sets nothing).
-  currentSteps: ImportStep[]
-  // The tips of the version iterated on — the proposal returns the complete
-  // updated list of the next version (advice found in the remarks lands here).
-  currentTips: string[]
-  attempts: {
-    rating: number
-    remarks: string
-  }[]
+// What asks for the next version, whichever world it belongs to: the attempts run
+// against the current one, or the improvement the cook described outright.
+type ProposalRequest = {
+  attempts: { rating: number; remarks: string }[]
   // What the cook asked to improve, in their own words. Present instead of the
   // attempts when the proposal comes from the improvement flow.
   improvement?: string
+  // The tips of the version iterated on — the proposal returns the complete
+  // updated list of the next version (advice found in the remarks lands here).
+  currentTips: string[]
 }
 
-// Raw next-version proposal produced by Gemini — a full ingredient/step list
-// plus a short change summary. Plain strings, validated into branded types on accept.
-export type Proposal = {
+// Context handed to the cooking proposal model: the full current version, plus what
+// asks for the next one.
+export type CookingProposalContext = ProposalRequest & {
+  type: CookingRecipeType
+  category: DishCategory
+  currentIngredients: { name: string; quantity: string }[]
+  // Each step carries its own settings (an empty object is a step that sets nothing).
+  currentSteps: ImportStep[]
+}
+
+// Context handed to the coffee proposal model: the dials the extraction starts
+// from, and the method it must stay within — a V60 recipe never becomes an espresso.
+export type CoffeeProposalContext = ProposalRequest & {
+  method: BrewMethod
+  currentParameters: ImportCoffeeParameters
+}
+
+// Raw next-version proposal produced by Gemini for a cooked recipe — a full
+// ingredient/step list plus a short change summary. Plain strings, validated into
+// branded types on accept.
+export type CookingProposal = {
   changeSummary: string
   rationale: string
   ingredients: { name: string; quantity: string }[]
-  // The next version's coffee parameters — the whole set, with exactly one dial
-  // moved. Absent on anything that is not a coffee.
-  coffee?: ImportCoffeeParameters
   steps: ImportStep[]
   // The complete tips list of the next version (current tips carried over,
   // advice found in the remarks folded in).
+  tips: string[]
+}
+
+// The next version's dials — the whole set, exactly one of them moved. A parameter
+// the current version leaves empty comes back empty: the model proposes the field,
+// never its value.
+export type CoffeeProposal = {
+  changeSummary: string
+  rationale: string
+  parameters: ImportCoffeeParameters
   tips: string[]
 }
 
@@ -127,9 +132,10 @@ export type Proposal = {
 // rewording) plus the raw advice the cook typed. The answer is the complete
 // merged tips list of that same version — no new version is at stake.
 export type TipsContext = {
-  type: RecipeType
   currentIngredients: { name: string; quantity: string }[]
   currentSteps: ImportStep[]
+  // The dials, on a coffee — what it carries instead of ingredients and steps.
+  currentParameters?: ImportCoffeeParameters
   currentTips: string[]
   // The tips to add, in the cook's own words.
   requested: string

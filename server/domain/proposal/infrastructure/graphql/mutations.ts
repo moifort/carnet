@@ -10,7 +10,12 @@ import { domainError } from '~/domain/shared/graphql/errors'
 import { imageWithinSizeLimit, MAX_IMPORT_PHOTOS } from '~/system/ai/limits'
 import type { ImportSource } from '~/system/ai/types'
 import { ProposalInput } from './inputs'
-import { ImportAnalysisType, ProposalType, TipsProposalType } from './types'
+import {
+  CoffeeImportAnalysisType,
+  CookingImportAnalysisType,
+  ProposalType,
+  TipsProposalType,
+} from './types'
 
 type AcceptResult = {
   recipe: Recipe
@@ -272,13 +277,53 @@ builder.mutationField('acceptProposal', (t) =>
 const badInput = (message: string) =>
   new GraphQLError(message, { extensions: { code: 'BAD_USER_INPUT' } })
 
-builder.mutationField('analyzeImport', (t) =>
+// The two import flows. Which one runs is decided by the tab the cook launched the
+// import from — never guessed from the source — so each has its own mutation, its
+// own prompt and its own result shape. Everything else is shared: the sources, the
+// cache, the quota and the refusals.
+builder.mutationField('analyzeCoffeeImport', (t) =>
   t.field({
-    type: ImportAnalysisType,
+    type: CoffeeImportAnalysisType,
     description:
-      'Analyze an import source (photos, a URL or raw text) into a structured recipe preview. ' +
-      '`photos` and `text` may be sent TOGETHER — the pages of a book plus what the cook typed ' +
-      'to complete them, read as one recipe; a `url` stands alone. Results are cached ' +
+      'Analyze an import source (photos, a URL or raw text) into a structured coffee preview: ' +
+      'its brew method and its parameters, never an ingredient list nor steps. Use it for the ' +
+      'coffee tab; anything cooked goes through `analyzeCookingImport`. `photos` and `text` may ' +
+      'be sent TOGETHER — the bag plus what the cook typed to complete it, read as one source; ' +
+      'a `url` stands alone. Results are cached server-side by SHA-256. Spends one import of ' +
+      'your monthly AI allowance (see quota) — `QUOTA_EXHAUSTED` once it is used up; importing ' +
+      'from a URL is a Premium feature and answers `PREMIUM_REQUIRED` otherwise.',
+    args: {
+      photos: t.arg.stringList({
+        required: true,
+        defaultValue: [],
+        description:
+          'Base64 JPEGs (no data-URL prefix), up to 6 — `[]` when importing from a URL or text alone',
+      }),
+      url: t.arg.string({
+        description: 'A web page to read — never combined with the rest',
+      }),
+      text: t.arg.string({
+        description: 'Raw text, on its own or alongside `photos` to complete what they show',
+      }),
+    },
+    resolve: (_root, { photos, url, text }, { userId }) => {
+      // Assembled before the analysis, so a malformed request answers
+      // BAD_USER_INPUT rather than being reported as a failed Gemini call.
+      const source = pickSource(photos, url, text)
+      return analyzed(() => ProposalUseCase.importCoffee(userId, source))
+    },
+  }),
+)
+
+builder.mutationField('analyzeCookingImport', (t) =>
+  t.field({
+    type: CookingImportAnalysisType,
+    description:
+      'Analyze an import source (photos, a URL or raw text) into a structured recipe preview: ' +
+      'a dish or a Thermomix recipe, with its ingredients and its steps. Use it for the ' +
+      'notebook tab; a brewed coffee goes through `analyzeCoffeeImport` and is never answered ' +
+      'here. `photos` and `text` may be sent TOGETHER — the pages of a book plus what the cook ' +
+      'typed to complete them, read as one recipe; a `url` stands alone. Results are cached ' +
       'server-side by SHA-256. Spends one import of your monthly AI allowance (see quota) — ' +
       '`QUOTA_EXHAUSTED` once it is used up; importing from a URL is a Premium feature and ' +
       'answers `PREMIUM_REQUIRED` otherwise.',
@@ -296,24 +341,27 @@ builder.mutationField('analyzeImport', (t) =>
         description: 'Raw recipe text, on its own or alongside `photos` to complete what they show',
       }),
     },
-    resolve: async (_root, { photos, url, text }, { userId }) => {
+    resolve: (_root, { photos, url, text }, { userId }) => {
       const source = pickSource(photos, url, text)
-      let result: Awaited<ReturnType<typeof ProposalUseCase.fromPhoto>>
-      try {
-        result = await ProposalUseCase.fromPhoto(userId, source)
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Import analysis failed'
-        throw new GraphQLError(message, { extensions: { code: 'IMPORT_FAILED' } })
-      }
-      return match(result)
-        .with('no-recipe-found', domainError)
-        .with('quota-exhausted', domainError)
-        .with('premium-required', domainError)
-        .with(P.not(P.string), (analysis) => analysis)
-        .exhaustive()
+      return analyzed(() => ProposalUseCase.importCooking(userId, source))
     },
   }),
 )
+
+// The refusals both flows answer with, and the one error they turn a failed Gemini
+// call into. Written once so the two can never drift apart.
+type ImportRefusal = 'no-recipe-found' | 'quota-exhausted' | 'premium-required'
+
+const analyzed = async <T extends object>(run: () => Promise<T | ImportRefusal>): Promise<T> => {
+  let result: T | ImportRefusal
+  try {
+    result = await run()
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Import analysis failed'
+    throw new GraphQLError(message, { extensions: { code: 'IMPORT_FAILED' } })
+  }
+  return typeof result === 'string' ? domainError(result) : result
+}
 
 // Photos and text combine into a single source — the cook photographs the pages
 // and types what they leave out. A URL never combines with either: reading a web

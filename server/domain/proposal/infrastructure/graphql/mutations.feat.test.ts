@@ -2,30 +2,33 @@ import { beforeEach, describe, expect, mock, test } from 'bun:test'
 import { graphql } from 'graphql'
 import type { RecipeId, VersionNumber } from '~/domain/recipe/types'
 import type { UserId } from '~/domain/shared/types'
-import type { Proposal as AiProposal, ImportSource } from '~/system/ai/types'
+import type { CookingProposal, ImportSource } from '~/system/ai/types'
 import { fakeFirebase, resetFakeFirestore } from '~/test/fake-firestore'
 
 mock.module('~/system/firebase', fakeFirebase)
 
 // The AI is mocked: what it answers is fixed here, so the test is about the
 // GraphQL boundary — the freemium gate, the error codes, what gets persisted.
-const proposal: AiProposal = {
+const proposal: CookingProposal = {
   changeSummary: 'Bouillon 700 → 650 ml',
   rationale: 'Trop liquide au dernier essai',
   ingredients: [{ name: 'Bouillon', quantity: '650 ml' }],
-  steps: [{ text: 'Mijoter 40 min', thermomix: {}, coffee: {} }],
+  steps: [{ text: 'Mijoter 40 min', thermomix: {} }],
   tips: [],
 }
 // The source the resolver assembled, captured so the tests can assert how photos,
 // text and a URL combine before ever reaching Gemini.
 let analysedSource: ImportSource | undefined
+const analyzing = async (source: ImportSource) => {
+  analysedSource = source
+  return 'no-recipe-found' as const
+}
 mock.module('~/system/ai', () => ({
   Ai: {
-    proposeNext: async () => proposal,
-    analyzeImport: async (source: ImportSource) => {
-      analysedSource = source
-      return 'no-recipe-found'
-    },
+    proposeNextCooking: async () => proposal,
+    proposeNextCoffee: async () => proposal,
+    analyzeCookingImport: analyzing,
+    analyzeCoffeeImport: analyzing,
     formatTips: async () => [],
   },
 }))
@@ -167,11 +170,13 @@ describe('quota query', () => {
   })
 })
 
-describe('analyzeImport mutation — what counts as one source', () => {
+describe('the import mutations — what counts as one source', () => {
   // The AI is mocked to answer 'no-recipe-found', which surfaces as this code —
-  // proof the source passed validation and reached the analysis.
+  // proof the source passed validation and reached the analysis. Both flows share
+  // this assembly, so asserting it on one covers the other; the coffee flow is
+  // exercised on its own below.
   const analyzed = async (args: string) => {
-    const result = await execute(`mutation { analyzeImport(${args}) { title } }`)
+    const result = await execute(`mutation { analyzeCookingImport(${args}) { title } }`)
     return result.errors?.[0]?.extensions?.code
   }
 
@@ -214,5 +219,32 @@ describe('analyzeImport mutation — what counts as one source', () => {
     const photos = Array.from({ length: 7 }, (_, i) => `"P${i}"`).join(', ')
     expect(await analyzed(`photos: [${photos}], text: "note"`)).toBe('BAD_USER_INPUT')
     expect(analysedSource).toBeUndefined()
+  })
+})
+
+describe('the two import flows', () => {
+  test('the coffee flow reads the same sources, and answers its own shape', async () => {
+    const result = await execute(
+      `mutation { analyzeCoffeeImport(photos: ["AAAA"]) { title method } }`,
+    )
+    // Mocked to find nothing — what matters here is that the source reached it.
+    expect(result.errors?.[0]?.extensions?.code).toBe('NO_RECIPE_FOUND')
+    expect(analysedSource).toEqual({ kind: 'photos', photos: ['AAAA'] })
+  })
+
+  test('a coffee import asks for parameters, never for steps', async () => {
+    const result = await execute(
+      `mutation { analyzeCoffeeImport(photos: ["AAAA"]) { steps { text } } }`,
+    )
+    expect(result.errors?.[0]?.message).toContain('Cannot query field "steps"')
+  })
+
+  test('both flows reserve the URL for Premium', async () => {
+    for (const mutation of ['analyzeCoffeeImport', 'analyzeCookingImport']) {
+      const result = await execute(
+        `mutation { ${mutation}(photos: [], url: "https://example.com") { title } }`,
+      )
+      expect(result.errors?.[0]?.extensions?.code).toBe('PREMIUM_REQUIRED')
+    }
   })
 })

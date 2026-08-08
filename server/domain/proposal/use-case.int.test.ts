@@ -24,26 +24,40 @@ import type {
   VersionNumber,
 } from '~/domain/recipe/types'
 import type { UserId } from '~/domain/shared/types'
-import type { Proposal as AiProposal, ImportAnalysis, ProposalContext } from '~/system/ai/types'
+import type {
+  CoffeeProposal,
+  CoffeeProposalContext,
+  CookingImportAnalysis,
+  CookingProposal,
+  CookingProposalContext,
+} from '~/system/ai/types'
 import { fakeFirebase, resetFakeFirestore } from '~/test/fake-firestore'
 
 mock.module('~/system/firebase', fakeFirebase)
 
-// The AI is mocked: each test sets `proposal`/`analysis`/`mergedTips`, and the
-// use-case returns it (branded for a proposal or tips, raw for an import analysis).
-let proposal: AiProposal
-let analysis: ImportAnalysis | 'no-recipe-found'
+// The AI is mocked: each test sets `proposal`/`coffeeProposal`/`analysis`/
+// `mergedTips`, and the use-case returns it (branded for a proposal or tips, raw
+// for an import analysis).
+let proposal: CookingProposal
+let coffeeProposal: CoffeeProposal
+let analysis: CookingImportAnalysis | 'no-recipe-found'
 let mergedTips: string[]
 // The context the use-case handed the model on the last call — what a coffee
 // iteration is asserted to start from.
-let lastContext: ProposalContext | undefined
+let lastCoffeeContext: CoffeeProposalContext | undefined
+let lastCookingContext: CookingProposalContext | undefined
 mock.module('~/system/ai', () => ({
   Ai: {
-    proposeNext: async (context: ProposalContext) => {
-      lastContext = context
+    proposeNextCooking: async (context: CookingProposalContext) => {
+      lastCookingContext = context
       return proposal
     },
-    analyzeImport: async () => analysis,
+    proposeNextCoffee: async (context: CoffeeProposalContext) => {
+      lastCoffeeContext = context
+      return coffeeProposal
+    },
+    analyzeCookingImport: async () => analysis,
+    analyzeCoffeeImport: async () => analysis,
     formatTips: async () => mergedTips,
   },
 }))
@@ -128,7 +142,7 @@ const recipeInput = (
   }
 }
 
-const baseProposal = (): AiProposal => ({
+const baseProposal = (): CookingProposal => ({
   changeSummary: 'Bouillon 700 → 650 ml',
   rationale: 'Trop liquide',
   ingredients: [
@@ -136,21 +150,34 @@ const baseProposal = (): AiProposal => ({
     { name: 'Bouillon', quantity: '650 ml' },
   ],
   steps: [
-    { text: 'Saisir', thermomix: {}, coffee: {} },
-    { text: 'Mijoter', thermomix: {}, coffee: {} },
+    { text: 'Saisir', thermomix: {} },
+    { text: 'Mijoter', thermomix: {} },
   ],
   tips: ['Servir avec du riz'],
 })
 
-const baseAnalysis = (): ImportAnalysis => ({
+// The dials of the next coffee version — one moved, the rest carried over.
+const baseCoffeeProposal = (): CoffeeProposal => ({
+  changeSummary: 'Mouture Niveau 12 → Niveau 10',
+  rationale: 'La tasse était acide.',
+  parameters: {
+    beans: { name: 'Belleville — Guji', dose: '18 g' },
+    water: {},
+    extraction: { grind: 'Niveau 10', time: '28 s' },
+    gear: { machine: 'Rancilio Silvia' },
+  },
+  tips: ['Servir avec du riz'],
+})
+
+const baseAnalysis = (): CookingImportAnalysis => ({
   type: 'dish',
   category: 'main',
   title: 'Blanquette',
   sourceLabel: 'Grand-mère',
   ingredients: [{ name: 'Veau', quantity: '800 g' }],
   steps: [
-    { text: 'Saisir', thermomix: {}, coffee: {} },
-    { text: 'Mijoter', thermomix: {}, coffee: {} },
+    { text: 'Saisir', thermomix: {} },
+    { text: 'Mijoter', thermomix: {} },
   ],
   tips: ['Servir avec du riz'],
 })
@@ -158,9 +185,11 @@ const baseAnalysis = (): ImportAnalysis => ({
 let fake = resetFakeFirestore()
 beforeEach(() => {
   fake = resetFakeFirestore()
-  lastContext = undefined
+  lastCoffeeContext = undefined
+  lastCookingContext = undefined
   premiumUserIds = []
   proposal = baseProposal()
+  coffeeProposal = baseCoffeeProposal()
   analysis = baseAnalysis()
   mergedTips = ['Servir avec du riz', 'Se congèle bien']
 })
@@ -218,12 +247,8 @@ describe('ProposalUseCase.fromAttempt', () => {
     proposal = {
       ...baseProposal(),
       steps: [
-        {
-          text: 'Saisir',
-          thermomix: { time: '5 min', temperature: '120°C', speed: '1' },
-          coffee: {},
-        },
-        { text: 'Mijoter', thermomix: {}, coffee: {} },
+        { text: 'Saisir', thermomix: { time: '5 min', temperature: '120°C', speed: '1' } },
+        { text: 'Mijoter', thermomix: {} },
       ],
     }
     const thermomix = await RecipeCommand.create(userId, recipeInput({ type: 'thermomix' }))
@@ -267,39 +292,28 @@ describe('ProposalUseCase.fromAttempt', () => {
 
     await ProposalUseCase.fromAttempt(userId, coffee.id, V1, ATTEMPT)
 
-    expect(lastContext?.currentCoffee).toEqual({
+    expect(lastCoffeeContext?.currentParameters).toEqual({
       beans: { name: 'Belleville — Guji', dose: '18 g', roastedOn: ROASTED_ON.toISOString() },
       water: {},
       extraction: { grind: 'Niveau 12', time: '28 s' },
       gear: { machine: 'Rancilio Silvia' },
     })
-    // A coffee has no ingredient list to hand over, and its method is fixed.
-    expect(lastContext?.currentIngredients).toEqual([])
-    expect(lastContext?.method).toBe('v60')
+    // The coffee prompt is the only one that ran, and the method is fixed.
+    expect(lastCookingContext).toBeUndefined()
+    expect(lastCoffeeContext?.method).toBe('v60')
   })
 
   test('accepts a coffee proposal as the parameters of the next version', async () => {
-    proposal = {
-      ...baseProposal(),
-      steps: [],
-      coffee: {
-        beans: { name: 'Belleville — Guji', dose: '18 g' },
-        water: {},
-        // The single dial that moved.
-        extraction: { grind: 'Niveau 10', time: '28 s' },
-        gear: { machine: 'Rancilio Silvia' },
-      },
-    }
     const coffee = await RecipeCommand.create(
       userId,
       recipeInput({ type: 'coffee', coffee: filledCoffeeContent() }),
     )
     if (typeof coffee === 'string') throw new Error('expected a recipe')
 
-    const coffeeProposal = await ProposalUseCase.fromAttempt(userId, coffee.id, V1, ATTEMPT)
-    if (typeof coffeeProposal === 'string') throw new Error('expected a proposal')
+    const proposed = await ProposalUseCase.fromAttempt(userId, coffee.id, V1, ATTEMPT)
+    if (typeof proposed === 'string') throw new Error('expected a proposal')
 
-    expect(coffeeProposal.content).toEqual({
+    expect(proposed.content).toEqual({
       kind: 'coffee',
       beans: { name: 'Belleville — Guji' as CoffeeBeanName, dose: '18 g' as CoffeeDose },
       water: {},
@@ -381,10 +395,10 @@ describe('ProposalUseCase.fromTips', () => {
   })
 })
 
-describe('ProposalUseCase.fromPhoto', () => {
+describe('ProposalUseCase.importCooking', () => {
   test('returns the AI import analysis without persisting a recipe', async () => {
     const batchesBefore = fake.batches.length
-    const result = await ProposalUseCase.fromPhoto(userId, { kind: 'text', text: 'Blanquette' })
+    const result = await ProposalUseCase.importCooking(userId, { kind: 'text', text: 'Blanquette' })
 
     expect(result).toEqual(baseAnalysis())
     expect(fake.batches.length).toBe(batchesBefore)
@@ -393,7 +407,7 @@ describe('ProposalUseCase.fromPhoto', () => {
 
   test('passes the no-recipe-found sentinel straight through, free of charge', async () => {
     analysis = 'no-recipe-found'
-    expect(await ProposalUseCase.fromPhoto(userId, { kind: 'text', text: 'nope' })).toBe(
+    expect(await ProposalUseCase.importCooking(userId, { kind: 'text', text: 'nope' })).toBe(
       'no-recipe-found',
     )
     // A source with no recipe in it is a miss, not an import: nothing is spent.
@@ -401,16 +415,16 @@ describe('ProposalUseCase.fromPhoto', () => {
   })
 
   test('reserves the URL import for Premium', async () => {
-    expect(await ProposalUseCase.fromPhoto(userId, { kind: 'url', url: 'https://x.test' })).toBe(
-      'premium-required',
-    )
+    expect(
+      await ProposalUseCase.importCooking(userId, { kind: 'url', url: 'https://x.test' }),
+    ).toBe('premium-required')
     // Refused before Gemini is ever called, so it costs nothing at all.
     expect(fake.snapshot('ai-quotas').size).toBe(0)
 
     premiumUserIds = [userId]
-    expect(await ProposalUseCase.fromPhoto(userId, { kind: 'url', url: 'https://x.test' })).toEqual(
-      baseAnalysis(),
-    )
+    expect(
+      await ProposalUseCase.importCooking(userId, { kind: 'url', url: 'https://x.test' }),
+    ).toEqual(baseAnalysis())
   })
 })
 
@@ -419,10 +433,10 @@ describe('the monthly AI allowance', () => {
 
   test('refuses the import past the free limit, then again the next call', async () => {
     for (const _ of Array(FREE_LIMITS.import).keys())
-      expect(await ProposalUseCase.fromPhoto(userId, textSource)).toEqual(baseAnalysis())
+      expect(await ProposalUseCase.importCooking(userId, textSource)).toEqual(baseAnalysis())
 
-    expect(await ProposalUseCase.fromPhoto(userId, textSource)).toBe('quota-exhausted')
-    expect(await ProposalUseCase.fromPhoto(userId, textSource)).toBe('quota-exhausted')
+    expect(await ProposalUseCase.importCooking(userId, textSource)).toBe('quota-exhausted')
+    expect(await ProposalUseCase.importCooking(userId, textSource)).toBe('quota-exhausted')
   })
 
   test('counts proposals, improvements and tips on the one iteration meter', async () => {
@@ -443,13 +457,13 @@ describe('the monthly AI allowance', () => {
       'quota-exhausted',
     )
     // The import meter is untouched by iterations.
-    expect(await ProposalUseCase.fromPhoto(userId, textSource)).toEqual(baseAnalysis())
+    expect(await ProposalUseCase.importCooking(userId, textSource)).toEqual(baseAnalysis())
   })
 
   test('never runs out on Premium', async () => {
     premiumUserIds = [userId]
     for (const _ of Array(FREE_LIMITS.import + 2).keys())
-      expect(await ProposalUseCase.fromPhoto(userId, textSource)).toEqual(baseAnalysis())
+      expect(await ProposalUseCase.importCooking(userId, textSource)).toEqual(baseAnalysis())
   })
 })
 

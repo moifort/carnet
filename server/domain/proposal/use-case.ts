@@ -6,43 +6,49 @@ import { RecipeCommand } from '~/domain/recipe/command'
 import type { VersionContent } from '~/domain/recipe/content/types'
 import { VersionContent as brandVersionContent, Tip } from '~/domain/recipe/primitives'
 import { RecipeQuery } from '~/domain/recipe/query'
-import type { Rating, RecipeId, RecipeType, Remarks, VersionNumber } from '~/domain/recipe/types'
+import type {
+  BrewMethod,
+  DishCategory,
+  Rating,
+  RecipeId,
+  Remarks,
+  VersionNumber,
+} from '~/domain/recipe/types'
 import type { UserId } from '~/domain/shared/types'
 import { Ai } from '~/system/ai'
 import type {
-  Proposal as AiProposal,
+  CoffeeProposal,
+  CookingProposal,
+  CookingRecipeType,
   ImportCoffeeParameters,
   ImportSource,
   ImportStep,
-  ProposalContext,
 } from '~/system/ai/types'
 import type { AcceptedProposal, Proposal } from './types'
 
 // Turn the untrusted AI proposal into branded, discriminated content. A dish keeps
-// plain-text steps; a Thermomix recipe and a coffee each keep their own per-step
-// settings, paired and normalized by the shared `VersionContent` constructor
-// (misaligned or empty settings collapse to steps that set nothing).
-const brandProposal = (type: RecipeType, proposal: AiProposal): VersionContent => {
-  const ingredients = proposal.ingredients
-  if (type === 'thermomix')
-    return brandVersionContent({
-      kind: 'thermomix',
-      ingredients,
-      steps: proposal.steps.map((s) => ({ text: s.text, settings: s.thermomix })),
-    })
-  if (type === 'coffee')
-    return brandVersionContent({
-      kind: 'coffee',
-      // The parameters the model answered with — the whole set, one dial moved. A
-      // proposal that returned none lands on the empty blocks rather than throwing.
-      ...(proposal.coffee ?? {}),
-    })
-  return brandVersionContent({
-    kind: 'dish',
-    ingredients,
-    steps: proposal.steps.map((s) => s.text),
-  })
-}
+// plain-text steps, a Thermomix recipe its per-step settings — both normalized by
+// the shared `VersionContent` constructor.
+const brandCookingProposal = (
+  type: CookingRecipeType,
+  proposal: CookingProposal,
+): VersionContent =>
+  type === 'thermomix'
+    ? brandVersionContent({
+        kind: 'thermomix',
+        ingredients: proposal.ingredients,
+        steps: proposal.steps.map((s) => ({ text: s.text, settings: s.thermomix })),
+      })
+    : brandVersionContent({
+        kind: 'dish',
+        ingredients: proposal.ingredients,
+        steps: proposal.steps.map((s) => s.text),
+      })
+
+// The same, for a coffee: the whole parameter set the model answered with, one dial
+// moved. A proposal that returned none lands on the empty blocks rather than throwing.
+const brandCoffeeProposal = (proposal: CoffeeProposal): VersionContent =>
+  brandVersionContent({ kind: 'coffee', ...proposal.parameters })
 
 // Rebuild the AI context ingredients from a stored version's content. A coffee has
 // none — its dose, its water and its milk are parameters, handed over separately.
@@ -52,9 +58,10 @@ const contextIngredients = (content: VersionContent) =>
     : content.ingredients.map((i) => ({ name: i.name as string, quantity: i.quantity as string }))
 
 // The coffee parameters the iteration starts from, as the model reads them: plain
-// strings, the roast date in ISO. Absent on anything that is not a coffee.
-const contextCoffee = (content: VersionContent): ImportCoffeeParameters | undefined => {
-  if (content.kind !== 'coffee') return undefined
+// strings, the roast date in ISO.
+const contextParameters = (
+  content: VersionContent & { kind: 'coffee' },
+): ImportCoffeeParameters => {
   const { roastedOn, ...beans } = content.beans
   return {
     beans: { ...beans, ...(roastedOn ? { roastedOn: roastedOn.toISOString() } : {}) },
@@ -65,20 +72,15 @@ const contextCoffee = (content: VersionContent): ImportCoffeeParameters | undefi
   }
 }
 
-// Rebuild the AI context steps from a stored version's content: a dish exposes
-// steps that set nothing, a Thermomix recipe and a coffee their own per-step
-// settings. Both settings objects are always present — `{}` when the step sets
-// nothing — so the wire never carries a hole.
+// Rebuild the AI context steps from a stored version's content: a dish exposes steps
+// that set nothing, a Thermomix recipe its own per-step settings, always present
+// (`{}` when the step sets nothing) so the wire never carries a hole. A coffee has
+// no steps at all — it is wholly described by its parameters.
 const contextSteps = (content: VersionContent): ImportStep[] => {
   if (content.kind === 'thermomix')
-    return content.steps.map((s) => ({
-      text: s.text as string,
-      thermomix: s.settings,
-      coffee: {},
-    }))
-  // A coffee has no steps at all: it is wholly described by its parameters.
+    return content.steps.map((s) => ({ text: s.text as string, thermomix: s.settings }))
   if (content.kind === 'coffee') return []
-  return content.steps.map((text) => ({ text: text as string, thermomix: {}, coffee: {} }))
+  return content.steps.map((text) => ({ text: text as string, thermomix: {} }))
 }
 
 // What asks for the next version: the cook that was run, or the improvement the cook
@@ -86,6 +88,54 @@ const contextSteps = (content: VersionContent): ImportStep[] => {
 type ProposalRequest =
   | { attempts: { rating: Rating; remarks: Remarks }[] }
   | { improvement: string }
+
+// The same request, as both prompts read it: what was tasted (or asked for) and the
+// tips the next version starts from.
+type AskedFor = {
+  currentTips: string[]
+  attempts: { rating: number; remarks: string }[]
+  improvement?: string
+}
+
+// One iteration of a coffee: the dials it starts from, the method it stays within.
+const coffeeAnswer = async (
+  asked: AskedFor,
+  method: BrewMethod,
+  content: VersionContent & { kind: 'coffee' },
+) => {
+  const proposal = await Ai.proposeNextCoffee({
+    ...asked,
+    method,
+    currentParameters: contextParameters(content),
+  })
+  return {
+    changeSummary: proposal.changeSummary,
+    rationale: proposal.rationale,
+    content: brandCoffeeProposal(proposal),
+    tips: proposal.tips.map(Tip),
+  }
+}
+
+// One iteration of something cooked: its ingredient list and its gestures.
+const cookingAnswer = async (
+  asked: AskedFor,
+  category: DishCategory,
+  content: VersionContent & { kind: CookingRecipeType },
+) => {
+  const proposal = await Ai.proposeNextCooking({
+    ...asked,
+    type: content.kind,
+    category,
+    currentIngredients: contextIngredients(content),
+    currentSteps: contextSteps(content),
+  })
+  return {
+    changeSummary: proposal.changeSummary,
+    rationale: proposal.rationale,
+    content: brandCookingProposal(content.kind, proposal),
+    tips: proposal.tips.map(Tip),
+  }
+}
 
 export namespace ProposalUseCase {
   // Ask the AI for the next version. What motivates it comes from the caller, not
@@ -107,29 +157,22 @@ export namespace ProposalUseCase {
     const version = await RecipeQuery.versionBy(recipeId, versionNumber)
     if (version === 'not-found') return 'not-found'
 
-    const context: ProposalContext = {
-      type: recipe.type,
-      category: recipe.category,
-      // A coffee iterates within its brewing method; it never changes it.
-      ...(recipe.method ? { method: recipe.method } : {}),
-      currentIngredients: contextIngredients(version.content),
-      ...(contextCoffee(version.content) ? { currentCoffee: contextCoffee(version.content) } : {}),
-      currentSteps: contextSteps(version.content),
+    // The question is the same in both worlds — what was cooked, what was asked —
+    // but the answer is not, so each flow builds its own context and reads its own
+    // prompt. Recorded only after the call went through: it is billed, so it counts.
+    const asked = {
       currentTips: version.tips.map((tip) => tip as string),
       attempts: 'attempts' in request ? request.attempts : [],
       ...('improvement' in request ? { improvement: request.improvement } : {}),
     }
-    const proposal = await Ai.proposeNext(context)
-    // Recorded only now: the call went through, so it is billed and it counts.
+    const { content } = version
+    const answered =
+      content.kind === 'coffee'
+        ? await coffeeAnswer(asked, recipe.method ?? 'other', content)
+        : await cookingAnswer(asked, recipe.category, content)
     await QuotaCommand.record(userId, 'iteration')
 
-    const branded: Proposal = {
-      basedOn: version.number,
-      changeSummary: proposal.changeSummary,
-      rationale: proposal.rationale,
-      content: brandProposal(recipe.type, proposal),
-      tips: proposal.tips.map(Tip),
-    }
+    const branded: Proposal = { basedOn: version.number, ...answered }
     return branded
   }
 
@@ -169,9 +212,12 @@ export namespace ProposalUseCase {
     if (version === 'not-found') return 'not-found'
 
     const tips = await Ai.formatTips({
-      type: recipe.type,
       currentIngredients: contextIngredients(version.content),
       currentSteps: contextSteps(version.content),
+      // A coffee grounds the rewording on its dials — it has nothing else.
+      ...(version.content.kind === 'coffee'
+        ? { currentParameters: contextParameters(version.content) }
+        : {}),
       currentTips: version.tips.map((tip) => tip as string),
       requested,
     })
@@ -179,22 +225,35 @@ export namespace ProposalUseCase {
     return tips.map(Tip)
   }
 
-  // Analyze an import source (photos, a URL or raw text) into a structured recipe
-  // preview. The proposal domain is the sole caller of the import AI; confirming
-  // this preview persists a brand-new recipe via `RecipeCommand.create` (the recipe
-  // domain's `createRecipe` mutation) — nothing is saved here but the quota spent.
-  // The analysis itself stays globally SHA-cached (keyed on the source, not the
-  // caller), and user-scoped only from the confirmed `create` onward; `userId` is
-  // read for the plan and the quota alone. Reading a web page is what the
+  // Analyze an import source (photos, a URL or raw text) into a structured preview.
+  // The proposal domain is the sole caller of the import AI; confirming this preview
+  // persists a brand-new recipe via `RecipeCommand.create` (the recipe domain's
+  // `createRecipe` mutation) — nothing is saved here but the quota spent. The
+  // analysis itself stays globally SHA-cached (keyed on the source and the flow, not
+  // on the caller), and user-scoped only from the confirmed `create` onward; `userId`
+  // is read for the plan and the quota alone. Reading a web page is what the
   // subscription pays for, so a free cook is turned away before any billing.
-  export const fromPhoto = async (userId: UserId, source: ImportSource) => {
+  //
+  // Two flows, one gate: which one runs is decided by the tab the cook launched the
+  // import from, never guessed from the source.
+  export const importCoffee = async (userId: UserId, source: ImportSource) =>
+    analyzed(userId, source, Ai.analyzeCoffeeImport)
+
+  export const importCooking = async (userId: UserId, source: ImportSource) =>
+    analyzed(userId, source, Ai.analyzeCookingImport)
+
+  const analyzed = async <T>(
+    userId: UserId,
+    source: ImportSource,
+    analyze: (source: ImportSource) => Promise<T | 'no-recipe-found'>,
+  ) => {
     const plan = await EntitlementQuery.planOf(userId)
-    if (source.kind === 'url' && !allowsUrlImport(plan)) return 'premium-required'
-    if (await QuotaQuery.exhaustedFor(userId, plan, 'import')) return 'quota-exhausted'
-    const analysis = await Ai.analyzeImport(source)
-    // A source the AI found no recipe in costs the cook nothing: it is a miss, not
-    // an import. A cache hit does count — the quota is a product promise, not a
-    // meter on our Gemini bill.
+    if (source.kind === 'url' && !allowsUrlImport(plan)) return 'premium-required' as const
+    if (await QuotaQuery.exhaustedFor(userId, plan, 'import')) return 'quota-exhausted' as const
+    const analysis = await analyze(source)
+    // A source the AI found nothing in costs the cook nothing: it is a miss, not an
+    // import. A cache hit does count — the quota is a product promise, not a meter
+    // on our Gemini bill.
     if (analysis !== 'no-recipe-found') await QuotaCommand.record(userId, 'import')
     return analysis
   }
