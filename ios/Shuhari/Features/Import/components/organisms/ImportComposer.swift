@@ -13,6 +13,9 @@ struct ImportComposer: View {
     }
 
     @Binding var text: String
+    /// Which world is being imported — it changes nothing but the words: a coffee
+    /// is a bag and a machine screen, a recipe is a book page.
+    var flow: ImportFlow = .cooking
     let photos: [Photo]
     /// How many more photos may be attached — the row hides its add buttons at 0.
     let remainingSlots: Int
@@ -23,6 +26,12 @@ struct ImportComposer: View {
     let onCancel: () -> Void
     let onAnalyze: () -> Void
 
+    private var placeholder: String {
+        flow == .coffee
+            ? "18 g, mouture fine, 93°C… ou colle un lien"
+            : "200 g de spaghetti, 100 g de pecorino… ou colle un lien"
+    }
+
     /// Nothing to analyse: no photo, and nothing but whitespace typed.
     private var isEmpty: Bool {
         photos.isEmpty && text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -32,11 +41,7 @@ struct ImportComposer: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField(
-                        "200 g de spaghetti, 100 g de pecorino… ou colle un lien",
-                        text: $text,
-                        axis: .vertical
-                    )
+                    TextField(placeholder, text: $text, axis: .vertical)
                     .lineLimit(4...10)
                     .accessibilityIdentifier("import-text-field")
                 } footer: {
@@ -51,7 +56,7 @@ struct ImportComposer: View {
                     Text(photoFooter)
                 }
             }
-            .navigationTitle("Saisir la recette")
+            .navigationTitle(flow == .coffee ? "Saisir le café" : "Saisir la recette")
             .navigationBarTitleDisplayMode(.inline)
             .scrollDismissesKeyboard(.interactively)
             .toolbar {
@@ -77,14 +82,18 @@ struct ImportComposer: View {
 
     private var textFooter: String {
         photos.isEmpty
-            ? "Colle ou dicte ta recette. Un lien vers une page web est aussi accepté."
+            ? (flow == .coffee
+                ? "Colle ou dicte tes réglages. Un lien vers une page web est aussi accepté."
+                : "Colle ou dicte ta recette. Un lien vers une page web est aussi accepté.")
             : "Ce texte complète les photos : ce qu’elles ne montrent pas, ou ce qu’elles disent de travers."
     }
 
     private var photoFooter: String {
         if remainingSlots == 0 { return "Maximum atteint." }
         return photos.isEmpty
-            ? "Ajoute les pages d’un livre ou une capture d’écran — jusqu’à \(remainingSlots)."
+            ? (flow == .coffee
+                ? "Photographie ton paquet ou l’écran de la machine — jusqu’à \(remainingSlots)."
+                : "Ajoute les pages d’un livre ou une capture d’écran — jusqu’à \(remainingSlots).")
             : "Encore \(remainingSlots) possible\(remainingSlots > 1 ? "s" : "")."
     }
 

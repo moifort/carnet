@@ -10,6 +10,9 @@ import SwiftUI
 /// closes this cover and presents the review sheet, so the camera never lingers
 /// behind it.
 struct ImportScanView: View {
+    /// Which world is being imported — the tab decided it, and it only changes the
+    /// words the composer uses.
+    var flow: ImportFlow = .cooking
     let onPick: (ImportInput) -> Void
 
     /// The server refuses more than this in one import (`MAX_IMPORT_PHOTOS`).
@@ -130,6 +133,7 @@ struct ImportScanView: View {
     private var composerSheet: some View {
         ImportComposer(
             text: $rawText,
+            flow: flow,
             photos: attached.map { .init(id: $0.id, image: $0.image) },
             remainingSlots: Self.maxPhotos - attached.count,
             isLoadingPhoto: isLoadingPhoto,

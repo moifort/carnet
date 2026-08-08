@@ -74,7 +74,7 @@ struct ContentView: View {
             }
         }
         .fullScreenCover(isPresented: $showImport, onDismiss: onImportCoverDismiss) {
-            ImportScanView { input in
+            ImportScanView(flow: importFlow) { input in
                 pendingImport = input
                 showImport = false
             }

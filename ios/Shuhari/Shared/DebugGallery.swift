@@ -209,6 +209,8 @@ struct DebugGallery: View {
             ComposerGalleryScreen()
         case "composer-empty":
             ComposerGalleryScreen(photoCount: 0, text: "")
+        case "composer-coffee":
+            ComposerGalleryScreen(photoCount: 0, text: "", flow: .coffee)
         case "import-preview":
             NavigationStack {
                 ImportPreviewPage(analysis: Fixtures.importAnalysis, isSaving: false, onCancel: {}, onSave: { _ in })
@@ -391,8 +393,14 @@ private struct CuisineGalleryScreen: View {
 private struct ComposerGalleryScreen: View {
     @State private var text: String
     @State private var photos: [ImportComposer.Photo]
+    private let flow: ImportFlow
 
-    init(photoCount: Int = 2, text: String = "Pour 4 personnes, cuisson au four à chaleur tournante.") {
+    init(
+        photoCount: Int = 2,
+        text: String = "Pour 4 personnes, cuisson au four à chaleur tournante.",
+        flow: ImportFlow = .cooking
+    ) {
+        self.flow = flow
         self._text = State(initialValue: text)
         self._photos = State(initialValue: (0..<photoCount).map { index in
             ImportComposer.Photo(id: UUID(), image: Self.swatch(index))
@@ -410,6 +418,7 @@ private struct ComposerGalleryScreen: View {
     var body: some View {
         ImportComposer(
             text: $text,
+            flow: flow,
             photos: photos,
             remainingSlots: 6 - photos.count,
             isLoadingPhoto: false,
