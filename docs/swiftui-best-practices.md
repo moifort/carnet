@@ -70,3 +70,36 @@ and reload the list, which puts the row back.
 - A `ProgressView` parked in a section unrelated to the control that was tapped — put it *on* the
   control.
 - A spinner with no `.disabled`: it says "working" while still accepting a second tap.
+
+## Every row of a form shares one leading edge
+
+A marker column — a status dot, a drag handle, a checkmark — belongs to **all** the rows of a form
+or to none of them. Give it only to the rows that can carry a marker and the labels of the same
+section stop lining up: the `Toggle` sits on the standard inset, the marked field sits seven points
+further in, and the eye reads the shift as a defect. Two ways out, and only these two:
+
+- **The gutter is conditional, per screen.** When nothing on this screen can ever be marked, drop
+  the column entirely — every label keeps SwiftUI's own inset, aligned with the section header.
+  When something can, give the gutter to every row, marker or not.
+- **Never** reserve it row by row. `if changed { dot }` inside one row and nothing in the next is
+  the bug, not the fix.
+
+Wrap the rows in one helper that owns the decision, so a row added later cannot forget it.
+
+## `Stepper` — its label is not a tap target
+
+`Stepper { label } onIncrement:onDecrement:` swallows the taps landing on its label. A `TextField`
+put there renders correctly and **never takes focus**: the value becomes stepper-only, silently.
+Keep the field outside and hide the stepper's own label:
+
+```swift
+HStack {
+    LabeledContent(title) { TextField(title, text: $text) }
+    Stepper("") { … } onDecrement: { … }
+        .labelsHidden()
+}
+```
+
+The control is still the native one — typing and stepping are both possible. A stepper over free
+text also has to say what it does with text it cannot parse: move the leading number and keep the
+rest as typed, and never silently do nothing.

@@ -376,6 +376,11 @@ grinder from what was used most recently; it opens the milk block on a milk drin
 `import-preview-coffee`, `import-preview-coffee-empty`, `import-preview-coffee-milk`,
 `proposal-coffee`, `coffee-parameters-edit`.
 
+Every row goes through the form's own `row(_:alignment:)`, which owns the changed dot's gutter:
+present on all rows of a proposal, absent from all rows everywhere else, per
+[the shared leading edge](swiftui-best-practices.md#every-row-of-a-form-shares-one-leading-edge).
+Nothing in the form draws that column itself.
+
 The header capsule on a coffee says **how it is brewed** (ESPRESSO, V60, FRENCH PRESS) instead of
 the recipe type: the type is given away by the tab the recipe lives in, the method is what
 identifies it. `RecipeHeaderBadges(methodLabel:methodIcon:)` — nil on anything else.
@@ -406,6 +411,21 @@ sheet: a placeholder disappears exactly when a form of fifteen fields needs it. 
 `Toggle` rather than an empty field, because their absence is information a blank cannot express —
 « Date de torréfaction connue » (a `DatePicker` always shows *some* date) and « Boisson lactée » (a
 drink either has milk or has not).
+
+**A roast date already known is shown, never asked.** The date toggle only exists to declare one
+nobody read, so it renders only on a coffee that arrived without a date — a coffee whose date the
+import or the previous version carries goes straight to its `DatePicker`. The form reads that at
+open and holds it (`roastDateWasRead`): flipping the toggle on must never remove the way back to
+« inconnue ».
+
+**Quantities carry a stepper**, the four fields that hold a mass — Dose, Quantité (eau), En tasse,
+Quantité (lait): a dose is a dial the cook nudges far more often than a number they retype. Steps
+are the ones the hand makes — 0,5 g on a dose, 1 g in the cup, 10 g on a pour — the leading number
+moves and the unit is kept as typed, a field with no number yet starts at one step of its own unit,
+and nothing goes below zero. Wiring per
+[`Stepper` — its label is not a tap target](swiftui-best-practices.md#stepper--its-label-is-not-a-tap-target).
+Température, Temps and Mouture stay free text: they are not masses, and « Niveau 12 » is a setting
+of one grinder, not a quantity.
 
 Free-text fields use `SuggestingTextField`: chips of what the cook has already typed, shown only
 while the field holds the keyboard, hiding an exact match (a button that would do nothing). Typing

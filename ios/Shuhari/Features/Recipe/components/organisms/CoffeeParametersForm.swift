@@ -119,6 +119,23 @@ struct CoffeeParametersForm: View {
     /// differ from and nothing is ever marked.
     var changedFrom: CoffeeParameters?
 
+    /// Whether the coffee arrived with a roast date. Read once, at open: a date
+    /// somebody already knows is shown as itself, and the toggle that declares a
+    /// missing one stays put for the whole session — flipping it on must never
+    /// take away the way back to "unknown".
+    @State private var roastDateWasRead: Bool
+
+    init(
+        draft: Binding<CoffeeParametersDraft>,
+        vocabulary: CoffeeVocabulary = .empty,
+        changedFrom: CoffeeParameters? = nil
+    ) {
+        _draft = draft
+        self.vocabulary = vocabulary
+        self.changedFrom = changedFrom
+        _roastDateWasRead = State(initialValue: draft.wrappedValue.knowsRoastDate)
+    }
+
     var body: some View {
         Section("Café") {
             suggesting("Café", $draft.beanName, vocabulary.beanNames, changedFrom?.beans.name)
@@ -129,18 +146,26 @@ struct CoffeeParametersForm: View {
                 "Producteur", $draft.producer, vocabulary.producers, changedFrom?.beans.producer
             )
             .accessibilityIdentifier("coffee-producer-field")
-            Toggle("Date de torréfaction connue", isOn: $draft.knowsRoastDate)
+            // A date read off the bag is a fact, not a question: it is shown as
+            // itself, and only a coffee that arrived without one asks.
+            if !roastDateWasRead {
+                row {
+                    Toggle("Date de torréfaction connue", isOn: $draft.knowsRoastDate)
+                }
                 .accessibilityIdentifier("coffee-roast-date-toggle")
+            }
             if draft.knowsRoastDate {
-                DatePicker(
-                    "Torréfaction",
-                    selection: $draft.roastedOn,
-                    in: ...Date(),
-                    displayedComponents: .date
-                )
+                row {
+                    DatePicker(
+                        "Torréfaction",
+                        selection: $draft.roastedOn,
+                        in: ...Date(),
+                        displayedComponents: .date
+                    )
+                }
                 .accessibilityIdentifier("coffee-roast-date-picker")
             }
-            labelled("Dose", $draft.dose, changedFrom?.beans.dose)
+            quantity("Dose", $draft.dose, changedFrom?.beans.dose, step: 0.5, unit: "g")
                 .accessibilityIdentifier("coffee-dose-field")
         }
 
@@ -149,7 +174,7 @@ struct CoffeeParametersForm: View {
                 "Type d’eau", $draft.waterKind, vocabulary.waterKinds, changedFrom?.water.kind
             )
             .accessibilityIdentifier("coffee-water-kind-field")
-            labelled("Quantité", $draft.waterAmount, changedFrom?.water.amount)
+            quantity("Quantité", $draft.waterAmount, changedFrom?.water.amount, step: 10, unit: "g")
                 .accessibilityIdentifier("coffee-water-amount-field")
             labelled("Température", $draft.waterTemperature, changedFrom?.water.temperature)
                 .accessibilityIdentifier("coffee-water-temperature-field")
@@ -160,20 +185,26 @@ struct CoffeeParametersForm: View {
                 .accessibilityIdentifier("coffee-grind-field")
             labelled("Temps", $draft.time, changedFrom?.extraction.time)
                 .accessibilityIdentifier("coffee-time-field")
-            labelled("En tasse", $draft.cupYield, changedFrom?.extraction.cupYield)
-                .accessibilityIdentifier("coffee-yield-field")
+            quantity(
+                "En tasse", $draft.cupYield, changedFrom?.extraction.cupYield, step: 1, unit: "g"
+            )
+            .accessibilityIdentifier("coffee-yield-field")
         }
 
         Section("Lait") {
-            Toggle("Boisson lactée", isOn: $draft.hasMilk)
-                .accessibilityIdentifier("coffee-milk-toggle")
+            row {
+                Toggle("Boisson lactée", isOn: $draft.hasMilk)
+            }
+            .accessibilityIdentifier("coffee-milk-toggle")
             if draft.hasMilk {
                 suggesting(
                     "Type de lait", $draft.milkKind, vocabulary.milkKinds, changedFrom?.milk?.kind
                 )
                 .accessibilityIdentifier("coffee-milk-kind-field")
-                labelled("Quantité", $draft.milkAmount, changedFrom?.milk?.amount)
-                    .accessibilityIdentifier("coffee-milk-amount-field")
+                quantity(
+                    "Quantité", $draft.milkAmount, changedFrom?.milk?.amount, step: 10, unit: "ml"
+                )
+                .accessibilityIdentifier("coffee-milk-amount-field")
                 labelled("Température", $draft.milkTemperature, changedFrom?.milk?.temperature)
                     .accessibilityIdentifier("coffee-milk-temperature-field")
             }
@@ -195,8 +226,7 @@ struct CoffeeParametersForm: View {
         _ suggestions: [String],
         _ base: String?
     ) -> some View {
-        HStack(alignment: .top, spacing: Theme.Spacing.s) {
-            changeDot(changed(text.wrappedValue, base))
+        row(changed(text.wrappedValue, base), alignment: .top) {
             SuggestingTextField(title: title, text: text, suggestions: suggestions)
         }
     }
@@ -204,13 +234,72 @@ struct CoffeeParametersForm: View {
     /// A measurement field, labelled like the read-only sheet: the label stays put
     /// once a value is typed, where a placeholder would vanish.
     private func labelled(_ title: String, _ text: Binding<String>, _ base: String?) -> some View {
-        HStack(spacing: Theme.Spacing.s) {
-            changeDot(changed(text.wrappedValue, base))
-            LabeledContent(title) {
-                TextField(title, text: text)
-                    .multilineTextAlignment(.trailing)
-                    .foregroundStyle(.secondary)
+        row(changed(text.wrappedValue, base)) {
+            measure(title, text)
+        }
+    }
+
+    /// A quantity — a dose, a pour, what lands in the cup. The same labelled field,
+    /// plus the native stepper: a mass is a dial the cook nudges one notch at a
+    /// time far more often than a number they retype.
+    private func quantity(
+        _ title: String,
+        _ text: Binding<String>,
+        _ base: String?,
+        step: Double,
+        unit: String
+    ) -> some View {
+        row(changed(text.wrappedValue, base)) {
+            measure(title, text)
+            // Label hidden and the field kept outside it: a `Stepper` swallows the
+            // taps on its own label, and typing a quantity must stay possible.
+            Stepper("") {
+                text.wrappedValue = stepped(text.wrappedValue, by: step, unit: unit)
+            } onDecrement: {
+                text.wrappedValue = stepped(text.wrappedValue, by: -step, unit: unit)
             }
+            .labelsHidden()
+        }
+    }
+
+    private func measure(_ title: String, _ text: Binding<String>) -> some View {
+        LabeledContent(title) {
+            TextField(title, text: text)
+                .multilineTextAlignment(.trailing)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    /// The measurement nudged by one notch: the leading number moves, whatever
+    /// follows it — the unit, a remark — is kept exactly as typed. A field with no
+    /// number yet starts at one step of its own unit, so the buttons always do
+    /// something, and nothing ever goes below zero.
+    private func stepped(_ value: String, by step: Double, unit: String) -> String {
+        let text = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        let number = text.prefix { $0.isNumber || $0 == "," || $0 == "." }
+        guard let amount = Double(number.replacingOccurrences(of: ",", with: ".")) else {
+            return step > 0 ? "\(formatted(step)) \(unit)" : text
+        }
+        return formatted(max(0, amount + step)) + text.dropFirst(number.count)
+    }
+
+    /// Written the way the cook would: no trailing zero on a round number, and the
+    /// decimal separator of the language the app speaks.
+    private func formatted(_ amount: Double) -> String {
+        amount.formatted(.number.precision(.fractionLength(0...1)).grouping(.never))
+    }
+
+    /// Every row shares one leading gutter, so the labels line up whatever the row
+    /// holds. The dot's column only exists where a dot can appear: outside a
+    /// proposal nothing is ever marked, and the form keeps the standard inset.
+    private func row(
+        _ changed: Bool = false,
+        alignment: VerticalAlignment = .center,
+        @ViewBuilder content: () -> some View
+    ) -> some View {
+        HStack(alignment: alignment, spacing: Theme.Spacing.s) {
+            if changedFrom != nil { changeDot(changed) }
+            content()
         }
     }
 
