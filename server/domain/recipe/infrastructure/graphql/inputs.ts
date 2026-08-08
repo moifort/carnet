@@ -58,41 +58,6 @@ export const ThermomixStepInput = builder.inputType('ThermomixStepInput', {
   }),
 })
 
-export const CoffeeSettingsInput = builder.inputType('CoffeeSettingsInput', {
-  description:
-    'The extraction settings to attach to one brewing step, e.g. `"93°C / 28 s / 36 g"`. Every ' +
-    'field is optional.',
-  fields: (t) => ({
-    grind: t.field({
-      type: 'CoffeeGrind',
-      description: 'Grind size, e.g. `"fine"` or `"Niveau 12"`',
-    }),
-    water: t.field({ type: 'CoffeeWater', description: 'Water poured here, e.g. `"50 g"`' }),
-    temperature: t.field({ type: 'CoffeeTemperature', description: 'Temperature, e.g. `"93°C"`' }),
-    time: t.field({ type: 'CoffeeTime', description: 'Duration, e.g. `"28 s"`' }),
-    yield: t.field({ type: 'CoffeeYield', description: 'What lands in the cup, e.g. `"36 g"`' }),
-  }),
-})
-
-export const CoffeeStepInput = builder.inputType('CoffeeStepInput', {
-  description:
-    'One brewing step to save: its instruction plus the extraction settings that go with it. ' +
-    'Send `settings: {}` for a plain step (no extraction settings).',
-  fields: (t) => ({
-    text: t.field({
-      type: 'StepText',
-      required: true,
-      description: 'The step instruction, e.g. `"Verser 50 g d’eau et laisser gonfler"`',
-    }),
-    settings: t.field({
-      type: CoffeeSettingsInput,
-      required: true,
-      description:
-        'Its extraction settings, e.g. `"93°C / 28 s / 36 g"` (send `{}` for a plain step)',
-    }),
-  }),
-})
-
 export const CoffeeBeansInput = builder.inputType('CoffeeBeansInput', {
   description: 'The coffee itself and its dose. Every field is optional.',
   fields: (t) => ({
@@ -158,9 +123,9 @@ export const CoffeeParametersInput = builder.inputType('CoffeeParametersInput', 
 
 export const CoffeeContentInput = builder.inputType('CoffeeContentInput', {
   description:
-    'The body of a coffee version: the parameters it is set by plus, optionally, its brewing ' +
-    'steps (send `[]` on an espresso, whose parameters say everything). There is no ingredient ' +
-    'list — the dose, the water and the milk ARE parameters.',
+    'The body of a coffee version: the parameters it is set by. A coffee has neither an ' +
+    'ingredient list nor steps — the dose, the water and the milk ARE parameters, and what a ' +
+    'coffee is, is its dials.',
   fields: (t) => ({
     beans: t.field({ type: CoffeeBeansInput, required: false, description: 'The coffee itself' }),
     water: t.field({ type: CoffeeWaterSpecInput, required: false, description: 'The water' }),
@@ -171,11 +136,6 @@ export const CoffeeContentInput = builder.inputType('CoffeeContentInput', {
     }),
     milk: t.field({ type: CoffeeMilkInput, required: false, description: 'The milk, if any' }),
     gear: t.field({ type: CoffeeGearInput, required: false, description: 'Machine and grinder' }),
-    steps: t.field({
-      type: [CoffeeStepInput],
-      required: true,
-      description: 'The brewing gestures, each carrying its own extraction settings',
-    }),
   }),
 })
 
@@ -243,8 +203,9 @@ export const VersionContentInput = builder.inputType('VersionContentInput', {
 // The raw arms (branded scalars plus the client's `null`s on absent settings) are
 // re-validated and paired by the `VersionContent` constructor.
 type ContentArm = { ingredients: unknown[]; steps: unknown[] }
-// The coffee arm carries parameter blocks instead of an ingredient list.
-type CoffeeArm = { steps: unknown[] } & Record<string, unknown>
+// The coffee arm carries parameter blocks and nothing else — no ingredient list,
+// no steps.
+type CoffeeArm = Record<string, unknown>
 export const versionContentInput = (input: {
   dish?: ContentArm | null
   thermomix?: ContentArm | null

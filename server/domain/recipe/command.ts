@@ -300,11 +300,7 @@ export namespace RecipeCommand {
     if (!version) return 'not-found' as const
     // Parameters belong to a coffee and to nothing else — a dish has ingredients.
     if (version.content.kind !== 'coffee') return 'not-a-coffee' as const
-    const content: VersionContent = {
-      ...parameters,
-      kind: 'coffee',
-      steps: version.content.steps,
-    }
+    const content: VersionContent = { ...parameters, kind: 'coffee' }
     const updated: RecipeVersion = { ...version, content, updatedAt: new Date() }
     const updatedRecipe: Recipe = { ...recipe, updatedAt: lastWorkedOn(written(lineage, updated)) }
     return atomically(async (batch) => {

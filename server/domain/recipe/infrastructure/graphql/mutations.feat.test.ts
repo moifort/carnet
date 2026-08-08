@@ -86,7 +86,7 @@ describe('createRecipe mutation', () => {
     expect(result.errors?.[0]?.extensions?.code).toBe('CONTENT_TYPE_MISMATCH')
   })
 
-  test('saves a coffee with its brew method, its parameters and its per-step settings', async () => {
+  test('saves a coffee with its brew method and its parameters — it has no steps', async () => {
     const result = await execute(`
       mutation {
         createRecipe(input: {
@@ -99,10 +99,6 @@ describe('createRecipe mutation', () => {
             water: { kind: "Robinet (dureté 3/5)", amount: "300 g", temperature: "93°C" }
             extraction: { grind: "moyenne", time: "2 min 30" }
             gear: { machine: "Hario V60 02", grinder: "Niche Zero" }
-            steps: [
-              { text: "Moudre", settings: { grind: "moyenne" } }
-              { text: "Verser l’eau de pré-infusion", settings: { water: "50 g", temperature: "93°C", time: "45 s" } }
-            ]
           } }
         }) {
           method
@@ -116,7 +112,6 @@ describe('createRecipe mutation', () => {
                 extraction { grind time yield }
                 milk { kind }
                 gear { machine grinder }
-                steps { text settings { grind water temperature time yield } }
               }
             }
           }
@@ -143,28 +138,6 @@ describe('createRecipe mutation', () => {
           // A V60 has no milk: the block is absent, not empty.
           milk: null,
           gear: { machine: 'Hario V60 02', grinder: 'Niche Zero' },
-          steps: [
-            {
-              text: 'Moudre',
-              settings: {
-                grind: 'moyenne',
-                water: null,
-                temperature: null,
-                time: null,
-                yield: null,
-              },
-            },
-            {
-              text: 'Verser l’eau de pré-infusion',
-              settings: {
-                grind: null,
-                water: '50 g',
-                temperature: '93°C',
-                time: '45 s',
-                yield: null,
-              },
-            },
-          ],
         },
       },
     })
@@ -177,7 +150,7 @@ describe('createRecipe mutation', () => {
           type: COFFEE
           category: DRINK
           title: "Espresso"
-          content: { coffee: { steps: [{ text: "Extraire", settings: {} }] } }
+          content: { coffee: { extraction: { grind: "fine" } } }
         }) { id }
       }
     `)
@@ -389,7 +362,6 @@ describe('updateCoffeeParameters mutation', () => {
         content: { coffee: {
           beans: { name: "Belleville — Guji", dose: "18 g" }
           gear: { machine: "Rancilio Silvia" }
-          steps: []
         } }
       }) { id }
     }
@@ -425,7 +397,6 @@ describe('updateCoffeeParameters mutation', () => {
               extraction { grind time yield }
               milk { kind }
               gear { machine grinder }
-              steps { text }
             }
           }
         }
@@ -443,7 +414,6 @@ describe('updateCoffeeParameters mutation', () => {
         // An espresso has no milk: the block stays absent, not empty.
         milk: null,
         gear: { machine: 'Rancilio Silvia', grinder: 'Niche Zero' },
-        steps: [],
       },
     })
   })

@@ -138,17 +138,12 @@ type CoffeeContent {
   """The milk, or `null` on a drink that has none — an espresso, a V60"""
   milk: CoffeeMilk
 
-  """
-  The brewing gestures, each carrying its own extraction settings. Empty on a drink whose parameters say everything, e.g. an espresso.
-  """
-  steps: [CoffeeStep!]!
-
   """The water: what it is, how much, how hot"""
   water: CoffeeWaterSpec!
 }
 
 """
-The body of a coffee version: the parameters it is set by plus, optionally, its brewing steps (send `[]` on an espresso, whose parameters say everything). There is no ingredient list — the dose, the water and the milk ARE parameters.
+The body of a coffee version: the parameters it is set by. A coffee has neither an ingredient list nor steps — the dose, the water and the milk ARE parameters, and what a coffee is, is its dials.
 """
 input CoffeeContentInput {
   """The coffee itself"""
@@ -162,9 +157,6 @@ input CoffeeContentInput {
 
   """The milk, if any"""
   milk: CoffeeMilkInput
-
-  """The brewing gestures, each carrying its own extraction settings"""
-  steps: [CoffeeStepInput!]!
 
   """The water"""
   water: CoffeeWaterSpecInput
@@ -295,74 +287,6 @@ input CoffeeParametersInput {
 
 """Who grew it — farm, washing station or co-op, e.g. `"Coop. Hambela"`"""
 scalar CoffeeProducer
-
-"""
-The extraction settings that go with one brewing step (only for coffee recipes). Every field is optional — a step can set just a time, or the full grind + water + temperature + time + yield combo, e.g. `"18 g fine → 36 g / 93°C / 28 s"`.
-"""
-type CoffeeSettings {
-  """
-  How fine the coffee is ground, e.g. `"fine"` or `"Niveau 12"` (`null` if not set)
-  """
-  grind: CoffeeGrind
-
-  """The water temperature, e.g. `"93°C"` (`null` if not set)"""
-  temperature: CoffeeTemperature
-
-  """How long the step runs, e.g. `"28 s"` or `"4 min"` (`null` if not set)"""
-  time: CoffeeTime
-
-  """The water poured at this step, e.g. `"50 g"` (`null` if not set)"""
-  water: CoffeeWater
-
-  """What lands in the cup, e.g. `"36 g"` (`null` if not set)"""
-  yield: CoffeeYield
-}
-
-"""
-The extraction settings to attach to one brewing step, e.g. `"93°C / 28 s / 36 g"`. Every field is optional.
-"""
-input CoffeeSettingsInput {
-  """Grind size, e.g. `"fine"` or `"Niveau 12"`"""
-  grind: CoffeeGrind
-
-  """Temperature, e.g. `"93°C"`"""
-  temperature: CoffeeTemperature
-
-  """Duration, e.g. `"28 s"`"""
-  time: CoffeeTime
-
-  """Water poured here, e.g. `"50 g"`"""
-  water: CoffeeWater
-
-  """What lands in the cup, e.g. `"36 g"`"""
-  yield: CoffeeYield
-}
-
-"""
-One brewing step: its instruction plus the extraction settings that go with it. A plain step (no extraction settings) carries an empty settings object.
-"""
-type CoffeeStep {
-  """
-  The extraction settings for this step, e.g. `"93°C / 28 s / 36 g"` (every field left out = a plain step)
-  """
-  settings: CoffeeSettings!
-
-  """The step instruction, e.g. `"Verser 50 g d’eau et laisser gonfler"`"""
-  text: StepText!
-}
-
-"""
-One brewing step to save: its instruction plus the extraction settings that go with it. Send `settings: {}` for a plain step (no extraction settings).
-"""
-input CoffeeStepInput {
-  """
-  Its extraction settings, e.g. `"93°C / 28 s / 36 g"` (send `{}` for a plain step)
-  """
-  settings: CoffeeSettingsInput!
-
-  """The step instruction, e.g. `"Verser 50 g d’eau et laisser gonfler"`"""
-  text: StepText!
-}
 
 """The water temperature of a brewing step, e.g. `"93°C"`"""
 scalar CoffeeTemperature

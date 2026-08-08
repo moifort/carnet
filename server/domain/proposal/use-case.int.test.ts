@@ -7,9 +7,7 @@ import type {
   CoffeeDose,
   CoffeeGrind,
   CoffeeMachine,
-  CoffeeTemperature,
   CoffeeTime,
-  CoffeeYield,
   Ingredient,
   IngredientName,
   IngredientQuantity,
@@ -95,7 +93,6 @@ const filledCoffeeContent = (): CoffeeContent => ({
   water: {},
   extraction: { grind: 'Niveau 12' as CoffeeGrind, time: '28 s' as CoffeeTime },
   gear: { machine: 'Rancilio Silvia' as CoffeeMachine },
-  steps: [],
 })
 
 const recipeInput = (
@@ -261,47 +258,6 @@ describe('ProposalUseCase.fromAttempt', () => {
     })
   })
 
-  test('keeps a coffee proposal’s extraction settings, and only those', async () => {
-    proposal = {
-      ...baseProposal(),
-      steps: [
-        // The same proposal carries both settings objects; each type reads its own.
-        {
-          text: 'Moudre',
-          thermomix: { speed: '1' },
-          coffee: { grind: 'fine' },
-        },
-        {
-          text: 'Extraire',
-          thermomix: {},
-          coffee: { temperature: '93°C', time: '28 s', yield: '36 g' },
-        },
-      ],
-    }
-    const coffee = await RecipeCommand.create(userId, recipeInput({ type: 'coffee' }))
-    if (typeof coffee === 'string') throw new Error('expected a recipe')
-    const coffeeProposal = await ProposalUseCase.fromAttempt(userId, coffee.id, V1, ATTEMPT)
-    if (typeof coffeeProposal === 'string') throw new Error('expected a proposal')
-    expect(coffeeProposal.content).toEqual({
-      kind: 'coffee',
-      beans: {},
-      water: {},
-      extraction: {},
-      gear: {},
-      steps: [
-        { text: 'Moudre' as StepText, settings: { grind: 'fine' as CoffeeGrind } },
-        {
-          text: 'Extraire' as StepText,
-          settings: {
-            temperature: '93°C' as CoffeeTemperature,
-            time: '28 s' as CoffeeTime,
-            yield: '36 g' as CoffeeYield,
-          },
-        },
-      ],
-    })
-  })
-
   test('hands the model the coffee parameters of the version cooked, and no ingredients', async () => {
     const coffee = await RecipeCommand.create(
       userId,
@@ -349,7 +305,6 @@ describe('ProposalUseCase.fromAttempt', () => {
       water: {},
       extraction: { grind: 'Niveau 10' as CoffeeGrind, time: '28 s' as CoffeeTime },
       gear: { machine: 'Rancilio Silvia' as CoffeeMachine },
-      steps: [],
     })
   })
 })

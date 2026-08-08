@@ -36,7 +36,6 @@ const brandProposal = (type: RecipeType, proposal: AiProposal): VersionContent =
       // The parameters the model answered with — the whole set, one dial moved. A
       // proposal that returned none lands on the empty blocks rather than throwing.
       ...(proposal.coffee ?? {}),
-      steps: proposal.steps.map((s) => ({ text: s.text, settings: s.coffee })),
     })
   return brandVersionContent({
     kind: 'dish',
@@ -77,12 +76,8 @@ const contextSteps = (content: VersionContent): ImportStep[] => {
       thermomix: s.settings,
       coffee: {},
     }))
-  if (content.kind === 'coffee')
-    return content.steps.map((s) => ({
-      text: s.text as string,
-      thermomix: {},
-      coffee: s.settings,
-    }))
+  // A coffee has no steps at all: it is wholly described by its parameters.
+  if (content.kind === 'coffee') return []
   return content.steps.map((text) => ({ text: text as string, thermomix: {}, coffee: {} }))
 }
 

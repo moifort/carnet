@@ -2,8 +2,6 @@ import { make } from 'ts-brand'
 import { z } from 'zod'
 import {
   type CoffeeParameters as CoffeeParametersType,
-  coffeeSteps,
-  type LooseCoffeeSettings,
   toCoffeeParameters,
 } from '~/domain/recipe/content/coffee'
 import { type LooseThermomixSettings, thermomixSteps } from '~/domain/recipe/content/thermomix'
@@ -178,14 +176,6 @@ const looseSettingsSchema = z.object({
   reverse: z.boolean().nullish(),
 })
 
-const looseCoffeeSettingsSchema = z.object({
-  grind: z.string().nullish(),
-  water: z.string().nullish(),
-  temperature: z.string().nullish(),
-  time: z.string().nullish(),
-  yield: z.string().nullish(),
-})
-
 const dishContentSchema = z.object({
   kind: z.literal('dish'),
   ingredients: z.array(looseIngredientSchema),
@@ -233,9 +223,11 @@ const looseCoffeeParametersSchema = z.object({
   gear: z.object({ machine: z.string().nullish(), grinder: z.string().nullish() }).nullish(),
 })
 
+// A coffee body is its parameters. `steps` is deliberately not declared: a client
+// that still sends one has it dropped here rather than rejected — an import must not
+// fail over a field the model no longer has.
 const coffeeContentSchema = looseCoffeeParametersSchema.extend({
   kind: z.literal('coffee'),
-  steps: z.array(z.object({ text: z.unknown(), settings: looseCoffeeSettingsSchema.nullish() })),
 })
 
 const brandIngredient = (i: { name: unknown; quantity: unknown }) => ({
@@ -248,16 +240,6 @@ const brandLooseSettings = (s: z.infer<typeof looseSettingsSchema>): LooseThermo
   ...(s.temperature ? { temperature: ThermomixTemperature(s.temperature) } : {}),
   ...(s.speed ? { speed: ThermomixSpeed(s.speed) } : {}),
   ...(s.reverse ? { reverse: s.reverse } : {}),
-})
-
-const brandLooseCoffeeSettings = (
-  s: z.infer<typeof looseCoffeeSettingsSchema>,
-): LooseCoffeeSettings => ({
-  ...(s.grind ? { grind: CoffeeGrind(s.grind) } : {}),
-  ...(s.water ? { water: CoffeeWater(s.water) } : {}),
-  ...(s.temperature ? { temperature: CoffeeTemperature(s.temperature) } : {}),
-  ...(s.time ? { time: CoffeeTime(s.time) } : {}),
-  ...(s.yield ? { yield: CoffeeYield(s.yield) } : {}),
 })
 
 // Every scalar goes through its branded constructor, so a raw payload never sneaks
@@ -302,11 +284,7 @@ export const CoffeeParameters = (value: unknown): CoffeeParametersType =>
 const versionContentSchema = z
   .discriminatedUnion('kind', [dishContentSchema, thermomixContentSchema, coffeeContentSchema])
   .transform((raw): VersionContentType => {
-    if (raw.kind === 'coffee') {
-      const texts = raw.steps.map((s) => StepText(s.text))
-      const settings = raw.steps.map((s) => brandLooseCoffeeSettings(s.settings ?? {}))
-      return { kind: 'coffee', ...brandCoffeeParameters(raw), steps: coffeeSteps(texts, settings) }
-    }
+    if (raw.kind === 'coffee') return { kind: 'coffee', ...brandCoffeeParameters(raw) }
     const ingredients = raw.ingredients.map(brandIngredient)
     if (raw.kind === 'dish') {
       return { kind: 'dish', ingredients, steps: raw.steps.map((s) => StepText(s)) }

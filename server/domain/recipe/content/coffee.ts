@@ -8,20 +8,13 @@ import type {
   CoffeeMilkAmount,
   CoffeeMilkKind,
   CoffeeProducer,
-  CoffeeSettings,
   CoffeeTemperature,
   CoffeeTime,
   CoffeeWater,
   CoffeeWaterKind,
   CoffeeYield,
-  StepText,
 } from '~/domain/recipe/types'
 import type { RecipeVersion } from '~/domain/recipe/version'
-
-// One brewing step: its instruction text plus the extraction settings that go with
-// it. The settings are total — an empty object `{}` is the single spelling of a
-// plain (non-extraction) step, never a hole in the list.
-export type CoffeeStep = { text: StepText; settings: CoffeeSettings }
 
 // The bag in the cupboard: what the coffee IS, as read off it. Every field is
 // optional — a cook who only knows the dose still logs the dose. `roastedOn` is the
@@ -76,16 +69,13 @@ export type CoffeeParameters = {
   gear: CoffeeGear
 }
 
-// A coffee recipe's content: its parameters plus, optionally, the brewing gestures.
-// An espresso is wholly described by its parameters and carries `steps: []`; a V60 or
-// a French press adds its pours, each with its own extraction settings. There is no
-// ingredient list: the dose, the water and the milk ARE parameters — one place for a
+// A coffee recipe's content: its parameters, and nothing else. A coffee has no
+// gestures — it is a set of dials, and what a pour-over adds to an espresso is a
+// water amount and a time, both parameters already. There is no ingredient list
+// either: the dose, the water and the milk ARE parameters — one place for a
 // quantity, not two. The brew method is NOT here: it is aggregate-level identity
 // (`Recipe.method`), fixed across the whole lineage.
-export type CoffeeContent = CoffeeParameters & {
-  kind: 'coffee'
-  steps: CoffeeStep[]
-}
+export type CoffeeContent = CoffeeParameters & { kind: 'coffee' }
 
 // The four total blocks empty, and no milk. The single spelling of "nothing filled in
 // yet" — what the migration writes and what a fresh manual coffee starts from.
@@ -96,21 +86,9 @@ export const emptyCoffeeParameters: CoffeeParameters = {
   gear: {},
 }
 
-// One step's extraction settings as they arrive from a GraphQL input or a branded AI
-// proposal: each field may be present or absent (the boundaries strip the `null`s
-// their clients speak). An entry with no field at all stands for a plain
-// (non-extraction) step.
-export type LooseCoffeeSettings = {
-  grind?: CoffeeGrind
-  water?: CoffeeWater
-  temperature?: CoffeeTemperature
-  time?: CoffeeTime
-  yield?: CoffeeYield
-}
-
-// The parameters as they arrive from those same boundaries: every block and every
-// field may be present, absent or `null` (the boundaries speak `null`, the domain
-// does not).
+// The parameters as they arrive from a GraphQL input or an AI proposal: every block
+// and every field may be present, absent or `null` (those boundaries speak `null`,
+// the domain does not).
 export type LooseCoffeeParameters = {
   beans?: Partial<CoffeeBeans> | null
   water?: Partial<CoffeeWaterSpec> | null
@@ -118,25 +96,6 @@ export type LooseCoffeeParameters = {
   milk?: Partial<CoffeeMilk> | null
   gear?: Partial<CoffeeGear> | null
 }
-
-const carriesNoSetting = (s: CoffeeSettings) =>
-  s.grind === undefined &&
-  s.water === undefined &&
-  s.temperature === undefined &&
-  s.time === undefined &&
-  s.yield === undefined
-
-// Normalize loose per-step settings into clean CoffeeSettings, dropping absent
-// keys. The single home for this rule so the GraphQL and AI-proposal paths can
-// never diverge.
-export const toCoffeeSettings = (entries: LooseCoffeeSettings[]): CoffeeSettings[] =>
-  entries.map((entry) => ({
-    ...(entry.grind ? { grind: entry.grind } : {}),
-    ...(entry.water ? { water: entry.water } : {}),
-    ...(entry.temperature ? { temperature: entry.temperature } : {}),
-    ...(entry.time ? { time: entry.time } : {}),
-    ...(entry.yield ? { yield: entry.yield } : {}),
-  }))
 
 // Drop every key whose value is absent or null — the single rule the five blocks
 // share, so no block can normalize differently from its neighbours.
@@ -173,17 +132,4 @@ export const restDays = (version: RecipeVersion): number | undefined => {
   if (!roastedOn) return undefined
   const days = Math.floor((version.createdAt.getTime() - roastedOn.getTime()) / MS_PER_DAY)
   return days < 0 ? undefined : days
-}
-
-// Pair step texts with their extraction settings into nested steps. The settings
-// are wholly ignored — every step turns plain (`{}`) — when they do not mirror the
-// steps one-to-one or when no entry actually carries a setting, so a coffee version
-// never stores misaligned or all-empty extraction settings.
-export const coffeeSteps = (texts: StepText[], settings: LooseCoffeeSettings[]): CoffeeStep[] => {
-  const normalized = toCoffeeSettings(settings)
-  const aligned =
-    normalized.length === texts.length && normalized.some((s) => !carriesNoSetting(s))
-      ? normalized
-      : texts.map((): CoffeeSettings => ({}))
-  return texts.map((text, i) => ({ text, settings: aligned[i] }))
 }

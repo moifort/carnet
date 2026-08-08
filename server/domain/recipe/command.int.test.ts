@@ -7,8 +7,6 @@ import type {
   CoffeeDose,
   CoffeeGrinder,
   CoffeeMachine,
-  CoffeeTemperature,
-  CoffeeTime,
   CoffeeWater,
   CoffeeWaterKind,
   Ingredient,
@@ -53,13 +51,6 @@ const coffeeContent = (): CoffeeContent => ({
   water: { amount: '36 g' as CoffeeWater },
   extraction: {},
   gear: { machine: 'Rancilio Silvia' as CoffeeMachine },
-  steps: [
-    { text: 'Moudre' as StepText, settings: {} },
-    {
-      text: 'Extraire' as StepText,
-      settings: { temperature: '93°C' as CoffeeTemperature, time: '28 s' as CoffeeTime },
-    },
-  ],
 })
 
 const newInput = (content: DishContent | ThermomixContent = dishContent()) => ({
@@ -815,25 +806,6 @@ describe('updateCoffeeParameters', () => {
 
     expect(fake.batches.length).toBe(batchesBefore + 1)
     expect(fake.directWrites).toEqual([])
-  })
-
-  test('leaves the steps untouched — correcting a parameter is not iterating', async () => {
-    const withSteps: CoffeeContent = {
-      ...coffeeContent(),
-      steps: [{ text: 'Infuser 4 min' as StepText, settings: {} }],
-    }
-    const recipe = await RecipeCommand.create(userId, coffeeInput(withSteps))
-    if (typeof recipe === 'string') throw new Error('expected a recipe')
-
-    const updated = await RecipeCommand.updateCoffeeParameters(userId, recipe.id, V1, {
-      ...emptyCoffeeParameters,
-      water: { kind: 'Volvic' as CoffeeWaterKind },
-    })
-    if (typeof updated === 'string') throw new Error(`expected a version, got ${updated}`)
-
-    expect(updated.content.kind === 'coffee' && updated.content.steps).toEqual([
-      { text: 'Infuser 4 min' as StepText, settings: {} },
-    ])
   })
 
   test('refuses a version that is not a coffee', async () => {

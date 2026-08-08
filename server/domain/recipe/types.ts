@@ -90,19 +90,6 @@ export type ThermomixSettings = {
   reverse?: boolean // reverse rotation
 }
 
-// The extraction settings for one brewing step, display-oriented strings (no
-// computation is ever done on them — "fine", "Niveau 12" and "Varoma-less" are
-// valid values, not numbers). Every field absent (`{}`) means "this step carries
-// no extraction setting" — the single representation of a plain step inside a
-// `CoffeeStep`, exactly as for a Thermomix one.
-export type CoffeeSettings = {
-  grind?: CoffeeGrind // "fine", "moyenne", "Niveau 12"
-  water?: CoffeeWater // water poured at this step: "50 g", "300 ml"
-  temperature?: CoffeeTemperature // "93°C"
-  time?: CoffeeTime // "28 s", "4 min"
-  yield?: CoffeeYield // what lands in the cup: "36 g", "250 ml"
-}
-
 export type VersionOriginKind = 'import' | 'ai-proposal' | 'manual'
 export type VersionOrigin = { kind: VersionOriginKind; detail?: string }
 

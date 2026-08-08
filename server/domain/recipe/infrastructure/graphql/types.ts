@@ -5,7 +5,6 @@ import {
   type CoffeeExtraction,
   type CoffeeGear,
   type CoffeeMilk,
-  type CoffeeStep,
   type CoffeeWaterSpec,
   restDays,
 } from '~/domain/recipe/content/coffee'
@@ -16,7 +15,6 @@ import type { RecipeLibraryPage } from '~/domain/recipe/query'
 import type { CoffeeVocabulary } from '~/domain/recipe/vocabulary'
 import { builder } from '~/domain/shared/graphql/builder'
 import type {
-  CoffeeSettings,
   Ingredient,
   Recipe,
   RecipeVersion,
@@ -134,65 +132,6 @@ export const ThermomixContentType = builder
       }),
     }),
   })
-
-export const CoffeeSettingsType = builder.objectRef<CoffeeSettings>('CoffeeSettings').implement({
-  description:
-    'The extraction settings that go with one brewing step (only for coffee recipes). Every ' +
-    'field is optional — a step can set just a time, or the full grind + water + temperature + ' +
-    'time + yield combo, e.g. `"18 g fine → 36 g / 93°C / 28 s"`.',
-  fields: (t) => ({
-    grind: t.field({
-      type: 'CoffeeGrind',
-      nullable: true,
-      description:
-        'How fine the coffee is ground, e.g. `"fine"` or `"Niveau 12"` (`null` if not set)',
-      resolve: (s) => s.grind ?? null,
-    }),
-    water: t.field({
-      type: 'CoffeeWater',
-      nullable: true,
-      description: 'The water poured at this step, e.g. `"50 g"` (`null` if not set)',
-      resolve: (s) => s.water ?? null,
-    }),
-    temperature: t.field({
-      type: 'CoffeeTemperature',
-      nullable: true,
-      description: 'The water temperature, e.g. `"93°C"` (`null` if not set)',
-      resolve: (s) => s.temperature ?? null,
-    }),
-    time: t.field({
-      type: 'CoffeeTime',
-      nullable: true,
-      description: 'How long the step runs, e.g. `"28 s"` or `"4 min"` (`null` if not set)',
-      resolve: (s) => s.time ?? null,
-    }),
-    yield: t.field({
-      type: 'CoffeeYield',
-      nullable: true,
-      description: 'What lands in the cup, e.g. `"36 g"` (`null` if not set)',
-      resolve: (s) => s.yield ?? null,
-    }),
-  }),
-})
-
-export const CoffeeStepType = builder.objectRef<CoffeeStep>('CoffeeStep').implement({
-  description:
-    'One brewing step: its instruction plus the extraction settings that go with it. A plain ' +
-    'step (no extraction settings) carries an empty settings object.',
-  fields: (t) => ({
-    text: t.expose('text', {
-      type: 'StepText',
-      description: 'The step instruction, e.g. `"Verser 50 g d’eau et laisser gonfler"`',
-    }),
-    settings: t.field({
-      type: CoffeeSettingsType,
-      description:
-        'The extraction settings for this step, e.g. `"93°C / 28 s / 36 g"` (every field left ' +
-        'out = a plain step)',
-      resolve: (s) => s.settings,
-    }),
-  }),
-})
 
 export const CoffeeBeansType = builder.objectRef<CoffeeBeans>('CoffeeBeans').implement({
   description:
@@ -366,13 +305,6 @@ export const CoffeeContentType = builder.objectRef<CoffeeContent>('CoffeeContent
       type: CoffeeGearType,
       description: 'What brews it and what grinds it',
       resolve: (c) => c.gear,
-    }),
-    steps: t.field({
-      type: [CoffeeStepType],
-      description:
-        'The brewing gestures, each carrying its own extraction settings. Empty on a drink ' +
-        'whose parameters say everything, e.g. an espresso.',
-      resolve: (c) => c.steps,
     }),
   }),
 })
