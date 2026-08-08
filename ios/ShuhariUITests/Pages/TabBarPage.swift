@@ -10,11 +10,12 @@ struct TabBarPage {
         return self
     }
 
-    /// Tap the single content tab — the "Carnet" (all cooking recipes: dishes & Thermomix).
+    /// Tap the cooking content tab — "Cuisine" (all cooking recipes: dishes & Thermomix).
+    /// It opens on the `.all` lens, whose label titles the navigation bar.
     @discardableResult
-    func goToNotebook() throws -> HomePage {
-        try app.tabBars.buttons["Carnet"].tapOrFail()
-        return HomePage(app: app, title: "Carnet")
+    func goToCooking() throws -> HomePage {
+        try app.tabBars.buttons["Cuisine"].tapOrFail()
+        return HomePage(app: app, title: "Tout")
     }
 
     @discardableResult

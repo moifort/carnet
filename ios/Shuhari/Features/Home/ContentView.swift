@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Root once authenticated. Two content tabs — "Carnet" (cooking: dishes &
+/// Root once authenticated. Two content tabs — "Cuisine" (cooking: dishes &
 /// Thermomix) and "Café" — plus an "Importer" entry pinned to the trailing side of
 /// the tab bar (`.search`/`.prominent` role — the only system affordance that keeps
 /// a tab separated and visible while the bar minimises). Selecting it opens the
@@ -10,13 +10,13 @@ import SwiftUI
 /// type belongs to, which navigates to its recipe sheet.
 struct ContentView: View {
     enum RootTab: Hashable {
-        case notebook, coffee, importEntry
+        case cooking, coffee, importEntry
     }
 
-    @State private var selectedTab: RootTab = .notebook
+    @State private var selectedTab: RootTab = .cooking
     /// The tab to restore when the import cover closes — where a cancelled import
     /// puts the user back.
-    @State private var lastContentTab: RootTab = .notebook
+    @State private var lastContentTab: RootTab = .cooking
     @State private var showImport = false
     /// Set when the camera hands off a picked photo / capture / text: it closes
     /// the camera cover, then `onDismiss` presents the review sheet over the
@@ -45,10 +45,10 @@ struct ContentView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            Tab("Carnet", image: "toque", value: RootTab.notebook) {
+            Tab("Cuisine", systemImage: "frying.pan", value: RootTab.cooking) {
                 HomeView(importedRecipe: $importedRecipe)
             }
-            .accessibilityIdentifier("tab-notebook")
+            .accessibilityIdentifier("tab-cooking")
 
             Tab("Café", systemImage: "cup.and.saucer", value: RootTab.coffee) {
                 CoffeeView(importedRecipe: $importedCoffee)
@@ -81,7 +81,7 @@ struct ContentView: View {
                 input: job.input,
                 onCreated: { recipeId, type in
                     // The detected type decides where the recipe lands: a coffee
-                    // photographed from the notebook still opens in the coffee tab,
+                    // photographed from the cooking tab still opens in the coffee tab,
                     // which is the only one that lists it.
                     let imported = ImportedRecipe(id: recipeId)
                     if type == .coffee {
@@ -89,7 +89,7 @@ struct ContentView: View {
                         selectedTab = .coffee
                     } else {
                         importedRecipe = imported
-                        selectedTab = .notebook
+                        selectedTab = .cooking
                     }
                     reviewJob = nil
                 },

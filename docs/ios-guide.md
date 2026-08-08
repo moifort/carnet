@@ -51,7 +51,7 @@ ios/
 
 ### The root tabs
 
-`ContentView` holds two content tabs — **Carnet** (`HomeView`, cooking: `RecipeType.cooking`) and
+`ContentView` holds two content tabs — **Cuisine** (`HomeView`, cooking: `RecipeType.cooking`) and
 **Café** (`CoffeeView`, `[.coffee]`) — plus the trailing **Importer** entry (`.search`/`.prominent`
 role), which opens the camera full-screen and belongs to neither.
 
@@ -187,7 +187,7 @@ store from the environment. The **page** is pure: data in, closures out — no n
 navigation state.
 
 ```swift
-struct HomeView: View {                        // coordinator (the Carnet tab)
+struct HomeView: View {                        // coordinator (the Cuisine tab)
     @Environment(LibraryStore.self) private var store
     @State private var path = NavigationPath()
     var body: some View {
