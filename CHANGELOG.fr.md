@@ -2,6 +2,22 @@
 
 Toutes les évolutions notables de Shuhari, la plus récente en premier.
 
+## 1.1 (2026.08.08)
+
+### New
+
+- Le café, dans son propre onglet : une tasse est une recette comme une autre, décrite par ses paramètres — grains, eau, mouture, temps, poids en tasse, lait et matériel — plutôt que par une liste d'ingrédients.
+- Import d'un café depuis une photo du paquet, un lien ou un texte : l'IA en lit la méthode de préparation et tous les paramètres visibles.
+- À partir d'une remarque de dégustation, l'IA propose la tasse suivante en ne changeant qu'un seul réglage, et ne touche jamais aux grains ni au matériel.
+- Les paramètres d'un café se corrigent à tout moment, chaque champ suggérant les valeurs déjà utilisées.
+- Import composé de plusieurs photos et d'un texte à la fois.
+- La remarque laissée sur un essai peut être corrigée après coup.
+- Un café indique combien de temps ses grains ont reposé entre la torréfaction et la tasse.
+
+### Fixes
+
+- Dates du carnet : une version est datée de sa dernière modification, et une recette de la version qu'elle ouvre.
+
 ## 1.0 (2026.07.21)
 
 ### New

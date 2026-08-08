@@ -2,6 +2,22 @@
 
 All notable changes to Shuhari, most recent first.
 
+## 1.1 (2026.08.08)
+
+### New
+
+- Coffee, in its own tab: a cup is a recipe like any other, described by its parameters — beans, water, grind, time, yield, milk and gear — rather than by a list of ingredients.
+- Import a coffee from a photo of the bag, a link or plain text: the AI reads its brew method and every parameter it can see.
+- From a tasting remark, the AI proposes the next cup by turning a single dial, and never changes the beans or the gear.
+- A coffee's parameters can be corrected at any time, each field suggesting the values already used.
+- An import can be composed from several photos and a text at once.
+- The remark left on an attempt can be corrected afterwards.
+- A coffee shows how long its beans rested between the roast and the cup.
+
+### Fixes
+
+- Notebook dates: a version is dated by its last edit, and a recipe by the version it opens on.
+
 ## 1.0 (2026.07.21)
 
 ### New
