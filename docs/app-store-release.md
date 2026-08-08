@@ -28,13 +28,20 @@ already on the listing, so a release that does not change the interface needs no
    contents can be read from the tag itself without opening the changelog, and `ios-v` names the
    platform it releases — the workflow only listens to `ios-v*`:
    ```bash
-   git tag -a ios-v1.0 -m "$(bun scripts/release-notes.ts markdown 1.0 en)"
+   git tag -a ios-v1.0 --cleanup=verbatim -m "$(bun scripts/release-notes.ts markdown 1.0 en)"
    git push origin ios-v1.0
    ```
 
    In English and as markdown: a tag is read in the repository and on GitHub, both of
    which render it and neither of which speaks the cook's language. The French notes go to
    the store, and nowhere else.
+
+   `--cleanup=verbatim` is what keeps the markdown: git's default tag cleanup strips every
+   line starting with `#`, so `### New` and `### Fixes` silently vanish and the two sections
+   arrive as one flat list separated by a blank line — as they did on `ios-v1.1`, which was
+   already pushed when it was noticed. The tag is documentation, not an input: the workflow
+   regenerates the notes from the changelogs, so a stripped message is never worth
+   re-tagging, which would submit the version to Apple a second time.
 
 `CURRENT_PROJECT_VERSION` is not edited by hand: the workflow passes the run number, which only
 ever grows. App Store Connect rejects a build number it has already seen.
