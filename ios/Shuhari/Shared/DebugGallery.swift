@@ -56,7 +56,7 @@ struct DebugGallery: View {
             RecipeDetailGalleryScreen(recipe: Fixtures.risotto)
         case "recipe-coffee":
             RecipeDetailGalleryScreen(recipe: Fixtures.espresso)
-        case "recipe-coffee-steps":
+        case "recipe-coffee-v60":
             RecipeDetailGalleryScreen(recipe: Fixtures.v60)
         case "warnings-edit":
             Color.clear
@@ -115,12 +115,12 @@ struct DebugGallery: View {
             }
         case "proposal-coffee":
             NavigationStack {
-                ProposalPage(
+                CoffeeProposalPage(
                     proposal: Fixtures.proposalCoffee,
                     nextVersionNumber: 3,
-                    baseIngredients: Fixtures.v60V2.ingredients,
-                    baseSteps: Fixtures.v60V2.content.stepsWithSettings,
+                    baseParameters: Fixtures.v60V2.content.coffeeParameters ?? .empty,
                     baseTips: Fixtures.v60V2.tips,
+                    vocabulary: Fixtures.coffeeVocabulary,
                     isWorking: false,
                     suggestedRecipeTitle: Fixtures.v60.title,
                     onClose: {},

@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// The AI proposal screen: a short summary of what changes and why, then the
-/// FULL proposed next version — ingredients, steps and tips, each row editable
-/// inline and marked with a dot when it differs from the base version. Finally
-/// Valider/Fermer.
+/// The AI proposal screen for something cooked: a short summary of what changes and
+/// why, then the FULL proposed next version — ingredients, steps and tips, each row
+/// editable inline and marked with a dot when it differs from the base version.
+/// Finally Valider/Fermer. A coffee is proposed as dials, on its own page.
 ///
 /// Diff marking: rows are always editable `TextField`s, so a from→to
 /// `DiffValue` doesn't fit; instead a row carries a leading `Theme.Status.changed`
@@ -107,12 +107,6 @@ struct ProposalPage: View {
     var body: some View {
         List {
             ChangeSummaryCard(summary: proposal.changeSummary, rationale: proposal.rationale)
-            // A coffee is proposed as parameters — read-only here, since the one
-            // dial that moved is named in the summary above. Without them, an
-            // espresso proposal (which has no steps) would be an empty page.
-            if let parameters = proposal.content.coffeeParameters {
-                CoffeeParametersSection(parameters: parameters)
-            }
             if !ingredients.isEmpty {
                 ingredientsSection
             }
@@ -311,8 +305,8 @@ struct ProposalPage: View {
                 steps: survivingSteps.map { ThermomixStep(text: $0.text, settings: $0.settings) }
             )
         case .coffee(let parameters):
-            // The proposed dials go through untouched — a coffee proposal has its
-            // own page, where they are edited.
+            // Unreachable: a coffee proposal is shown by `CoffeeProposalPage`. The
+            // arm carries the dials through rather than inventing an empty version.
             content = .coffee(parameters: parameters)
         }
 

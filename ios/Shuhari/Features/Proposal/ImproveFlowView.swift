@@ -30,6 +30,10 @@ struct ImproveFlowView: View {
     @State private var errorPresenter = ErrorPresenter()
     /// The ephemeral AI proposal, held in memory while the `.proposal` step is shown.
     @State private var proposal: Proposal?
+    /// What the coffee form suggests. Loaded alongside the proposal request, and
+    /// left empty on anything that is not a coffee — or if the load fails, which
+    /// costs suggestions and nothing else.
+    @State private var vocabulary: CoffeeVocabulary = .empty
 
     private enum Step: Hashable { case proposal }
 
@@ -83,21 +87,41 @@ struct ImproveFlowView: View {
     @ViewBuilder
     private var proposalPage: some View {
         if let proposal {
-            ProposalPage(
-                proposal: proposal,
-                nextVersionNumber: nextVersionNumber,
-                baseIngredients: version.ingredients,
-                baseSteps: version.content.stepsWithSettings,
-                baseTips: version.tips,
-                isWorking: isAccepting,
-                suggestedRecipeTitle: recipeTitle,
-                isCreatingRecipe: isCreatingRecipe,
-                onClose: { dismiss() },
-                onValidate: { edited in Task { await accept(edited) } },
-                onCreateRecipe: { edited, title in
-                    Task { await createRecipe(edited, title: title) }
-                }
-            )
+            // A coffee is proposed as dials, not as gestures: its own page, where
+            // every parameter is editable before the version exists.
+            if let parameters = proposal.content.coffeeParameters {
+                CoffeeProposalPage(
+                    proposal: proposal,
+                    nextVersionNumber: nextVersionNumber,
+                    baseParameters: version.content.coffeeParameters ?? parameters,
+                    baseTips: version.tips,
+                    vocabulary: vocabulary,
+                    isWorking: isAccepting,
+                    suggestedRecipeTitle: recipeTitle,
+                    isCreatingRecipe: isCreatingRecipe,
+                    onClose: { dismiss() },
+                    onValidate: { edited in Task { await accept(edited) } },
+                    onCreateRecipe: { edited, title in
+                        Task { await createRecipe(edited, title: title) }
+                    }
+                )
+            } else {
+                ProposalPage(
+                    proposal: proposal,
+                    nextVersionNumber: nextVersionNumber,
+                    baseIngredients: version.ingredients,
+                    baseSteps: version.content.stepsWithSettings,
+                    baseTips: version.tips,
+                    isWorking: isAccepting,
+                    suggestedRecipeTitle: recipeTitle,
+                    isCreatingRecipe: isCreatingRecipe,
+                    onClose: { dismiss() },
+                    onValidate: { edited in Task { await accept(edited) } },
+                    onCreateRecipe: { edited, title in
+                        Task { await createRecipe(edited, title: title) }
+                    }
+                )
+            }
         }
     }
 
@@ -108,6 +132,9 @@ struct ImproveFlowView: View {
     private func requestImprovement() async {
         // Grow first so the Siri loader fills the sheet.
         detent = .large
+        if recipeType == .coffee, vocabulary == .empty {
+            vocabulary = (try? await RecipeAPI.coffeeVocabulary()) ?? .empty
+        }
         analyzing = true
         defer { analyzing = false }
         do {

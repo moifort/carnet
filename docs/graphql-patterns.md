@@ -207,6 +207,19 @@ builder.queryField('recipes', (t) =>
 )
 ```
 
+### Two flows, two mutations — never one with a discriminator
+
+When a single entry point has to answer two shapes, it answers with a type half-empty either way.
+The import is the case in point: `analyzeCoffeeImport → CoffeeImportAnalysis` (method +
+parameters) and `analyzeCookingImport → CookingImportAnalysis` (type + category + ingredients +
+steps) replaced one `analyzeImport → ImportAnalysis` whose coffee fields were null on a dish and
+whose ingredients were empty on a coffee.
+
+The two share their arguments (`photos` / `url` / `text`), their source assembly (`pickSource`,
+called **before** the analysis so a malformed request answers `BAD_USER_INPUT` rather than a
+failed-Gemini `IMPORT_FAILED`) and their refusal mapping — one `analyzed` helper, so the pair
+cannot drift. What they do not share is the prompt or the result: that is the point.
+
 ## Mapping Sentinels to GraphQLError
 
 The exhaustive-mapping rule is

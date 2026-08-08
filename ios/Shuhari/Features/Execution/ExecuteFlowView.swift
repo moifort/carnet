@@ -30,6 +30,10 @@ struct ExecuteFlowView: View {
     /// The cook that asked for that proposal — held here, unwritten, until the
     /// proposal is accepted and it lands on the version it created.
     @State private var pendingAttempt: Attempt?
+    /// What the coffee form suggests. Loaded alongside the proposal, and left empty
+    /// on anything that is not a coffee — or if the load fails, which costs
+    /// suggestions and nothing else.
+    @State private var vocabulary: CoffeeVocabulary = .empty
     @State private var isAcceptingProposal = false
     @State private var isCreatingRecipe = false
 
@@ -79,21 +83,42 @@ struct ExecuteFlowView: View {
                 // show it directly against the recipe already loaded — no extra
                 // fetch. The base is the version it iterates on (`basedOn`).
                 let base = recipe.version(proposal.basedOn)
-                ProposalPage(
-                    proposal: proposal,
-                    nextVersionNumber: recipe.nextVersionNumber,
-                    baseIngredients: base?.ingredients ?? [],
-                    baseSteps: base?.content.stepsWithSettings ?? [],
-                    baseTips: base?.tips ?? [],
-                    isWorking: isAcceptingProposal,
-                    suggestedRecipeTitle: recipe.title,
-                    isCreatingRecipe: isCreatingRecipe,
-                    onClose: { finish() },
-                    onValidate: { edited in Task { await acceptProposal(edited) } },
-                    onCreateRecipe: { edited, title in
-                        Task { await createRecipe(edited, title: title, from: recipe) }
-                    }
-                )
+                // A coffee is proposed as dials, not as gestures: its own page,
+                // where every parameter — the moved one and the empty ones — is
+                // editable before the version exists.
+                if let parameters = proposal.content.coffeeParameters {
+                    CoffeeProposalPage(
+                        proposal: proposal,
+                        nextVersionNumber: recipe.nextVersionNumber,
+                        baseParameters: base?.content.coffeeParameters ?? parameters,
+                        baseTips: base?.tips ?? [],
+                        vocabulary: vocabulary,
+                        isWorking: isAcceptingProposal,
+                        suggestedRecipeTitle: recipe.title,
+                        isCreatingRecipe: isCreatingRecipe,
+                        onClose: { finish() },
+                        onValidate: { edited in Task { await acceptProposal(edited) } },
+                        onCreateRecipe: { edited, title in
+                            Task { await createRecipe(edited, title: title, from: recipe) }
+                        }
+                    )
+                } else {
+                    ProposalPage(
+                        proposal: proposal,
+                        nextVersionNumber: recipe.nextVersionNumber,
+                        baseIngredients: base?.ingredients ?? [],
+                        baseSteps: base?.content.stepsWithSettings ?? [],
+                        baseTips: base?.tips ?? [],
+                        isWorking: isAcceptingProposal,
+                        suggestedRecipeTitle: recipe.title,
+                        isCreatingRecipe: isCreatingRecipe,
+                        onClose: { finish() },
+                        onValidate: { edited in Task { await acceptProposal(edited) } },
+                        onCreateRecipe: { edited, title in
+                            Task { await createRecipe(edited, title: title, from: recipe) }
+                        }
+                    )
+                }
             }
         }
     }
@@ -135,6 +160,9 @@ struct ExecuteFlowView: View {
                 rating: rating,
                 remarks: remarks
             )
+            if proposal?.content.coffeeParameters != nil {
+                vocabulary = (try? await RecipeAPI.coffeeVocabulary()) ?? .empty
+            }
             path.append(.proposal)
         } catch {
             errorPresenter.message = reportError(error)

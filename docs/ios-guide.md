@@ -62,9 +62,12 @@ filed by — a dish course vs. a brew method — which is why `HomePage`'s filte
 rather than typed on `DishCategory`: the page filters on *something* without knowing what. The
 domain-to-primitive bridges are `HomePage.Facet.course(selection:)` / `.method(selection:)`.
 
-The import is single and shared: the type the AI detects decides which tab the created recipe is
-routed to (`ImportReviewSheet.onCreated` hands back the `RecipeType`), and closing the camera cover
-restores the content tab the user came from.
+**The tab decides the import flow.** The entry is shared, what it runs is not: launched from Café
+it reads the source as a coffee, from Cuisine as something cooked. `ContentView` derives an
+`ImportFlow` from the tab it came from (`lastContentTab`) and threads it through `ImportJob` to
+`ImportReviewSheet`, which calls `ImportAPI.analyzeCoffee` or `.analyzeCooking` and shows
+`CoffeeImportPreviewPage` or `ImportPreviewPage`. Nothing is guessed from the source, and the
+created recipe lands in the tab it came from. Closing the camera cover restores that tab.
 
 ## Data fetching — GraphQL, not REST
 
@@ -346,25 +349,32 @@ if !items.isEmpty {
 }
 ```
 
-An empty section reads as broken. Applies everywhere sections render data-driven content —
-import preview (Ingrédients, Paramètres), recipe display (`CurrentVersionSection`, …). Hide,
-don't stub.
+An empty section reads as broken. Applies everywhere sections render data-driven **read-only**
+content — the cooking import preview (Ingrédients), recipe display (`CurrentVersionSection`, …).
+Hide, don't stub. A **form** is the exception: `CoffeeParametersForm` shows every field, filled or
+not, because there what is missing is exactly what the cook has to see.
 
 ## The coffee sheet — parameters, not ingredients
 
 A coffee has no ingredient list: `CoffeeParametersSection` takes the place of
-`IngredientsSection` on `RecipeDetailPage` and in the import preview. Five blocks — Café (with
+`IngredientsSection` on `RecipeDetailPage`. Five blocks — Café (with
 `"12 juin 2026 · J+14"`, the roast date and how long the beans rested), Eau, Extraction, Lait,
 Matériel — each disappearing entirely when nothing in it is filled in, per the rule above.
 
-The **steps section only renders when the version has steps**: an espresso is wholly described
-by its parameters and shows none, while a V60 or a French press keeps its numbered pours with
-their badges. Two DebugGallery screens cover both: `recipe-coffee` (espresso, no steps) and
-`recipe-coffee-steps` (V60).
+A coffee has **no steps at all** — it is a set of dials, not a sequence of gestures — so no step
+section ever renders on one.
 
 The section stays primitive-first; the domain → primitives adapter is a convenience initializer
-in the same file (`init(parameters:restDays:big:)`), on the model of `CoffeeStepsList`, so the
-recipe sheet and the import preview cannot word a date differently.
+in the same file (`init(parameters:restDays:big:)`), so no two screens word a date differently.
+
+**Writing a coffee goes through one form.** `CoffeeParametersForm` (+ its `CoffeeParametersDraft`)
+is the single shape of a coffee being typed, used by the three moments one is written: the
+correction sheet (`CoffeeParametersEditSheet`), the import preview (`CoffeeImportPreviewPage`) and
+the AI proposal (`CoffeeProposalPage`). It always shows every field; it pre-fills machine and
+grinder from what was used most recently; it opens the milk block on a milk drink; and given a
+`changedFrom`, it marks each moved value with the proposal's changed dot. DebugGallery:
+`import-preview-coffee`, `import-preview-coffee-empty`, `import-preview-coffee-milk`,
+`proposal-coffee`, `coffee-parameters-edit`.
 
 The header capsule on a coffee says **how it is brewed** (ESPRESSO, V60, FRENCH PRESS) instead of
 the recipe type: the type is given away by the tab the recipe lives in, the method is what

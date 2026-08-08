@@ -50,7 +50,7 @@ server/
 │   ├── 01-sentry.ts             # error reporting (Sentry, DSN from NITRO_SENTRY_DSN)
 │   └── 02-graphql.ts            # boots ApolloServer once with the assembled schema
 ├── system/                      # infrastructure concerns + system-hosted mini-domains
-│   ├── ai/                      # Gemini engine: Ai.analyzeImport + Ai.proposeNext
+│   ├── ai/                      # Gemini engine, one module per flow (see below)
 │   ├── apple/                   # App Store signature verification + Apple root certificates
 │   ├── changelog/               # release notes (parses the changelog asset — read-only)
 │   ├── portability/             # user-data export/import (orchestrates over recipe)
@@ -119,6 +119,14 @@ append-only collection keyed by a deterministic id:
 - `recipes` — the aggregate root (a small pointer: `versionCount`, `updatedAt`, …); the recipe's
   state (best rating, version to open) is *derived* from its versions, not stored on it
 - `recipe-versions` — one immutable doc per version, keyed `${recipeId}_${number}`
+
+**The AI engine is split by flow.** `system/ai/` holds `gemini.ts` (the call, the timeout, the
+request bodies) under one module per prompt: `import/cooking.ts`, `import/coffee.ts`,
+`proposal/cooking.ts`, `proposal/coffee.ts`, `tips.ts`, plus `schema.ts` (the response-schema
+fragments the four share) and `primitives.ts` (one parser per schema). The `Ai` namespace in
+`index.ts` is the façade the `proposal` domain calls, and the only place the analysis cache and
+its hash live. A prompt that has to explain two worlds at once lies about both — the split is
+what keeps each one able to say "a coffee has no steps" without a caveat.
 
 **Standalone documents.** Not every collection is an aggregate: `ai-quotas` holds one document
 per cook and per calendar month, keyed `${userId}_${month}` (`quota` domain). Nothing is scanned

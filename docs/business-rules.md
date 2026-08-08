@@ -14,14 +14,12 @@ the digest; this doc is the spec. The mechanics of building a domain live in
   `VersionContent = DishContent | ThermomixContent | CoffeeContent`, tagged by `kind`.
   `DishContent` = `ingredients` + plain-text `steps`; `ThermomixContent` = `ingredients` + nested
   `steps: ThermomixStep[]` where each `ThermomixStep = { text; settings }` (settings total — `{}`
-  = a plain step). **`CoffeeContent` has no ingredient list**: a coffee is described by
-  `CoffeeParameters` — `beans` (name / country / producer / `roastedOn` / dose), `water` (kind /
-  amount / temperature), `extraction` (grind / time / yield), an optional `milk`, and `gear`
-  (machine / grinder) — plus `steps` that may legitimately be empty. The four blocks are total
-  (`{}` = nothing filled in); `milk` is **absent** on a drink that has none, its absence being the
-  information. Its `CoffeeStep.settings` are unchanged (`grind` / `water` poured at that step /
-  `temperature` / `time` / `yield`), and only a method with real gestures carries steps — an
-  espresso is wholly described by its parameters. `restDays` derives, at read time, how many full
+  = a plain step). **`CoffeeContent` has neither an ingredient list nor steps**: a coffee is a set
+  of dials, described by `CoffeeParameters` alone — `beans` (name / country / producer /
+  `roastedOn` / dose), `water` (kind / amount / temperature), `extraction` (grind / time / yield),
+  an optional `milk`, and `gear` (machine / grinder). The four blocks are total (`{}` = nothing
+  filled in); `milk` is **absent** on a drink that has none, its absence being the information.
+  `restDays` derives, at read time, how many full
   days the beans rested between `beans.roastedOn` and the version's `createdAt`: frozen by
   construction, absent without a roast date or with one in the future.
   **Invariant `content.kind === recipe.type`** is enforced in
@@ -41,6 +39,29 @@ the digest; this doc is the spec. The mechanics of building a domain live in
   **Invariant: present if and only if `type === 'coffee'`** (`methodMatchesType`), enforced in
   `RecipeCommand.create`/`update`, returning `'method-mismatch' as const`. `other` exists so the
   AI never forces a coffee into a method it was not made with.
+
+## Two import flows
+
+The AI import is **two independent flows**, and which one runs is decided by the tab the cook
+launched it from — never guessed from the source.
+
+| | cooking | coffee |
+|---|---|---|
+| mutation | `analyzeCookingImport` | `analyzeCoffeeImport` |
+| result | `CookingImportAnalysis`: type (`dish` / `thermomix`), category, ingredients, steps, tips | `CoffeeImportAnalysis`: method, parameters, tips |
+| prompt / response schema | `server/system/ai/import/cooking.ts` | `server/system/ai/import/coffee.ts` |
+
+- The cooking prompt **never answers `coffee`**, and the coffee prompt never returns an ingredient
+  list or a step: each speaks only its own world, which is what the single prompt could not do.
+- **The coffee prompt reads, it does not guess.** Every parameter the source does not state comes
+  back `null`, with one exception: a value ENTIRELY determined by one it did read may be computed
+  — the water from the dose at the method's ratio, or the reverse. A name, an origin, a roast
+  date, a grind, a machine are never invented: a missing value is information, an invented one is
+  a lie the cook brews against.
+- Shared by both, because they are product rules rather than recipe rules: the `import` quota
+  (one import is one import), the SHA-256 analysis cache, the Premium gate on URL imports, and the
+  error codes. The **cache key carries the flow**: the same photo read as a coffee and as a dish
+  are two analyses.
 
 ## Lineage and attempts
 
@@ -141,7 +162,7 @@ where the two disagree. Up to `MAX_IMPORT_PHOTOS` (6). A **URL never combines** 
 cache key includes the typed text, so the same photos with a different note are a different
 analysis — photos with no text hash exactly as before.
 
-The prompts in `server/system/ai/index.ts`:
+The prompts, one module per flow under `server/system/ai/` (`import/*`, `proposal/*`, `tips.ts`):
 
 - An ingredient **name** carries its intrinsic *variety/type/grade* in parentheses
   (`Pommes de terre (Marbella)`, `Farine (T45)`) — only *transient* preparation (peeled, sliced)
@@ -159,7 +180,8 @@ The prompts in `server/system/ai/index.ts`:
   (`Bouillon 50 → 40 cl, cuisson 3 h 30 → 4 h`). Rendered verbatim as the proposal card's title,
   so the prompt must name the arrow character explicitly: told only "a comma-separated list of
   deltas", the model has answered with the comma as the separator *inside* a change.
-- **How far one iteration may go depends on the type** (`iterationRule`):
+- **How far one iteration may go depends on the world**, and the two rules live in two prompts
+  (`server/system/ai/proposal/cooking.ts`, `proposal/coffee.ts`):
   - *Cooking* (`dish`, `thermomix`) — several coherent elements may move at once.
   - *Coffee* — **exactly one variable per version**, from a closed list: the grind, the dose, the
     water amount (the ratio), the water temperature, the brew time, the yield or the milk. Never
@@ -170,8 +192,13 @@ The prompts in `server/system/ai/index.ts`:
     **beans** (name, country, producer, roast date), the **kind of water** and the **gear** are
     off-limits: they are what the cook observed, not dials — the model sets an extraction, it does
     not recommend a purchase. The brewing method is never changed either — a V60 recipe stays a
-    V60 (`ProposalContext.method` states it), and `ProposalContext.currentCoffee` is where the
-    iteration starts from.
+    V60 (`CoffeeProposalContext.method` states it), and `currentParameters` is where the iteration
+    starts from.
+  - *Coffee, second rule*: **a parameter the current version leaves empty comes back empty.** A
+    temperature nobody wrote down is a temperature nobody measured, and filling it in would
+    rewrite the cook's experiment instead of continuing it. The app shows the empty field in the
+    proposal — editable, like every other one — and the cook fills it in if they know it. The
+    model proposes the field, never its value.
 
 ## The plan and the monthly AI allowance
 
@@ -179,8 +206,9 @@ The notebook is free and unlimited — recipes, versions, attempts, photos, expo
 app's only variable cost, so it is the only thing metered (`quota` domain, dimensioned in
 [specs/2026-07-20-freemium-pricing-design.md](./specs/2026-07-20-freemium-pricing-design.md)):
 
-- Two meters, `imports` and `iterations`. An **import** is one recipe analysis (`analyzeImport`,
-  whatever the source — six photos *and* a text are one analysis, so one import); an **iteration**
+- Two meters, `imports` and `iterations`. An **import** is one source analysis (either import
+  mutation, whatever the source — six photos *and* a text are one analysis, so one import); an
+  **iteration**
   is one AI call on an existing version — a proposal, an improvement *or* a tips merge, all three
   sharing the same counter.
 - `free` gets 3 imports and 5 iterations per **calendar month** (`FREE_LIMITS`), `premium`
