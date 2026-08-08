@@ -1,14 +1,15 @@
 import SwiftUI
 
-/// The editable import preview: title, detected type and dish category,
-/// ingredients, steps and the tips the AI found. Everything is adjustable before creating the recipe
-/// (v1). Presented inside the import review sheet — its actions live in the sheet
-/// toolbar (Fermer / Valider), not a bottom button.
+/// The editable import preview of something cooked: title, detected type and dish
+/// category, ingredients, steps and the tips the AI found. Everything is adjustable
+/// before creating the recipe (v1). Presented inside the import review sheet — its
+/// actions live in the sheet toolbar (Fermer / Valider), not a bottom button.
+/// A coffee has its own preview: it is a set of dials, not a method.
 struct ImportPreviewPage: View {
-    let analysis: ImportAnalysis
+    let analysis: CookingImportAnalysis
     let isSaving: Bool
     let onCancel: () -> Void
-    let onSave: (ImportAnalysis) -> Void
+    let onSave: (CookingImportAnalysis) -> Void
 
     /// Editable ingredient row — a stable identity so rows survive edits/deletes.
     private struct EditableIngredient: Identifiable {
@@ -20,19 +21,15 @@ struct ImportPreviewPage: View {
     @State private var title: String
     @State private var type: RecipeType
     @State private var category: DishCategory
-    /// The brew method, only ever shown (and sent) when the type is coffee. It
-    /// keeps a value across a type switch so toggling back restores what the AI
-    /// detected.
-    @State private var method: BrewMethod
     @State private var ingredients: [EditableIngredient]
     @State private var stepTexts: [String]
     @State private var tipTexts: [String]
 
     init(
-        analysis: ImportAnalysis,
+        analysis: CookingImportAnalysis,
         isSaving: Bool,
         onCancel: @escaping () -> Void,
-        onSave: @escaping (ImportAnalysis) -> Void
+        onSave: @escaping (CookingImportAnalysis) -> Void
     ) {
         self.analysis = analysis
         self.isSaving = isSaving
@@ -41,7 +38,6 @@ struct ImportPreviewPage: View {
         self._title = State(initialValue: analysis.title)
         self._type = State(initialValue: analysis.type)
         self._category = State(initialValue: analysis.category)
-        self._method = State(initialValue: analysis.method ?? .other)
         self._ingredients = State(initialValue: analysis.ingredients.map {
             EditableIngredient(name: $0.name, quantity: $0.quantity)
         })
@@ -60,45 +56,27 @@ struct ImportPreviewPage: View {
                     Label("Titre", systemImage: "textformat")
                 }
 
+                // Cooking only: a coffee never reaches this preview, so the
+                // picker offers the two types this flow can produce.
                 IconPicker(
                     title: "Type",
                     systemImage: "square.grid.2x2",
-                    options: RecipeType.allCases,
+                    options: [.dish, .thermomix],
                     icon: { $0.iconImage(filled: false) },
                     label: \.label,
                     selection: $type
                 )
                 .accessibilityIdentifier("import-type-picker")
 
-                // A coffee is filed by how it is brewed, not by a dish course — the
-                // two pickers are the same slot, the type decides which one shows.
-                if type == .coffee {
-                    IconPicker(
-                        title: "Méthode",
-                        systemImage: "cup.and.saucer",
-                        options: BrewMethod.allCases,
-                        icon: \.iconImage,
-                        label: \.label,
-                        selection: $method
-                    )
-                    .accessibilityIdentifier("import-method-picker")
-                } else {
-                    IconPicker(
-                        title: "Catégorie",
-                        systemImage: "tag",
-                        options: DishCategory.allCases,
-                        icon: \.iconImage,
-                        label: \.label,
-                        selection: $category
-                    )
-                    .accessibilityIdentifier("import-category-picker")
-                }
-            }
-
-            // A coffee shows what it IS instead of an ingredient list: read-only
-            // here, corrected from the recipe sheet once it is saved.
-            if let coffee = analysis.coffee, type == .coffee {
-                CoffeeParametersSection(parameters: coffee)
+                IconPicker(
+                    title: "Catégorie",
+                    systemImage: "tag",
+                    options: DishCategory.allCases,
+                    icon: \.iconImage,
+                    label: \.label,
+                    selection: $category
+                )
+                .accessibilityIdentifier("import-category-picker")
             }
 
             if !ingredients.isEmpty {
@@ -191,63 +169,42 @@ struct ImportPreviewPage: View {
         }
     }
 
-    /// The settings the AI extracted for this step, read-only next to the editable
-    /// text: the machine ones on a Thermomix recipe, the extraction ones on a
-    /// coffee. The detected type decides which, so switching it in the picker
-    /// switches the badges too.
+    /// The Thermomix settings the AI extracted for this step, read-only next to the
+    /// editable text. The detected type decides whether they show, so switching it
+    /// in the picker switches the badges too.
     @ViewBuilder
     private func stepBadges(at index: Int) -> some View {
-        if let step = analysis.steps[safe: index] {
-            switch type {
-            case .thermomix where !step.thermomix.isEmpty:
-                ThermomixSettingBadges(
-                    time: step.thermomix.time,
-                    temperature: step.thermomix.temperature,
-                    speed: step.thermomix.speed,
-                    reverse: step.thermomix.reverse
-                )
-            case .coffee where !step.coffee.isEmpty:
-                CoffeeSettingBadges(
-                    grind: step.coffee.grind,
-                    water: step.coffee.water,
-                    temperature: step.coffee.temperature,
-                    time: step.coffee.time,
-                    cupYield: step.coffee.cupYield
-                )
-            default:
-                EmptyView()
-            }
+        if let step = analysis.steps[safe: index], type == .thermomix, !step.thermomix.isEmpty {
+            ThermomixSettingBadges(
+                time: step.thermomix.time,
+                temperature: step.thermomix.temperature,
+                speed: step.thermomix.speed,
+                reverse: step.thermomix.reverse
+            )
         }
     }
 
-    private var edited: ImportAnalysis {
+    private var edited: CookingImportAnalysis {
         // Drop blank steps (the server rejects empty StepText); each surviving step
-        // keeps both its settings objects (`.plain` when it has none) — the type
-        // picked here decides which of the two is kept on create.
+        // keeps its settings (`.plain` when it has none).
         let trimmedSteps = stepTexts.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
         let keptIndices = trimmedSteps.indices.filter { !trimmedSteps[$0].isEmpty }
         let steps = keptIndices.map { index in
             ImportStep(
                 text: trimmedSteps[index],
-                thermomix: analysis.steps[safe: index]?.thermomix ?? .plain,
-                coffee: analysis.steps[safe: index]?.coffee ?? .plain
+                thermomix: analysis.steps[safe: index]?.thermomix ?? .plain
             )
         }
-        return ImportAnalysis(
+        return CookingImportAnalysis(
             title: title.trimmingCharacters(in: .whitespacesAndNewlines),
             type: type,
             category: category,
-            // A coffee always carries a method; anything else carries none.
-            method: type == .coffee ? method : nil,
             ingredients: ingredients.compactMap { row in
                 let name = row.name.trimmingCharacters(in: .whitespacesAndNewlines)
                 let quantity = row.quantity.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !name.isEmpty, !quantity.isEmpty else { return nil }
                 return Ingredient(name: name, quantity: quantity)
             },
-            // The extracted parameters ride through untouched — this preview shows
-            // them, the recipe sheet is where they are corrected.
-            coffee: type == .coffee ? (analysis.coffee ?? .empty) : nil,
             steps: steps,
             // Blank tips are dropped, like blank steps.
             tips: tipTexts.compactMap {
@@ -278,9 +235,4 @@ private extension Array {
     }
 }
 
-#Preview("Café") {
-    NavigationStack {
-        ImportPreviewPage(analysis: Fixtures.importAnalysisCoffee, isSaving: false, onCancel: {}, onSave: { _ in })
-    }
-}
 #endif

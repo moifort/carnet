@@ -49,16 +49,6 @@ fragment VersionContentFields on VersionContent {
       machine
       grinder
     }
-    coffeeSteps: steps {
-      text
-      settings {
-        grind
-        water
-        temperature
-        time
-        yield
-      }
-    }
   }
 }
 

@@ -225,35 +225,10 @@ enum Fixtures {
         gear: CoffeeGear(machine: "Hario V60 02", grinder: "Comandante C40")
     )
 
-    static let v60Steps = [
-        CoffeeStep(
-            text: "Rincer le filtre à l’eau chaude et jeter l’eau de rinçage.",
-            settings: .plain
-        ),
-        CoffeeStep(
-            text: "Moudre le café et le déposer dans le cône.",
-            settings: CoffeeSettings(
-                grind: "moyenne", water: nil, temperature: nil, time: nil, cupYield: nil
-            )
-        ),
-        CoffeeStep(
-            text: "Verser l’eau de pré-infusion et laisser gonfler.",
-            settings: CoffeeSettings(
-                grind: nil, water: "50 g", temperature: "94°C", time: "45 s", cupYield: nil
-            )
-        ),
-        CoffeeStep(
-            text: "Verser le reste de l’eau en spirale, en trois fois.",
-            settings: CoffeeSettings(
-                grind: nil, water: "250 g", temperature: "94°C", time: "2 min 30", cupYield: "300 g"
-            )
-        ),
-    ]
-
     static let v60V1 = RecipeVersion(
         number: 1, restDays: 14, basedOn: nil, change: nil, why: nil, originKind: .import,
         originDetail: "Photo du sachet",
-        content: .coffee(parameters: v60Parameters, steps: v60Steps),
+        content: .coffee(parameters: v60Parameters),
         tips: ["Rincer le filtre à l’eau chaude avant de doser."],
         recipeId: "v60",
         rating: 3, remarks: "Un peu acide, ça manque de corps.",
@@ -272,17 +247,14 @@ enum Fixtures {
         originKind: .aiProposal,
         originDetail: nil,
         content: .coffee(
-            parameters: v60Parameters,
-            steps: v60Steps.map {
-                $0.settings.grind == nil
-                    ? $0
-                    : CoffeeStep(
-                        text: $0.text,
-                        settings: CoffeeSettings(
-                            grind: "fine", water: nil, temperature: nil, time: nil, cupYield: nil
-                        )
-                    )
-            }
+            parameters: CoffeeParameters(
+                beans: v60Parameters.beans,
+                water: v60Parameters.water,
+                // The single dial that moved.
+                extraction: CoffeeExtraction(grind: "fine", time: "3 min 15", cupYield: "300 g"),
+                milk: nil,
+                gear: v60Parameters.gear
+            )
         ),
         tips: ["Rincer le filtre à l’eau chaude avant de doser."],
         recipeId: "v60",
@@ -330,7 +302,7 @@ enum Fixtures {
     static let espressoV1 = RecipeVersion(
         number: 1, restDays: 9, basedOn: nil, change: nil, why: nil, originKind: .import,
         originDetail: "Photo du sachet",
-        content: .coffee(parameters: espressoParameters, steps: []),
+        content: .coffee(parameters: espressoParameters),
         tips: ["Purger le groupe avant de verrouiller le porte-filtre."],
         recipeId: "espresso",
         rating: 4, remarks: "Bien équilibré, un chouïa court.",
@@ -471,28 +443,21 @@ enum Fixtures {
         changeSummary: "Température 94 → 92°C",
         rationale: "La tasse est encore un peu astringente : baisser la température seule dit si c’est bien l’extraction. Si ça ne suffit pas, on desserrera la mouture à l’itération suivante.",
         // Built off v2 (the version it iterates on), so the only thing that moves is
-        // the temperature — exactly what the rule promises.
+        // the temperature — exactly what the rule promises. The water it was never
+        // told about stays empty: the model proposes the field, not a value.
         content: .coffee(
-            parameters: v60Parameters,
-            steps: v60V2.content.stepsWithExtraction.map {
-                $0.settings.temperature == nil
-                    ? $0
-                    : CoffeeStep(
-                        text: $0.text,
-                        settings: CoffeeSettings(
-                            grind: $0.settings.grind,
-                            water: $0.settings.water,
-                            temperature: "92°C",
-                            time: $0.settings.time,
-                            cupYield: $0.settings.cupYield
-                        )
-                    )
-            }
+            parameters: CoffeeParameters(
+                beans: v60Parameters.beans,
+                water: CoffeeWaterSpec(kind: "Volvic", amount: "300 g", temperature: "92°C"),
+                extraction: CoffeeExtraction(grind: "fine", time: "3 min 15", cupYield: "300 g"),
+                milk: nil,
+                gear: v60Parameters.gear
+            )
         ),
         tips: ["Rincer le filtre à l’eau chaude avant de doser."]
     )
 
-    static let importAnalysis = ImportAnalysis(
+    static let importAnalysis = CookingImportAnalysis(
         title: "Cookies aux noix de pécan",
         type: .dish,
         category: .dessert,
@@ -508,7 +473,7 @@ enum Fixtures {
             "Incorporer l’œuf puis les poudres.",
             "Ajouter les noix de pécan torréfiées.",
             "Cuire 12 min à 180 °C.",
-        ].map { ImportStep(text: $0, thermomix: .plain, coffee: .plain) },
+        ].map { ImportStep(text: $0, thermomix: .plain) },
         tips: [
             "Réserver la pâte 1 h au frais avant de former les boules.",
             "Se congèlent crus, à cuire sans décongeler.",
@@ -516,27 +481,63 @@ enum Fixtures {
         sourceLabel: "Photo du livre « Biscuits »"
     )
 
-    static let importAnalysisThermomix = ImportAnalysis(
+    static let importAnalysisThermomix = CookingImportAnalysis(
         title: "Risotto au parmesan",
         type: .thermomix,
         category: .main,
         ingredients: risottoIngredients,
-        steps: risottoSteps.map { ImportStep(text: $0.text, thermomix: $0.settings, coffee: .plain) },
+        steps: risottoSteps.map { ImportStep(text: $0.text, thermomix: $0.settings) },
         sourceLabel: "Photo du livre Thermomix"
     )
 
-    static let importAnalysisCoffee = ImportAnalysis(
+    /// What the coffee flow reads off a bag: the dials it could see, and holes
+    /// where the source said nothing.
+    static let importAnalysisCoffee = CoffeeImportAnalysis(
         title: "V60 Éthiopie Guji",
-        type: .coffee,
-        category: .drink,
         method: .v60,
-        // A coffee import carries no ingredient list: the bag and the dials are
-        // parameters.
-        ingredients: [],
-        coffee: v60Parameters,
-        steps: v60Steps.map { ImportStep(text: $0.text, thermomix: .plain, coffee: $0.settings) },
+        parameters: v60Parameters,
         tips: ["Rincer le filtre à l’eau chaude avant de doser."],
         sourceLabel: "Photo du sachet"
+    )
+
+    /// A bag photographed with nothing else on it: the dose and the beans, and every
+    /// other field left for the cook — what the preview looks like at its emptiest.
+    static let importAnalysisCoffeeSparse = CoffeeImportAnalysis(
+        title: "Belleville — Guji",
+        method: .espresso,
+        parameters: CoffeeParameters(
+            beans: CoffeeBeans(
+                name: "Belleville — Guji", country: "Éthiopie", producer: nil,
+                roastedOn: nil, dose: "18 g"
+            ),
+            // Deduced from the dose at the method's ratio — the one thing the AI
+            // may compute rather than read.
+            water: CoffeeWaterSpec(kind: nil, amount: "36 g", temperature: nil),
+            extraction: .empty,
+            milk: nil,
+            gear: .empty
+        ),
+        tips: [],
+        sourceLabel: nil
+    )
+
+    /// A milk drink: the milk block is open from the start, type and brand in one
+    /// field.
+    static let importAnalysisCoffeeMilk = CoffeeImportAnalysis(
+        title: "Flat white maison",
+        method: .flatWhite,
+        parameters: CoffeeParameters(
+            beans: CoffeeBeans(
+                name: "Belleville — Guji", country: nil, producer: nil,
+                roastedOn: nil, dose: "18 g"
+            ),
+            water: CoffeeWaterSpec(kind: nil, amount: "36 g", temperature: nil),
+            extraction: CoffeeExtraction(grind: "fine", time: "28 s", cupYield: "36 g"),
+            milk: CoffeeMilk(kind: "Avoine Oatly", amount: "150 ml", temperature: "65°C"),
+            gear: CoffeeGear(machine: "Rancilio Silvia", grinder: nil)
+        ),
+        tips: [],
+        sourceLabel: nil
     )
 
     /// A page of library rows spanning both cooking types and a couple of months —

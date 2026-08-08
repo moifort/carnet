@@ -18,6 +18,9 @@ enum ImportInput {
 struct ImportJob: Identifiable {
     let id = UUID()
     let input: ImportInput
+    /// Which notebook this import is for — the tab it was launched from, not a
+    /// guess about the source.
+    let flow: ImportFlow
 }
 
 /// The opaque sheet presented over the camera: runs the AI analysis (glowing
@@ -25,14 +28,18 @@ struct ImportJob: Identifiable {
 /// recipe on Valider. Fermer / failure "close" abandons the whole import.
 struct ImportReviewSheet: View {
     let input: ImportInput
+    /// Which flow reads the source: the coffee one (dials) or the cooking one
+    /// (ingredients and steps). Decided by the tab, never by the source.
+    let flow: ImportFlow
     /// Success → create the recipe and route the tab (dismisses the whole cover).
-    let onCreated: (String, RecipeType) -> Void
+    let onCreated: (String) -> Void
     /// Fermer / analysis-failure close → abandon the import and close the flow.
     let onCancel: () -> Void
 
     enum Phase: Equatable {
         case analyzing
-        case form(ImportAnalysis)
+        case cookingForm(CookingImportAnalysis)
+        case coffeeForm(CoffeeImportAnalysis, CoffeeVocabulary)
         case failed
         case nothingFound
         case quotaExhausted
@@ -48,8 +55,14 @@ struct ImportReviewSheet: View {
     // keeps every phase previewable in the gallery without a server.
     private let frozen: Bool
 
-    init(input: ImportInput, onCreated: @escaping (String, RecipeType) -> Void, onCancel: @escaping () -> Void) {
+    init(
+        input: ImportInput,
+        flow: ImportFlow,
+        onCreated: @escaping (String) -> Void,
+        onCancel: @escaping () -> Void
+    ) {
         self.input = input
+        self.flow = flow
         self.onCreated = onCreated
         self.onCancel = onCancel
         frozen = false
@@ -59,7 +72,8 @@ struct ImportReviewSheet: View {
     /// Gallery/preview entry: show a phase frozen, with inert callbacks.
     init(galleryPhase: Phase) {
         input = .source(.text(""))
-        onCreated = { _, _ in }
+        flow = .cooking
+        onCreated = { _ in }
         onCancel = {}
         _phase = State(initialValue: galleryPhase)
         frozen = true
@@ -76,9 +90,19 @@ struct ImportReviewSheet: View {
                 case .analyzing:
                     analyzingView
                         .transition(.opacity)
-                case .form(let analysis):
+                case .cookingForm(let analysis):
                     ImportPreviewPage(analysis: analysis, isSaving: isSaving, onCancel: onCancel) { edited in
-                        Task { await save(edited) }
+                        Task { await saveCooking(edited) }
+                    }
+                    .transition(.opacity)
+                case .coffeeForm(let analysis, let vocabulary):
+                    CoffeeImportPreviewPage(
+                        analysis: analysis,
+                        vocabulary: vocabulary,
+                        isSaving: isSaving,
+                        onCancel: onCancel
+                    ) { edited in
+                        Task { await saveCoffee(edited) }
                     }
                     .transition(.opacity)
                 case .failed:
@@ -243,9 +267,7 @@ struct ImportReviewSheet: View {
             return
         }
         do {
-            let analysis = try await ImportAPI.analyze(source)
-            _ = await minimumShown.value
-            phase = .form(analysis)
+            phase = try await analyzed(source, waiting: minimumShown)
         } catch ImportAPI.ImportError.noRecipeFound {
             minimumShown.cancel()
             phase = .nothingFound
@@ -259,6 +281,24 @@ struct ImportReviewSheet: View {
             minimumShown.cancel()
             errorPresenter.message = reportError(error)
             phase = .failed
+        }
+    }
+
+    /// Run the flow's analysis, and — for a coffee — load the vocabulary alongside
+    /// it, so the preview opens with the gear already filled in rather than
+    /// popping it in a moment later. A vocabulary that fails to load is no reason
+    /// to lose the import: the fields simply suggest nothing.
+    private func analyzed(_ source: ImportAPI.Source, waiting: Task<Void?, Never>) async throws -> Phase {
+        switch flow {
+        case .cooking:
+            let analysis = try await ImportAPI.analyzeCooking(source)
+            _ = await waiting.value
+            return .cookingForm(analysis)
+        case .coffee:
+            async let vocabulary = try? RecipeAPI.coffeeVocabulary()
+            let analysis = try await ImportAPI.analyzeCoffee(source)
+            _ = await waiting.value
+            return .coffeeForm(analysis, await vocabulary ?? .empty)
         }
     }
 
@@ -287,12 +327,19 @@ struct ImportReviewSheet: View {
         return .photos(encoded, text: text)
     }
 
-    private func save(_ analysis: ImportAnalysis) async {
+    private func saveCooking(_ analysis: CookingImportAnalysis) async {
+        await saving { try await ImportAPI.createCooking(analysis) }
+    }
+
+    private func saveCoffee(_ analysis: CoffeeImportAnalysis) async {
+        await saving { try await ImportAPI.createCoffee(analysis) }
+    }
+
+    private func saving(_ create: () async throws -> String) async {
         isSaving = true
         defer { isSaving = false }
         do {
-            let recipeId = try await ImportAPI.create(analysis)
-            onCreated(recipeId, analysis.type)
+            onCreated(try await create())
         } catch {
             errorPresenter.message = reportError(error)
         }

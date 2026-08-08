@@ -242,19 +242,7 @@ func mapVersionContent(_ c: ShuhariGraphQL.VersionContentFields) -> VersionConte
                     CoffeeMilk(kind: $0.kind, amount: $0.amount, temperature: $0.temperature)
                 },
                 gear: CoffeeGear(machine: coffee.gear.machine, grinder: coffee.gear.grinder)
-            ),
-            steps: coffee.coffeeSteps.map { step in
-                CoffeeStep(
-                    text: step.text,
-                    settings: CoffeeSettings(
-                        grind: step.settings.grind,
-                        water: step.settings.water,
-                        temperature: step.settings.temperature,
-                        time: step.settings.time,
-                        cupYield: step.settings.yield
-                    )
-                )
-            }
+            )
         )
     }
     return .dish(ingredients: [], steps: [])

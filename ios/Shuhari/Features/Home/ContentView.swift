@@ -28,6 +28,9 @@ struct ContentView: View {
     @State private var importedRecipe: ImportedRecipe?
     @State private var importedCoffee: ImportedRecipe?
 
+    /// Which flow the import entry runs: the tab it was opened from.
+    private var importFlow: ImportFlow { lastContentTab == .coffee ? .coffee : .cooking }
+
     /// The trailing "Importer" entry must stay detached from the content tabs.
     /// iOS 26 separates the `.search` role; iOS 27 folded `.search` back into the
     /// main tab row and introduced `.prominent` for a trailing-separated tab.
@@ -79,12 +82,12 @@ struct ContentView: View {
         .sheet(item: $reviewJob) { job in
             ImportReviewSheet(
                 input: job.input,
-                onCreated: { recipeId, type in
-                    // The detected type decides where the recipe lands: a coffee
-                    // photographed from the cooking tab still opens in the coffee tab,
-                    // which is the only one that lists it.
+                flow: job.flow,
+                onCreated: { recipeId in
+                    // The flow decides where the recipe lands — it is the tab the
+                    // cook started from, and the only one that lists it.
                     let imported = ImportedRecipe(id: recipeId)
-                    if type == .coffee {
+                    if job.flow == .coffee {
                         importedCoffee = imported
                         selectedTab = .coffee
                     } else {
@@ -106,7 +109,7 @@ struct ContentView: View {
         if selectedTab == .importEntry { selectedTab = lastContentTab }
         if let input = pendingImport {
             pendingImport = nil
-            reviewJob = ImportJob(input: input)
+            reviewJob = ImportJob(input: input, flow: importFlow)
         }
     }
 }

@@ -1,41 +1,53 @@
-mutation AnalyzeImport($photos: [String!]!, $url: String, $text: String) {
-  analyzeImport(photos: $photos, url: $url, text: $text) {
+fragment CoffeeParametersFields on ImportCoffeeParameters {
+  beans {
+    name
+    country
+    producer
+    roastedOn
+    dose
+  }
+  water {
+    kind
+    amount
+    temperature
+  }
+  extraction {
+    grind
+    time
+    yield
+  }
+  milk {
+    kind
+    amount
+    temperature
+  }
+  gear {
+    machine
+    grinder
+  }
+}
+
+mutation AnalyzeCoffeeImport($photos: [String!]!, $url: String, $text: String) {
+  analyzeCoffeeImport(photos: $photos, url: $url, text: $text) {
+    title
+    method
+    sourceLabel
+    parameters {
+      ...CoffeeParametersFields
+    }
+    tips
+  }
+}
+
+mutation AnalyzeCookingImport($photos: [String!]!, $url: String, $text: String) {
+  analyzeCookingImport(photos: $photos, url: $url, text: $text) {
     title
     type
     category
-    method
     sourceLabel
     ingredients {
       name
       quantity
-    }
-    coffee {
-      beans {
-        name
-        country
-        producer
-        roastedOn
-        dose
-      }
-      water {
-        kind
-        amount
-        temperature
-      }
-      extraction {
-        grind
-        time
-        yield
-      }
-      milk {
-        kind
-        amount
-        temperature
-      }
-      gear {
-        machine
-        grinder
-      }
     }
     steps {
       text
@@ -44,13 +56,6 @@ mutation AnalyzeImport($photos: [String!]!, $url: String, $text: String) {
         temperature
         speed
         reverse
-      }
-      coffee {
-        grind
-        water
-        temperature
-        time
-        yield
       }
     }
     tips

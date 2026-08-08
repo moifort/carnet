@@ -41,36 +41,6 @@ struct ThermomixStep: Sendable, Hashable {
 
 // MARK: - Coffee
 
-/// The extraction settings for one brewing step (display-oriented strings —
-/// "fine" and "Niveau 12" are valid grinds, no computation is ever done on them).
-struct CoffeeSettings: Sendable, Hashable {
-    /// How fine the coffee is ground ("fine", "Niveau 12").
-    let grind: String?
-    /// The water poured at THIS step ("50 g" for a bloom) — not the total.
-    let water: String?
-    let temperature: String?
-    let time: String?
-    /// What lands in the cup ("36 g" for a double espresso).
-    let cupYield: String?
-
-    var isEmpty: Bool {
-        grind == nil && water == nil && temperature == nil && time == nil && cupYield == nil
-    }
-
-    /// A step carrying no extraction setting. The single spelling of "plain step" —
-    /// every brewing step always carries its settings, `.plain` when it has none.
-    static let plain = CoffeeSettings(
-        grind: nil, water: nil, temperature: nil, time: nil, cupYield: nil
-    )
-}
-
-/// One brewing step: its instruction plus the extraction settings that go with it
-/// (`.plain` for a plain step — the settings are total, never a hole).
-struct CoffeeStep: Sendable, Hashable {
-    let text: String
-    let settings: CoffeeSettings
-}
-
 /// The bag in the cupboard: what the coffee IS. Every field is optional — a cook
 /// who only knows the dose still logs the dose.
 struct CoffeeBeans: Sendable, Hashable {
@@ -179,7 +149,7 @@ struct CoffeeVocabulary: Sendable, Hashable {
 enum VersionContent: Sendable, Hashable {
     case dish(ingredients: [Ingredient], steps: [String])
     case thermomix(ingredients: [Ingredient], steps: [ThermomixStep])
-    case coffee(parameters: CoffeeParameters, steps: [CoffeeStep])
+    case coffee(parameters: CoffeeParameters)
 
     /// The ingredient list, whichever variant this is. A coffee has none: its dose,
     /// its water and its milk are parameters.
@@ -193,7 +163,7 @@ enum VersionContent: Sendable, Hashable {
 
     /// The coffee parameters, or nil on anything that is not a coffee.
     var coffeeParameters: CoffeeParameters? {
-        if case .coffee(let parameters, _) = self { parameters } else { nil }
+        if case .coffee(let parameters) = self { parameters } else { nil }
     }
 
     /// The plain step instructions, whichever variant this is (a step's machine or
@@ -202,7 +172,8 @@ enum VersionContent: Sendable, Hashable {
         switch self {
         case .dish(_, let steps): steps
         case .thermomix(_, let steps): steps.map(\.text)
-        case .coffee(_, let steps): steps.map(\.text)
+        // A coffee has no gestures: it is wholly described by its parameters.
+        case .coffee: []
         }
     }
 
@@ -213,19 +184,10 @@ enum VersionContent: Sendable, Hashable {
         switch self {
         case .dish(_, let steps): steps.map { ThermomixStep(text: $0, settings: .plain) }
         case .thermomix(_, let steps): steps
-        case .coffee(_, let steps): steps.map { ThermomixStep(text: $0.text, settings: .plain) }
+        case .coffee: []
         }
     }
 
-    /// The same, for the extraction settings: a coffee step can change through its
-    /// grind or its temperature alone, its text untouched.
-    var stepsWithExtraction: [CoffeeStep] {
-        switch self {
-        case .coffee(_, let steps): steps
-        case .dish(_, let steps): steps.map { CoffeeStep(text: $0, settings: .plain) }
-        case .thermomix(_, let steps): steps.map { CoffeeStep(text: $0.text, settings: .plain) }
-        }
-    }
 }
 
 // MARK: - Version
@@ -390,39 +352,52 @@ struct Recipe: Identifiable, Sendable {
 
 // MARK: - Import
 
-/// One extracted step: its text plus the settings that go with it — the machine
-/// ones on a Thermomix recipe, the extraction ones on a coffee. One preview
-/// carries every recipe type, so the two are named after their context rather
-/// than both claiming `settings`. Both are total (`.plain` sets nothing).
+/// One extracted step: its text plus the Thermomix settings that go with it
+/// (`.plain` sets nothing, which is every step of a dish). Cooking only — a coffee
+/// is imported as parameters and has no step at all.
 struct ImportStep: Sendable, Hashable {
     let text: String
     let thermomix: ThermomixSettings
-    let coffee: CoffeeSettings
 
     var asThermomixStep: ThermomixStep { ThermomixStep(text: text, settings: thermomix) }
-    var asCoffeeStep: CoffeeStep { CoffeeStep(text: text, settings: coffee) }
 }
 
-/// Structured recipe extracted from an import source (editable preview). Its steps
-/// each carry both settings objects, so they read the same whatever the detected
-/// `type` — only the matching one is kept when the recipe is created.
-struct ImportAnalysis: Sendable, Hashable {
+/// Which notebook an import is for — decided by the tab it was launched from, never
+/// guessed from the source. The two flows share the camera and nothing else: their
+/// prompts, their previews and their results are their own.
+enum ImportFlow: Sendable, Hashable {
+    case cooking
+    case coffee
+}
+
+/// A cooked dish or a Thermomix recipe extracted from an import source (editable
+/// preview). Which flow produced it is decided by the tab the cook launched the
+/// import from, never guessed from the source.
+struct CookingImportAnalysis: Sendable, Hashable {
     var title: String
+    /// What the AI read it to be — a dish or a Thermomix recipe, editable before
+    /// create. Never a coffee: that source goes through the coffee flow.
     var type: RecipeType
     /// The dish course detected by the AI (editable before create).
     var category: DishCategory
-    /// The brew method detected by the AI (editable before create) — nil on
-    /// anything that is not a coffee.
-    var method: BrewMethod?
-    /// The recipe's components with quantities (empty when none, and always empty
-    /// on a coffee — its dose, its water and its milk are parameters).
+    /// The recipe's components with quantities (empty when none).
     var ingredients: [Ingredient] = []
-    /// The extracted coffee parameters — nil on anything that is not a coffee.
-    var coffee: CoffeeParameters?
-    /// The extracted steps, each carrying its own settings. Empty on a coffee whose
-    /// parameters say everything, e.g. an espresso.
+    /// The extracted steps, each carrying its own Thermomix settings.
     var steps: [ImportStep]
     /// The cooking tips found in the source (empty when it carries none).
+    var tips: [String] = []
+    var sourceLabel: String?
+}
+
+/// A coffee extracted from an import source (editable preview): how it is brewed
+/// and the dials it is set by. No ingredient list, no steps — a coffee has neither.
+struct CoffeeImportAnalysis: Sendable, Hashable {
+    var title: String
+    /// How the AI read that it is brewed (editable before create).
+    var method: BrewMethod
+    /// The dials read off the source — every field nil when the source says nothing
+    /// of it. The preview shows them all anyway, filled or not.
+    var parameters: CoffeeParameters
     var tips: [String] = []
     var sourceLabel: String?
 }

@@ -120,7 +120,6 @@ struct DebugGallery: View {
                     nextVersionNumber: 3,
                     baseIngredients: Fixtures.v60V2.ingredients,
                     baseSteps: Fixtures.v60V2.content.stepsWithSettings,
-                    baseCoffeeSteps: Fixtures.v60V2.content.stepsWithExtraction,
                     baseTips: Fixtures.v60V2.tips,
                     isWorking: false,
                     suggestedRecipeTitle: Fixtures.v60.title,
@@ -220,7 +219,33 @@ struct DebugGallery: View {
             }
         case "import-preview-coffee":
             NavigationStack {
-                ImportPreviewPage(analysis: Fixtures.importAnalysisCoffee, isSaving: false, onCancel: {}, onSave: { _ in })
+                CoffeeImportPreviewPage(
+                    analysis: Fixtures.importAnalysisCoffee,
+                    vocabulary: Fixtures.coffeeVocabulary,
+                    isSaving: false,
+                    onCancel: {},
+                    onSave: { _ in }
+                )
+            }
+        case "import-preview-coffee-empty":
+            NavigationStack {
+                CoffeeImportPreviewPage(
+                    analysis: Fixtures.importAnalysisCoffeeSparse,
+                    vocabulary: Fixtures.coffeeVocabulary,
+                    isSaving: false,
+                    onCancel: {},
+                    onSave: { _ in }
+                )
+            }
+        case "import-preview-coffee-milk":
+            NavigationStack {
+                CoffeeImportPreviewPage(
+                    analysis: Fixtures.importAnalysisCoffeeMilk,
+                    vocabulary: Fixtures.coffeeVocabulary,
+                    isSaving: false,
+                    onCancel: {},
+                    onSave: { _ in }
+                )
             }
         case "ai-thinking":
             AIThinkingCard(message: "Analyse IA…")

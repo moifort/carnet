@@ -88,7 +88,6 @@ struct ImproveFlowView: View {
                 nextVersionNumber: nextVersionNumber,
                 baseIngredients: version.ingredients,
                 baseSteps: version.content.stepsWithSettings,
-                baseCoffeeSteps: version.content.stepsWithExtraction,
                 baseTips: version.tips,
                 isWorking: isAccepting,
                 suggestedRecipeTitle: recipeTitle,

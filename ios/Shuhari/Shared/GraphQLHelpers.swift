@@ -103,22 +103,9 @@ enum GraphQLHelpers {
         )
     }
 
-    /// One step's extraction settings as the API spells them. Total like the
-    /// Thermomix ones: a step that sets nothing is an input with every field absent.
-    static func coffeeSettingsInput(_ settings: CoffeeSettings) -> ShuhariGraphQL.CoffeeSettingsInput {
-        ShuhariGraphQL.CoffeeSettingsInput(
-            grind: graphQLNullable(settings.grind),
-            temperature: graphQLNullable(settings.temperature),
-            time: graphQLNullable(settings.time),
-            water: graphQLNullable(settings.water),
-            yield: graphQLNullable(settings.cupYield)
-        )
-    }
-
     /// A version body as the `content` oneOf input: EXACTLY ONE arm is set,
     /// matching the recipe type — `dish` for plain-text steps, `thermomix` for
-    /// steps carrying their machine settings, `coffee` for steps carrying their
-    /// extraction settings.
+    /// steps carrying their machine settings, `coffee` for its parameters alone.
     static func versionContentInput(_ content: VersionContent) -> ShuhariGraphQL.VersionContentInput {
         switch content {
         case .dish(let ingredients, let steps):
@@ -133,7 +120,7 @@ enum GraphQLHelpers {
                     ShuhariGraphQL.ThermomixStepInput(settings: thermomixSettingsInput($0.settings), text: $0.text)
                 }
             ))
-        case .coffee(let parameters, let steps):
+        case .coffee(let parameters):
             return .coffee(ShuhariGraphQL.CoffeeContentInput(
                 beans: .some(beansInput(parameters.beans)),
                 extraction: .some(extractionInput(parameters.extraction)),
@@ -141,9 +128,6 @@ enum GraphQLHelpers {
                 // No milk block at all on a drink that has none: the server reads
                 // its absence as the information, not as an unfilled form.
                 milk: parameters.milk.map { .some(milkInput($0)) } ?? .null,
-                steps: steps.map {
-                    ShuhariGraphQL.CoffeeStepInput(settings: coffeeSettingsInput($0.settings), text: $0.text)
-                },
                 water: .some(waterInput(parameters.water))
             ))
         }
