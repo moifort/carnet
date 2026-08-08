@@ -69,3 +69,14 @@ export const toTestCount = (versions: RecipeVersion[]): number =>
 // flask CTA. Assumes a non-empty lineage (a recipe always owns at least its v1).
 export const versionToOpen = (versions: RecipeVersion[]): RecipeVersion =>
   bestRating(versions) ?? versions.reduce((a, b) => (b.number > a.number ? b : a))
+
+// When the recipe was last worked on: the date of the version it opens on — the
+// reference version, the one the cook would make again. It is what the library
+// files and sorts a recipe by, so the notebook is ordered by cooking, not by
+// housekeeping: renaming a recipe, refiling it or hearting it touches the document
+// without touching the kitchen, and none of them moves this date. The consequence
+// is deliberate: a fresh attempt rated below the reference leaves the recipe where
+// it was, because the version that answers for the recipe has not changed.
+// Denormalized onto the recipe document (`Recipe.updatedAt`) so Firestore can order
+// and page on it — like `categoryRank`, a derived value the write side stamps.
+export const lastWorkedOn = (versions: RecipeVersion[]): Date => versionToOpen(versions).updatedAt

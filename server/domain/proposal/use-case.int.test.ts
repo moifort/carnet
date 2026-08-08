@@ -532,7 +532,10 @@ describe('ProposalUseCase.accept', () => {
     // The accepted tips land on the version created, not on the one it iterates on.
     expect(v2?.tips).toEqual(['Servir avec du riz' as Tip])
     expect(fake.snapshot('recipe-versions').get(`${recipe.id}_1`)?.tips).toEqual([])
-    expect(fake.queryReads - queryReadsBefore).toBe(0)
+    // One lineage read, and one only: `basedOn` is still threaded through the
+    // payload (never recovered by a scan), but the recipe is dated by the version
+    // it opens on, which cannot be known without reading the chain.
+    expect(fake.queryReads - queryReadsBefore).toBe(1)
   })
 
   test('accepting an improvement creates a version to test, with no outcome', async () => {

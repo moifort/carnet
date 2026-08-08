@@ -94,7 +94,6 @@ query Recipe($id: RecipeId!) {
     method
     favorite
     warnings
-    updatedAt
     bestRating
     versionToOpen {
       ...VersionFields

@@ -70,7 +70,9 @@ export const RecipeSortEnum = builder.enumType('RecipeSort', {
   values: {
     UPDATED_AT: {
       value: 'updatedAt',
-      description: 'Most recently modified first (honours order), e.g. today’s lasagna edit on top',
+      description:
+        'Most recently worked on first (honours order) — a recipe is dated by the version it ' +
+        'opens on, e.g. today’s lasagna cook on top',
     },
     CATEGORY: {
       value: 'category',

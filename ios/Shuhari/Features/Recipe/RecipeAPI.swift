@@ -154,7 +154,6 @@ func mapRecipe(_ r: ShuhariGraphQL.RecipeQuery.Data.Recipe) -> Recipe {
         method: BrewMethod(graphql: r.method),
         favorite: r.favorite,
         warnings: r.warnings,
-        updatedAt: GraphQLHelpers.parseISO8601(r.updatedAt) ?? Date(),
         versions: r.versions.map { mapVersion($0.fragments.versionFields) },
         bestRating: r.bestRating,
         versionToOpen: mapVersion(r.versionToOpen.fragments.versionFields)

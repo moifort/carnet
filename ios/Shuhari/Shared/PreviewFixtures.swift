@@ -168,7 +168,6 @@ enum Fixtures {
         type: .dish,
         category: .main,
         favorite: false,
-        updatedAt: date,
         versions: [bourguignonV1, bourguignonV2, bourguignonV3, bourguignonV4],
         bestRating: 4,
         // The best-rated version: v4 is still waiting to be cooked, so it never opens.
@@ -203,7 +202,6 @@ enum Fixtures {
         // The banner atop the recipe sheet — the whisk caution the feature was
         // born from.
         warnings: ["Le fouet doit être mis dès le début."],
-        updatedAt: date,
         versions: [risottoV2],
         bestRating: 4,
         versionToOpen: risottoV2
@@ -302,7 +300,6 @@ enum Fixtures {
         category: .drink,
         method: .v60,
         favorite: true,
-        updatedAt: date,
         versions: [v60V1, v60V2],
         bestRating: 5,
         versionToOpen: v60V2
@@ -350,7 +347,6 @@ enum Fixtures {
         category: .drink,
         method: .espresso,
         favorite: false,
-        updatedAt: date,
         versions: [espressoV1],
         bestRating: 4,
         versionToOpen: espressoV1
@@ -403,7 +399,6 @@ enum Fixtures {
         type: .dish,
         category: .main,
         favorite: false,
-        updatedAt: date,
         versions: [freshImportV1],
         bestRating: nil,
         versionToOpen: freshImportV1

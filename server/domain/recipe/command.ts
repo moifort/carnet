@@ -1,5 +1,5 @@
 import type { WriteBatch } from 'firebase-admin/firestore'
-import { methodMatchesType, nextVersionNumber } from '~/domain/recipe/business-rules'
+import { lastWorkedOn, methodMatchesType, nextVersionNumber } from '~/domain/recipe/business-rules'
 import type { CoffeeParameters } from '~/domain/recipe/content/coffee'
 import type { VersionContent } from '~/domain/recipe/content/types'
 import * as repository from '~/domain/recipe/infrastructure/repository'
@@ -106,6 +106,8 @@ export namespace RecipeCommand {
       warnings: [],
       lastVersionNumber: FIRST_VERSION,
       createdAt: now,
+      // `lastWorkedOn` of a lineage of one: the v1 born with it, this instant. No
+      // lineage to read — there is nothing else in it yet.
       updatedAt: now,
     }
     const origin: VersionOrigin = {
@@ -122,9 +124,9 @@ export namespace RecipeCommand {
 
   // Accepted AI iteration → append version n+1 to the lineage, stamping the version
   // it was proposed from (`basedOn`). No reference/pending pointer to maintain: the
-  // recipe just bumps its `lastVersionNumber` and `updatedAt`. The attempt that asked for
-  // this version lands on it, never on the version it iterates on — that one only
-  // loses its `toTest` flag, since the cook that answers it is the cook it owed.
+  // recipe just bumps its `lastVersionNumber` and restamps its date. The attempt that
+  // asked for this version lands on it, never on the version it iterates on — that one
+  // only loses its `toTest` flag, since the cook that answers it is the cook it owed.
   // Born of an improvement instead (no attempt), the version is the one waiting to be
   // cooked: it is the sole way a version becomes `toTest`.
   export const addVersion = async (userId: UserId, recipeId: RecipeId, input: NewVersionInput) => {
@@ -132,6 +134,7 @@ export namespace RecipeCommand {
     if (!recipe) return 'not-found' as const
     // The body's discriminant must mirror the recipe type (see `create`).
     if (input.content.kind !== recipe.type) return 'content-type-mismatch' as const
+    const lineage = await repository.findVersionsOf(recipeId)
     const number = nextVersionNumber(recipe.lastVersionNumber)
     const now = new Date()
     const version: RecipeVersion = {
@@ -158,13 +161,13 @@ export namespace RecipeCommand {
           }
         : { toTest: true as const }),
     }
+    // The version this one answers has been cooked: it owes nothing anymore.
+    const cooked = input.attempt ? cookedBase(lineage, input.basedOn) : undefined
     const updated: Recipe = {
       ...recipe,
       lastVersionNumber: number,
-      updatedAt: new Date(),
+      updatedAt: lastWorkedOn(written(lineage, cooked, version)),
     }
-    // The version this one answers has been cooked: it owes nothing anymore.
-    const cooked = input.attempt ? await cookedBase(recipeId, input.basedOn) : undefined
     return atomically(async (batch) => {
       await repository.saveVersion(version, batch)
       if (cooked) await repository.saveVersion(cooked, batch)
@@ -177,14 +180,17 @@ export namespace RecipeCommand {
   // Record the attempt outcome onto a version — the cook that asks for nothing more
   // (a rating, maybe a photo, no remarks). Overwritable: re-cooking the same version
   // simply rewrites its rating/remarks/executedAt in place. The outcome and the
-  // recipe's `updatedAt` bump land in one batch (all-or-nothing).
+  // recipe's restamped date land in one batch (all-or-nothing).
   export const recordAttempt = async (
     userId: UserId,
     input: RecordAttemptInput,
   ): Promise<RecipeVersion | 'not-found'> => {
     const recipe = await repository.findBy(userId, input.recipeId)
     if (!recipe) return 'not-found' as const
-    const version = await repository.findVersion(input.recipeId, input.versionNumber)
+    // The whole lineage, not just the version cooked: the rating may hand the
+    // reference over to another version, and the recipe is dated by that one.
+    const lineage = await repository.findVersionsOf(input.recipeId)
+    const version = lineage.find(({ number }) => number === input.versionNumber)
     if (!version) return 'not-found' as const
     // Drop the previous photo and remarks before spreading: a re-cook that leaves
     // them out must erase what the earlier attempt left behind, not inherit it. The
@@ -204,7 +210,10 @@ export namespace RecipeCommand {
       ...(input.remarks ? { remarks: input.remarks } : {}),
       ...(input.photoPath ? { photoPath: input.photoPath } : {}),
     }
-    const updatedRecipe: Recipe = { ...recipe, updatedAt: new Date() }
+    const updatedRecipe: Recipe = {
+      ...recipe,
+      updatedAt: lastWorkedOn(written(lineage, executed)),
+    }
     return atomically(async (batch) => {
       await repository.saveVersion(executed, batch)
       await repository.save(updatedRecipe, batch)
@@ -226,7 +235,10 @@ export namespace RecipeCommand {
   ): Promise<RecipeVersion | 'not-found'> => {
     const recipe = await repository.findBy(userId, recipeId)
     if (!recipe) return 'not-found' as const
-    const version = await repository.findVersion(recipeId, versionNumber)
+    // The whole lineage: correcting a note can hand the reference over (see
+    // `recordAttempt`).
+    const lineage = await repository.findVersionsOf(recipeId)
+    const version = lineage.find((candidate) => candidate.number === versionNumber)
     if (!version) return 'not-found' as const
     const now = new Date()
     const { toTest: _cooked, ...rest } = version
@@ -236,7 +248,7 @@ export namespace RecipeCommand {
       executedAt: version.executedAt ?? now,
       updatedAt: now,
     }
-    const updatedRecipe: Recipe = { ...recipe, updatedAt: now }
+    const updatedRecipe: Recipe = { ...recipe, updatedAt: lastWorkedOn(written(lineage, updated)) }
     return atomically(async (batch) => {
       await repository.saveVersion(updated, batch)
       await repository.save(updatedRecipe, batch)
@@ -247,8 +259,8 @@ export namespace RecipeCommand {
   // Rewrite a version's tips in place — the second overwritable part of the
   // envelope, beside the attempt outcome. No new version: the cook is refining the
   // advice on the version they have, not iterating on it. Full-replacement (the
-  // accepted tips proposal is the complete list), plus the recipe's `updatedAt`
-  // bump, in one batch.
+  // accepted tips proposal is the complete list), plus the recipe's restamped date,
+  // in one batch.
   export const updateTips = async (
     userId: UserId,
     recipeId: RecipeId,
@@ -257,10 +269,11 @@ export namespace RecipeCommand {
   ): Promise<RecipeVersion | 'not-found'> => {
     const recipe = await repository.findBy(userId, recipeId)
     if (!recipe) return 'not-found' as const
-    const version = await repository.findVersion(recipeId, versionNumber)
+    const lineage = await repository.findVersionsOf(recipeId)
+    const version = lineage.find((candidate) => candidate.number === versionNumber)
     if (!version) return 'not-found' as const
     const updated: RecipeVersion = { ...version, tips, updatedAt: new Date() }
-    const updatedRecipe: Recipe = { ...recipe, updatedAt: new Date() }
+    const updatedRecipe: Recipe = { ...recipe, updatedAt: lastWorkedOn(written(lineage, updated)) }
     return atomically(async (batch) => {
       await repository.saveVersion(updated, batch)
       await repository.save(updatedRecipe, batch)
@@ -282,7 +295,8 @@ export namespace RecipeCommand {
   ): Promise<RecipeVersion | 'not-found' | 'not-a-coffee'> => {
     const recipe = await repository.findBy(userId, recipeId)
     if (!recipe) return 'not-found' as const
-    const version = await repository.findVersion(recipeId, versionNumber)
+    const lineage = await repository.findVersionsOf(recipeId)
+    const version = lineage.find((candidate) => candidate.number === versionNumber)
     if (!version) return 'not-found' as const
     // Parameters belong to a coffee and to nothing else — a dish has ingredients.
     if (version.content.kind !== 'coffee') return 'not-a-coffee' as const
@@ -292,7 +306,7 @@ export namespace RecipeCommand {
       steps: version.content.steps,
     }
     const updated: RecipeVersion = { ...version, content, updatedAt: new Date() }
-    const updatedRecipe: Recipe = { ...recipe, updatedAt: new Date() }
+    const updatedRecipe: Recipe = { ...recipe, updatedAt: lastWorkedOn(written(lineage, updated)) }
     return atomically(async (batch) => {
       await repository.saveVersion(updated, batch)
       await repository.save(updatedRecipe, batch)
@@ -305,6 +319,7 @@ export namespace RecipeCommand {
   // `updateTips`: the cook is pinning cautions on the recipe, not iterating on it,
   // so no version is created and no batch is needed (a single document).
   // Full-replacement (the edited list is the complete one), `[]` clears the banner.
+  // The recipe's date does not move: no version was worked on.
   export const updateWarnings = async (
     userId: UserId,
     recipeId: RecipeId,
@@ -312,7 +327,7 @@ export namespace RecipeCommand {
   ): Promise<Recipe | 'not-found'> => {
     const recipe = await repository.findBy(userId, recipeId)
     if (!recipe) return 'not-found' as const
-    return repository.save({ ...recipe, warnings, updatedAt: new Date() })
+    return repository.save({ ...recipe, warnings })
   }
 
   // The touches a cook can make to the aggregate itself: its name, its course or its
@@ -320,7 +335,9 @@ export namespace RecipeCommand {
   // stays as it was. `favorite: false` drops the field entirely (the full-document
   // write erases it), so absence is the single spelling of "not a favourite". A
   // category or method change keeps the library's sort honest on its own:
-  // `repository.save` re-derives `categoryRank` and `methodRank`.
+  // `repository.save` re-derives `categoryRank` and `methodRank`. None of these is
+  // cooking, so none of them moves the recipe's date: hearting a recipe must not
+  // shuffle the notebook.
   export const update = async (userId: UserId, recipeId: RecipeId, input: UpdateRecipeInput) => {
     const recipe = await repository.findBy(userId, recipeId)
     if (!recipe) return 'not-found' as const
@@ -338,7 +355,6 @@ export namespace RecipeCommand {
       ...(input.category && recipe.type !== 'coffee' ? { category: input.category } : {}),
       ...(input.method ? { method: input.method } : {}),
       ...(favorite ? { favorite: true as const } : {}),
-      updatedAt: new Date(),
     }
     return repository.save(updated)
   }
@@ -371,7 +387,10 @@ export namespace RecipeCommand {
         ...rest,
         ...(target.basedOn !== undefined ? { basedOn: target.basedOn } : {}),
       }))
-    const updated: Recipe = { ...recipe, updatedAt: new Date() }
+    // Losing a version can hand the reference over to another one — deleting the
+    // best-rated attempt re-dates the recipe by whatever now answers for it.
+    const remaining = written(versions, ...rebased).filter((version) => version.number !== number)
+    const updated: Recipe = { ...recipe, updatedAt: lastWorkedOn(remaining) }
     return atomically(async (batch) => {
       for (const child of rebased) await repository.saveVersion(child, batch)
       await repository.removeVersion(recipeId, number, batch)
@@ -401,12 +420,21 @@ export namespace RecipeCommand {
   // version in it. Called only when the account itself goes.
   export const forget = (userId: UserId): Promise<void> => repository.removeAllByUser(userId)
 
+  // The lineage as it will read once the pending writes land — the list the recipe's
+  // date is computed from, since those documents are not saved yet. A written version
+  // replaces the stored one of the same number, or joins the chain when it is new.
+  const written = (lineage: RecipeVersion[], ...pending: (RecipeVersion | undefined)[]) => {
+    const byNumber = new Map(lineage.map((version) => [version.number, version]))
+    for (const version of pending) if (version) byNumber.set(version.number, version)
+    return [...byNumber.values()]
+  }
+
   // The version an attempt-born iteration is based on, stripped of its `toTest` flag —
   // or nothing when there is no base, or it was not waiting to be cooked. Bookkeeping
   // again: the outcome landed on the new version, so the base keeps its `updatedAt`.
-  const cookedBase = async (recipeId: RecipeId, basedOn?: VersionNumberT) => {
+  const cookedBase = (lineage: RecipeVersion[], basedOn?: VersionNumberT) => {
     if (basedOn === undefined) return undefined
-    const base = await repository.findVersion(recipeId, basedOn)
+    const base = lineage.find((version) => version.number === basedOn)
     if (!base?.toTest) return undefined
     const { toTest: _cooked, ...rest } = base
     return rest

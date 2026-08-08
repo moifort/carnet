@@ -83,6 +83,14 @@ Everything is derived (`recipe/business-rules.ts`), nothing is promoted:
 - `versionToOpen` = the version the recipe sheet opens on: the best-rated version, else the
   latest (a recipe with no cook behind it). A version waiting to be cooked (`toTest`) never
   opens — the flask CTA is the only way in.
+- `lastWorkedOn` = the date of that version — **what dates a recipe**. `Recipe.updatedAt` carries
+  it, denormalized so Firestore can order and page the library on it (like `categoryRank`), and
+  every command that rewrites the lineage restamps it. Consequences, all deliberate: renaming a
+  recipe, refiling it, hearting it or pinning a caution **never** moves it — housekeeping is not
+  cooking, and the notebook must not reshuffle when you tap a heart; and a fresh attempt rated
+  below the reference leaves the recipe where it was, because the version that answers for it has
+  not changed. A better attempt, a corrected note, or deleting the reference hands it over, date
+  included.
 
 ## Improvement and `toTest`
 

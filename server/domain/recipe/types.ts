@@ -140,5 +140,10 @@ export type Recipe = {
   // when a version is deleted, so a number is never reused by a later iteration.
   lastVersionNumber: VersionNumber
   createdAt: Date
+  // When the recipe was last worked on — NOT when the document was last written.
+  // It carries `lastWorkedOn(versions)`, the date of the version the recipe opens
+  // on, denormalized here so Firestore can order and page the library on it. Every
+  // command that rewrites the lineage restamps it; the ones that only touch the
+  // aggregate (`update`, `updateWarnings`) deliberately leave it alone.
   updatedAt: Date
 }

@@ -1378,7 +1378,7 @@ type Recipe {
   type: RecipeType!
 
   """
-  When anything last changed on it (a new version, a rating…), e.g. `"2026-07-18T14:30:00.000Z"`. Drives library sort.
+  When you last worked on it — the date of the version it opens on (the best-rated one), e.g. `"2026-07-18T14:30:00.000Z"`. Renaming it or hearting it does not count as working on it. Drives library sort.
   """
   updatedAt: DateTime!
 
@@ -1419,7 +1419,7 @@ enum RecipeSort {
   METHOD
 
   """
-  Most recently modified first (honours order), e.g. today’s lasagna edit on top
+  Most recently worked on first (honours order) — a recipe is dated by the version it opens on, e.g. today’s lasagna cook on top
   """
   UPDATED_AT
 }

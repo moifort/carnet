@@ -577,8 +577,9 @@ RecipeType.implement({
     updatedAt: t.expose('updatedAt', {
       type: 'DateTime',
       description:
-        'When anything last changed on it (a new version, a rating…), e.g. ' +
-        '`"2026-07-18T14:30:00.000Z"`. Drives library sort.',
+        'When you last worked on it — the date of the version it opens on (the best-rated ' +
+        'one), e.g. `"2026-07-18T14:30:00.000Z"`. Renaming it or hearting it does not count ' +
+        'as working on it. Drives library sort.',
     }),
     favorite: t.boolean({
       description:

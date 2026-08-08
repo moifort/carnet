@@ -730,7 +730,7 @@ describe('RecipeCommand.updateRating', () => {
 describe('RecipeCommand.updateWarnings', () => {
   const warnings = (...w: string[]) => w.map((x) => x as Warning)
 
-  test('replaces the warnings in place — no version touched, updatedAt bumped', async () => {
+  test('replaces the warnings in place — no version touched, date left alone', async () => {
     const recipe = await RecipeCommand.create(userId, newInput())
     if (typeof recipe === 'string') throw new Error('expected a recipe')
 
@@ -742,7 +742,9 @@ describe('RecipeCommand.updateWarnings', () => {
     if (typeof result === 'string') throw new Error(`expected a recipe, got ${result}`)
 
     expect(result.warnings).toEqual(warnings('Mettre le fouet dès le début'))
-    expect(result.updatedAt.getTime()).toBeGreaterThanOrEqual(recipe.updatedAt.getTime())
+    // Pinning a caution is not cooking: the recipe keeps the date of the version it
+    // opens on, and stays where it was in the library.
+    expect(result.updatedAt).toEqual(recipe.updatedAt)
     const stored = fake.snapshot('recipes').get(recipe.id)
     expect(stored?.warnings).toEqual(warnings('Mettre le fouet dès le début'))
     // Pinning a caution never touches the lineage.
@@ -962,5 +964,135 @@ describe('a version’s updatedAt', () => {
     const v1 = fake.snapshot('recipe-versions').get(`${recipe.id}_1`)
     expect(v1?.toTest).toBeUndefined()
     expect(v1?.updatedAt).toEqual(new Date('2026-03-11T08:00:00.000Z'))
+  })
+})
+
+describe('a recipe’s date — the version it opens on', () => {
+  const V1 = 1 as VersionNumber
+  const V2 = 2 as VersionNumber
+  const at = (iso: string) => setSystemTime(new Date(iso))
+  const storedDate = (recipeId: RecipeId) => fake.snapshot('recipes').get(recipeId)?.updatedAt
+  afterEach(() => setSystemTime())
+
+  test('a fresh recipe is dated by its v1', async () => {
+    at('2026-03-11T08:00:00.000Z')
+    const recipe = await RecipeCommand.create(userId, newInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+
+    expect(recipe.updatedAt).toEqual(new Date('2026-03-11T08:00:00.000Z'))
+  })
+
+  test('cooking the reference version re-dates the recipe', async () => {
+    at('2026-03-11T08:00:00.000Z')
+    const recipe = await RecipeCommand.create(userId, newInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+
+    at('2026-04-02T19:00:00.000Z')
+    await RecipeCommand.recordAttempt(userId, {
+      recipeId: recipe.id,
+      versionNumber: V1,
+      rating: 4 as Rating,
+    })
+
+    expect(storedDate(recipe.id)).toEqual(new Date('2026-04-02T19:00:00.000Z'))
+  })
+
+  test('a favourite, a rename and a caution never move it', async () => {
+    at('2026-03-11T08:00:00.000Z')
+    const recipe = await RecipeCommand.create(userId, newInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+
+    at('2026-08-06T10:00:00.000Z')
+    await RecipeCommand.update(userId, recipe.id, { favorite: true })
+    await RecipeCommand.update(userId, recipe.id, { title: 'Blanquette de mamie' as RecipeTitle })
+    await RecipeCommand.updateWarnings(userId, recipe.id, ['Sortir le beurre' as Warning])
+
+    // Housekeeping, not cooking: the recipe stays filed under March.
+    expect(storedDate(recipe.id)).toEqual(new Date('2026-03-11T08:00:00.000Z'))
+    expect(fake.snapshot('recipes').get(recipe.id)?.favorite).toBe(true)
+  })
+
+  test('an attempt rated below the reference leaves the recipe where it was', async () => {
+    at('2026-03-11T08:00:00.000Z')
+    const recipe = await RecipeCommand.create(userId, newInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+    // v1 becomes the reference, rated 5 in March.
+    await RecipeCommand.recordAttempt(userId, {
+      recipeId: recipe.id,
+      versionNumber: V1,
+      rating: 5 as Rating,
+    })
+
+    // A v2 cooked in August, but rated below: v1 still answers for the recipe.
+    at('2026-08-06T10:00:00.000Z')
+    await RecipeCommand.addVersion(userId, recipe.id, {
+      change: 'Moins de bouillon',
+      basedOn: V1,
+      content: dishContent(),
+      tips: [],
+      attempt: { rating: 3 as Rating, remarks: 'Trop sec' as Remarks },
+    })
+
+    expect(storedDate(recipe.id)).toEqual(new Date('2026-03-11T08:00:00.000Z'))
+  })
+
+  test('a better attempt hands the reference over, and the date with it', async () => {
+    at('2026-03-11T08:00:00.000Z')
+    const recipe = await RecipeCommand.create(userId, newInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+    await RecipeCommand.recordAttempt(userId, {
+      recipeId: recipe.id,
+      versionNumber: V1,
+      rating: 3 as Rating,
+    })
+
+    at('2026-08-06T10:00:00.000Z')
+    await RecipeCommand.addVersion(userId, recipe.id, {
+      change: 'Plus de bouillon',
+      basedOn: V1,
+      content: dishContent(),
+      tips: [],
+      attempt: { rating: 5 as Rating, remarks: 'Parfait' as Remarks },
+    })
+
+    expect(storedDate(recipe.id)).toEqual(new Date('2026-08-06T10:00:00.000Z'))
+  })
+
+  test('correcting the note of the reference version re-dates the recipe', async () => {
+    at('2026-03-11T08:00:00.000Z')
+    const recipe = await RecipeCommand.create(userId, newInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+
+    at('2026-08-06T10:00:00.000Z')
+    await RecipeCommand.updateRating(userId, recipe.id, V1, 4 as Rating)
+
+    expect(storedDate(recipe.id)).toEqual(new Date('2026-08-06T10:00:00.000Z'))
+  })
+
+  test('deleting the reference version hands the recipe to what remains', async () => {
+    at('2026-03-11T08:00:00.000Z')
+    const recipe = await RecipeCommand.create(userId, newInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+    await RecipeCommand.recordAttempt(userId, {
+      recipeId: recipe.id,
+      versionNumber: V1,
+      rating: 3 as Rating,
+    })
+
+    at('2026-08-06T10:00:00.000Z')
+    await RecipeCommand.addVersion(userId, recipe.id, {
+      change: 'Plus de bouillon',
+      basedOn: V1,
+      content: dishContent(),
+      tips: [],
+      attempt: { rating: 5 as Rating, remarks: 'Parfait' as Remarks },
+    })
+    expect(storedDate(recipe.id)).toEqual(new Date('2026-08-06T10:00:00.000Z'))
+
+    // The best-rated version goes: v1 answers for the recipe again.
+    at('2026-09-01T10:00:00.000Z')
+    await RecipeCommand.removeVersion(userId, recipe.id, V2)
+
+    expect(storedDate(recipe.id)).toEqual(new Date('2026-03-11T08:00:00.000Z'))
   })
 })

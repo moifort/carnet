@@ -357,7 +357,6 @@ struct Recipe: Identifiable, Sendable {
     /// every version, and are rewritten in place (never a new version). Empty when
     /// there are none (the banner is then not rendered).
     var warnings: [String] = []
-    let updatedAt: Date
     /// The full lineage, oldest first.
     let versions: [RecipeVersion]
     /// The best rating across every executed version, computed server-side. nil
