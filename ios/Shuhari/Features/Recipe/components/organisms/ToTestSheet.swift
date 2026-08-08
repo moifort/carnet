@@ -20,10 +20,11 @@ struct ToTestSheet: View {
         let versions: [RecipeVersion]
     }
 
+    /// Bucketed by the month each version was last worked on, like the history.
     private var monthGroups: [MonthGroup] {
         let calendar = Calendar.current
         return Dictionary(grouping: versions) { version in
-            calendar.dateComponents([.year, .month], from: version.createdAt)
+            calendar.dateComponents([.year, .month], from: version.updatedAt)
         }
         .map { components, versions in
             MonthGroup(

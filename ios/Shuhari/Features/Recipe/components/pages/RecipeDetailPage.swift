@@ -84,9 +84,11 @@ struct RecipeDetailPage: View {
         }
     }
 
-    /// The recipe's creation date, e.g. "12 juin 2025".
+    /// When the displayed version was last worked on, e.g. "12 juin 2025" — the date
+    /// follows the version shown, so switching versions changes it, and correcting a
+    /// version updates it.
     private var dateLabel: String {
-        recipe.createdAt.formatted(.dateTime.day().month(.abbreviated).year())
+        displayedVersion.updatedAt.formatted(.dateTime.day().month(.abbreviated).year())
     }
 
     // MARK: - Change card

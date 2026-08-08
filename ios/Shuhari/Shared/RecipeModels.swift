@@ -278,6 +278,11 @@ struct RecipeVersion: Identifiable, Sendable {
     /// Signed URL of the attempt photo (nil until photo storage is provisioned).
     let photoUrl: String?
     let createdAt: Date
+    /// When the version was last worked on — its attempt re-recorded, its tips or its
+    /// coffee parameters corrected. Equal to `createdAt` until something is changed on
+    /// it, and it is the date the app shows and files the version under: what matters
+    /// is when it was last touched, not when the lineage grew it.
+    let updatedAt: Date
 
     var id: Int { number }
 
@@ -352,7 +357,6 @@ struct Recipe: Identifiable, Sendable {
     /// every version, and are rewritten in place (never a new version). Empty when
     /// there are none (the banner is then not rendered).
     var warnings: [String] = []
-    let createdAt: Date
     let updatedAt: Date
     /// The full lineage, oldest first.
     let versions: [RecipeVersion]

@@ -17,12 +17,13 @@ struct HistoryPage: View {
         let versions: [RecipeVersion]
     }
 
-    /// The versions bucketed by the month they were created, most recent month first
-    /// — the grouping the library already uses for its own rows.
+    /// The versions bucketed by the month they were last worked on, most recent month
+    /// first — the grouping the library already uses for its own rows, which files a
+    /// recipe under its last modification too.
     private var monthGroups: [MonthGroup] {
         let calendar = Calendar.current
         return Dictionary(grouping: recipe.versions) { version in
-            calendar.dateComponents([.year, .month], from: version.createdAt)
+            calendar.dateComponents([.year, .month], from: version.updatedAt)
         }
         .map { components, versions in
             MonthGroup(

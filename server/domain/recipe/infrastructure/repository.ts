@@ -47,10 +47,13 @@ const normalizeRecipe = (stored: Recipe): Recipe => ({
 // way in. The nested `content` needs no defaulting: it is built total, a plain
 // Thermomix step being the empty settings object `{}` Firestore stores verbatim.
 // `tips` is total in the domain, so a document written before the field existed
-// (or restored from such an export) reads as the empty list.
+// (or restored from such an export) reads as the empty list. `updatedAt` is total
+// too: a version never rewritten since the field landed — or restored from an older
+// export — was last modified when it was created.
 const normalizeVersion = (stored: RecipeVersion): RecipeVersion => ({
   ...withoutStoredNulls(stored),
   tips: stored.tips ?? [],
+  updatedAt: stored.updatedAt ?? stored.createdAt,
 })
 
 // Storage boundary, write side. Every version write is a full `set` (never a

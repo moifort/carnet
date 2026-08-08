@@ -92,8 +92,8 @@ specific here:
 
 The `recipe` domain adds a **version content variant** split (a "make illegal states unrepresentable"
 application). A version is a type-agnostic *versioning envelope* (`version.ts` — `number`, `basedOn`,
-`change`, `origin`, `why`, `createdAt`, attempt outcome) plus a `content` **discriminated union**
-under `content/` (`VersionContent = DishContent | ThermomixContent | CoffeeContent`, tagged by
+`change`, `origin`, `why`, `createdAt`/`updatedAt`, attempt outcome) plus a `content`
+**discriminated union** under `content/` (`VersionContent = DishContent | ThermomixContent | CoffeeContent`, tagged by
 `kind`). The invariant
 `content.kind === recipe.type` is enforced in `RecipeCommand.create`/`addVersion`. Lineage rules
 (`bestRating`/`versionToOpen`/`nextVersionNumber`) live in `business-rules.ts` and never read

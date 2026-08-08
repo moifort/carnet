@@ -416,6 +416,13 @@ export const VersionType = builder.objectRef<RecipeVersion>('Version').implement
         'When this version was created (not when it was cooked — see executedAt), e.g. ' +
         '`"2026-07-18T14:30:00.000Z"`',
     }),
+    updatedAt: t.expose('updatedAt', {
+      type: 'DateTime',
+      description:
+        'When this version was last edited — its attempt re-recorded, its tips or its coffee ' +
+        'parameters corrected. Same as createdAt until something is changed on it, e.g. ' +
+        '`"2026-07-20T09:05:00.000Z"`',
+    }),
     originKind: t.field({
       type: VersionOriginKindEnum,
       description: 'Where this version came from: the import, an AI suggestion, or written by hand',

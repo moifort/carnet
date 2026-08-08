@@ -21,6 +21,13 @@ export type RecipeVersion = {
   recipeId: RecipeId
   number: VersionNumber
   createdAt: Date
+  // When the version was last rewritten in place — its outcome re-recorded, its tips
+  // or its coffee parameters corrected. Equal to `createdAt` until the cook touches
+  // it, and it is the date the app reads: what matters about a version is when it was
+  // last worked on, not when the lineage grew it. Only the cook's own edits bump it;
+  // the bookkeeping writes (a child re-based by a deletion, a `toTest` flag dropped)
+  // change nothing the cook wrote, so they leave it alone.
+  updatedAt: Date
   origin: VersionOrigin
   change?: string // human summary of what changed ("Bouillon 700 → 650 ml"); absent on v1
   // The version this one iterates on — set to the attempt it was proposed from

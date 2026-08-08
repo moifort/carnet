@@ -133,11 +133,14 @@ export namespace RecipeCommand {
     // The body's discriminant must mirror the recipe type (see `create`).
     if (input.content.kind !== recipe.type) return 'content-type-mismatch' as const
     const number = nextVersionNumber(recipe.lastVersionNumber)
+    const now = new Date()
     const version: RecipeVersion = {
       userId,
       recipeId,
       number,
-      createdAt: new Date(),
+      createdAt: now,
+      // Born untouched: a version is last modified when it is created.
+      updatedAt: now,
       origin: { kind: 'ai-proposal' },
       change: input.change,
       ...(input.basedOn !== undefined ? { basedOn: input.basedOn } : {}),
@@ -192,9 +195,11 @@ export namespace RecipeCommand {
       toTest: _cooked,
       ...rest
     } = version
+    const now = new Date()
     const executed: RecipeVersion = {
       ...rest,
-      executedAt: new Date(),
+      updatedAt: now,
+      executedAt: now,
       rating: input.rating,
       ...(input.remarks ? { remarks: input.remarks } : {}),
       ...(input.photoPath ? { photoPath: input.photoPath } : {}),
@@ -222,7 +227,7 @@ export namespace RecipeCommand {
     if (!recipe) return 'not-found' as const
     const version = await repository.findVersion(recipeId, versionNumber)
     if (!version) return 'not-found' as const
-    const updated: RecipeVersion = { ...version, tips }
+    const updated: RecipeVersion = { ...version, tips, updatedAt: new Date() }
     const updatedRecipe: Recipe = { ...recipe, updatedAt: new Date() }
     return atomically(async (batch) => {
       await repository.saveVersion(updated, batch)
@@ -254,7 +259,7 @@ export namespace RecipeCommand {
       kind: 'coffee',
       steps: version.content.steps,
     }
-    const updated: RecipeVersion = { ...version, content }
+    const updated: RecipeVersion = { ...version, content, updatedAt: new Date() }
     const updatedRecipe: Recipe = { ...recipe, updatedAt: new Date() }
     return atomically(async (batch) => {
       await repository.saveVersion(updated, batch)
@@ -326,7 +331,8 @@ export namespace RecipeCommand {
       return undefined
     }
     // The children iterate on what the deleted version iterated on — its own base,
-    // or nothing when it was a root.
+    // or nothing when it was a root. Bookkeeping, not an edit: their `updatedAt`
+    // stays put, so the history does not move a version the cook never touched.
     const rebased = versions
       .filter((version) => version.basedOn === number)
       .map(({ basedOn: _deleted, ...rest }) => ({
@@ -364,7 +370,8 @@ export namespace RecipeCommand {
   export const forget = (userId: UserId): Promise<void> => repository.removeAllByUser(userId)
 
   // The version an attempt-born iteration is based on, stripped of its `toTest` flag —
-  // or nothing when there is no base, or it was not waiting to be cooked.
+  // or nothing when there is no base, or it was not waiting to be cooked. Bookkeeping
+  // again: the outcome landed on the new version, so the base keeps its `updatedAt`.
   const cookedBase = async (recipeId: RecipeId, basedOn?: VersionNumberT) => {
     if (basedOn === undefined) return undefined
     const base = await repository.findVersion(recipeId, basedOn)
@@ -382,6 +389,7 @@ export namespace RecipeCommand {
     recipeId: recipe.id,
     number: FIRST_VERSION,
     createdAt: recipe.createdAt,
+    updatedAt: recipe.createdAt,
     origin,
     // No `change`/`basedOn`: v1 is the original, it iterates on nothing and
     // changes nothing. No outcome either — it awaits its first cook.

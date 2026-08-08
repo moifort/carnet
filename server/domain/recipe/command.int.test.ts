@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, mock, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, mock, setSystemTime, test } from 'bun:test'
 import { type CoffeeContent, emptyCoffeeParameters } from '~/domain/recipe/content/coffee'
 import type { DishContent } from '~/domain/recipe/content/dish'
 import type { ThermomixContent } from '~/domain/recipe/content/thermomix'
@@ -795,5 +795,90 @@ describe('updateCoffeeParameters', () => {
 
     const vocabulary = await repository.findVocabulary(userId)
     expect(vocabulary.machines).toEqual(['Rancilio Silvia' as CoffeeMachine])
+  })
+})
+
+describe('a version’s updatedAt', () => {
+  const V1 = 1 as VersionNumber
+  // Frozen clock: the bump is asserted on the exact instant of the edit, not on a
+  // millisecond the machine may or may not have crossed.
+  const at = (iso: string) => setSystemTime(new Date(iso))
+  afterEach(() => setSystemTime())
+
+  test('an untouched version was last modified when it was created', async () => {
+    at('2026-03-11T08:00:00.000Z')
+    const recipe = await RecipeCommand.create(userId, newInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+
+    const v1 = fake.snapshot('recipe-versions').get(`${recipe.id}_1`)
+    expect(v1?.updatedAt).toEqual(v1?.createdAt)
+    expect(v1?.updatedAt).toEqual(new Date('2026-03-11T08:00:00.000Z'))
+  })
+
+  test('recording the attempt, the tips or the parameters moves it', async () => {
+    at('2026-03-11T08:00:00.000Z')
+    const recipe = await RecipeCommand.create(userId, {
+      type: 'coffee' as const,
+      category: 'drink' as const,
+      method: 'espresso' as const,
+      title: 'Espresso du matin' as RecipeTitle,
+      content: coffeeContent(),
+      tips: [],
+    })
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+
+    at('2026-03-12T09:00:00.000Z')
+    const executed = await RecipeCommand.recordAttempt(userId, {
+      recipeId: recipe.id,
+      versionNumber: V1,
+      rating: 4 as Rating,
+    })
+    if (typeof executed === 'string') throw new Error(`expected a version, got ${executed}`)
+    expect(executed.updatedAt).toEqual(new Date('2026-03-12T09:00:00.000Z'))
+
+    at('2026-03-13T10:00:00.000Z')
+    const retipped = await RecipeCommand.updateTips(userId, recipe.id, V1, [
+      'Servir tout de suite' as Tip,
+    ])
+    if (typeof retipped === 'string') throw new Error(`expected a version, got ${retipped}`)
+    expect(retipped.updatedAt).toEqual(new Date('2026-03-13T10:00:00.000Z'))
+
+    at('2026-03-14T11:00:00.000Z')
+    const corrected = await RecipeCommand.updateCoffeeParameters(userId, recipe.id, V1, {
+      ...emptyCoffeeParameters,
+      water: { kind: 'Volvic' as CoffeeWaterKind },
+    })
+    if (typeof corrected === 'string') throw new Error(`expected a version, got ${corrected}`)
+    expect(corrected.updatedAt).toEqual(new Date('2026-03-14T11:00:00.000Z'))
+    // The creation date never moves — only the edit date does.
+    expect(corrected.createdAt).toEqual(new Date('2026-03-11T08:00:00.000Z'))
+  })
+
+  test('bookkeeping leaves it alone: the base a new version iterates on', async () => {
+    at('2026-03-11T08:00:00.000Z')
+    const recipe = await RecipeCommand.create(userId, newInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+    // v2 is asked for by an improvement, so v1 is the version waiting to be cooked.
+    at('2026-03-12T09:00:00.000Z')
+    await RecipeCommand.addVersion(userId, recipe.id, {
+      change: 'Moins de bouillon',
+      basedOn: V1,
+      content: dishContent(),
+      tips: [],
+    })
+
+    // Cooking v2 clears v1’s `toTest` flag — a flag the cook never wrote on v1.
+    at('2026-03-13T10:00:00.000Z')
+    await RecipeCommand.addVersion(userId, recipe.id, {
+      change: 'Encore moins',
+      basedOn: V1,
+      content: dishContent(),
+      tips: [],
+      attempt: { rating: 4 as Rating, remarks: 'Trop liquide' as Remarks },
+    })
+
+    const v1 = fake.snapshot('recipe-versions').get(`${recipe.id}_1`)
+    expect(v1?.toTest).toBeUndefined()
+    expect(v1?.updatedAt).toEqual(new Date('2026-03-11T08:00:00.000Z'))
   })
 })

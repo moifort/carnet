@@ -139,7 +139,6 @@ func mapRecipe(_ r: ShuhariGraphQL.RecipeQuery.Data.Recipe) -> Recipe {
         method: BrewMethod(graphql: r.method),
         favorite: r.favorite,
         warnings: r.warnings,
-        createdAt: GraphQLHelpers.parseISO8601(r.createdAt) ?? Date(),
         updatedAt: GraphQLHelpers.parseISO8601(r.updatedAt) ?? Date(),
         versions: r.versions.map { mapVersion($0.fragments.versionFields) },
         bestRating: r.bestRating,
@@ -163,7 +162,8 @@ func mapVersion(_ v: ShuhariGraphQL.VersionFields) -> RecipeVersion {
         remarks: v.remarks,
         executedAt: v.executedAt.flatMap { GraphQLHelpers.parseISO8601($0) },
         photoUrl: v.photoUrl,
-        createdAt: GraphQLHelpers.parseISO8601(v.createdAt) ?? Date()
+        createdAt: GraphQLHelpers.parseISO8601(v.createdAt) ?? Date(),
+        updatedAt: GraphQLHelpers.parseISO8601(v.updatedAt) ?? Date()
     )
 }
 

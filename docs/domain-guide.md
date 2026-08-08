@@ -433,8 +433,8 @@ versioning envelope and the lineage rules never learn about it. `coffee` was add
 way — the worked example below is what was actually done, not a sketch.
 
 The split that makes this possible: a version is a type-agnostic **envelope** (`recipe/version.ts` —
-`number`, `basedOn`, `change`, `origin`, `why`, `createdAt`, the attempt outcome and the `tips`) plus a
-`content` **discriminated union** under `recipe/content/`:
+`number`, `basedOn`, `change`, `origin`, `why`, `createdAt`/`updatedAt`, the attempt outcome and the
+`tips`) plus a `content` **discriminated union** under `recipe/content/`:
 
 ```ts
 // content/types.ts

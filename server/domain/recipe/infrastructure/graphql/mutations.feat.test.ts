@@ -345,9 +345,11 @@ describe('updateCoffeeParameters mutation', () => {
   }
 
   test('corrects the parameters and answers how long the beans rested', async () => {
-    const id = await espressoId()
-    // Roasted well before this version was created, so the rest is a real count.
+    // Roasted well before this version was created, so the rest is a real count —
+    // dated BEFORE the create, otherwise the version's `createdAt` falls a
+    // millisecond short of the fourteenth day and the count reads 13.
     const roastedOn = new Date(Date.now() - 14 * 86_400_000).toISOString()
+    const id = await espressoId()
 
     const result = await execute(`
       mutation {

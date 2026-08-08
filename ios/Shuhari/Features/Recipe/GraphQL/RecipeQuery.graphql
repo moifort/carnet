@@ -82,6 +82,7 @@ fragment VersionFields on Version {
   toTest
   photoUrl
   createdAt
+  updatedAt
 }
 
 query Recipe($id: RecipeId!) {
@@ -93,7 +94,6 @@ query Recipe($id: RecipeId!) {
     method
     favorite
     warnings
-    createdAt
     updatedAt
     bestRating
     versionToOpen {

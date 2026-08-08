@@ -1722,6 +1722,11 @@ type Version {
   tried: Boolean!
 
   """
+  When this version was last edited — its attempt re-recorded, its tips or its coffee parameters corrected. Same as createdAt until something is changed on it, e.g. `"2026-07-20T09:05:00.000Z"`
+  """
+  updatedAt: DateTime!
+
+  """
   The reason behind that change, e.g. `"The top was burning at 200°C"`. `null` when not given.
   """
   why: String

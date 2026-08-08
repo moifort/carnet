@@ -107,7 +107,8 @@ enum Fixtures {
         recipeId: "bourguignon", rating: 3,
         remarks: "Bon mais la sauce manque de corps.",
         executedAt: date.addingTimeInterval(-86_400 * 28), photoUrl: nil,
-        createdAt: date.addingTimeInterval(-86_400 * 30)
+        createdAt: date.addingTimeInterval(-86_400 * 30),
+        updatedAt: date.addingTimeInterval(-86_400 * 28)
     )
 
     static let bourguignonV2 = RecipeVersion(
@@ -117,7 +118,8 @@ enum Fixtures {
         recipeId: "bourguignon", rating: 3,
         remarks: "Plus parfumé, encore un peu ferme.",
         executedAt: date.addingTimeInterval(-86_400 * 18), photoUrl: nil,
-        createdAt: date.addingTimeInterval(-86_400 * 20)
+        createdAt: date.addingTimeInterval(-86_400 * 20),
+        updatedAt: date.addingTimeInterval(-86_400 * 18)
     )
 
     static let bourguignonV3 = RecipeVersion(
@@ -137,7 +139,8 @@ enum Fixtures {
         remarks: "Sauce nappante, viande fondante.",
         executedAt: date.addingTimeInterval(-86_400 * 2),
         photoUrl: nil,
-        createdAt: date.addingTimeInterval(-86_400 * 6)
+        createdAt: date.addingTimeInterval(-86_400 * 6),
+        updatedAt: date.addingTimeInterval(-86_400 * 2)
     )
 
     static let bourguignonV4 = RecipeVersion(
@@ -155,7 +158,8 @@ enum Fixtures {
         remarks: nil,
         executedAt: nil,
         photoUrl: nil,
-        createdAt: date.addingTimeInterval(-86_400)
+        createdAt: date.addingTimeInterval(-86_400),
+        updatedAt: date.addingTimeInterval(-86_400)
     )
 
     static let bourguignon = Recipe(
@@ -164,7 +168,6 @@ enum Fixtures {
         type: .dish,
         category: .main,
         favorite: false,
-        createdAt: date.addingTimeInterval(-86_400 * 30),
         updatedAt: date,
         versions: [bourguignonV1, bourguignonV2, bourguignonV3, bourguignonV4],
         bestRating: 4,
@@ -187,7 +190,8 @@ enum Fixtures {
         remarks: "Bonne texture, manque un peu de sel.",
         executedAt: date.addingTimeInterval(-86_400 * 2),
         photoUrl: nil,
-        createdAt: date.addingTimeInterval(-86_400 * 3)
+        createdAt: date.addingTimeInterval(-86_400 * 3),
+        updatedAt: date.addingTimeInterval(-86_400 * 2)
     )
 
     static let risotto = Recipe(
@@ -199,7 +203,6 @@ enum Fixtures {
         // The banner atop the recipe sheet — the whisk caution the feature was
         // born from.
         warnings: ["Le fouet doit être mis dès le début."],
-        createdAt: date.addingTimeInterval(-86_400 * 12),
         updatedAt: date,
         versions: [risottoV2],
         bestRating: 4,
@@ -258,7 +261,8 @@ enum Fixtures {
         rating: 3, remarks: "Un peu acide, ça manque de corps.",
         executedAt: date.addingTimeInterval(-86_400 * 5),
         photoUrl: nil,
-        createdAt: date.addingTimeInterval(-86_400 * 6)
+        createdAt: date.addingTimeInterval(-86_400 * 6),
+        updatedAt: date.addingTimeInterval(-86_400 * 5)
     )
 
     /// The one-variable-per-iteration rule made visible: only the grind moved.
@@ -287,7 +291,8 @@ enum Fixtures {
         rating: 5, remarks: "Beaucoup plus rond.",
         executedAt: date.addingTimeInterval(-86_400),
         photoUrl: nil,
-        createdAt: date.addingTimeInterval(-86_400 * 2)
+        createdAt: date.addingTimeInterval(-86_400 * 2),
+        updatedAt: date.addingTimeInterval(-86_400)
     )
 
     static let v60 = Recipe(
@@ -297,7 +302,6 @@ enum Fixtures {
         category: .drink,
         method: .v60,
         favorite: true,
-        createdAt: date.addingTimeInterval(-86_400 * 6),
         updatedAt: date,
         versions: [v60V1, v60V2],
         bestRating: 5,
@@ -335,7 +339,8 @@ enum Fixtures {
         rating: 4, remarks: "Bien équilibré, un chouïa court.",
         executedAt: date.addingTimeInterval(-86_400),
         photoUrl: nil,
-        createdAt: date.addingTimeInterval(-86_400 * 2)
+        createdAt: date.addingTimeInterval(-86_400 * 2),
+        updatedAt: date.addingTimeInterval(-86_400)
     )
 
     static let espresso = Recipe(
@@ -345,7 +350,6 @@ enum Fixtures {
         category: .drink,
         method: .espresso,
         favorite: false,
-        createdAt: date.addingTimeInterval(-86_400 * 2),
         updatedAt: date,
         versions: [espressoV1],
         bestRating: 4,
@@ -389,7 +393,8 @@ enum Fixtures {
         remarks: nil,
         executedAt: nil,
         photoUrl: nil,
-        createdAt: date
+        createdAt: date,
+        updatedAt: date
     )
 
     static let freshImport = Recipe(
@@ -398,7 +403,6 @@ enum Fixtures {
         type: .dish,
         category: .main,
         favorite: false,
-        createdAt: date,
         updatedAt: date,
         versions: [freshImportV1],
         bestRating: nil,
