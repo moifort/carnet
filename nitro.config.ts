@@ -25,5 +25,8 @@ export default defineNitroConfig({
     premiumUserIds: '',
     appleAppId: '',
     appleEnvironment: '',
+    electroluxApiKey: '',
+    electroluxRefreshToken: '',
+    electroluxUserId: '',
   },
 })

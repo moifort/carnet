@@ -95,6 +95,7 @@ Everything versioned and technical is **English**: commits, code, comments, docs
 ## Gemini API Key & Secrets
 
 - The AI (import + proposals) is **Gemini 2.5 Flash** in `server/system/ai/`, key in `NITRO_GOOGLE_API_KEY`; `POST /admin/migrate` is gated by `NITRO_ADMIN_TOKEN`; `NITRO_SENTRY_DSN`, `NITRO_PREMIUM_USER_IDS` (comped Premium accounts), `NITRO_APPLE_APP_ID` and `NITRO_APPLE_ENVIRONMENT` (pins App Store signature checks, `Xcode` for the local StoreKit file) optional. Local `.env` (see `.env.example`); in production, GCP Secret Manager (project `shuhari-polyforms`). Never commit a key.
+- **The connected oven** (`server/system/electrolux/`) needs `NITRO_ELECTROLUX_API_KEY`, `NITRO_ELECTROLUX_REFRESH_TOKEN` and `NITRO_ELECTROLUX_USER_ID` — all three or the feature is off. The refresh token is only a **seed**: Electrolux rotates it on every use, and the current one lives in the `system/electrolux` Firestore document. See [docs/architecture.md](docs/architecture.md#system-layer-serversystem).
 
 ## iOS Simulator
 

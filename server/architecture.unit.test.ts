@@ -206,7 +206,7 @@ describe('architecture', () => {
     // else must go through a domain's command/query namespace. The migration runner is
     // the storage layer of the migrations, so it holds the same licence.
     const allowedDbImporters =
-      /^server\/(domain\/\w+\/infrastructure\/repository\.ts|system\/ai\/repository\.ts|utils\/firestore\.ts|system\/migration\/runner\.ts)$/
+      /^server\/(domain\/\w+\/infrastructure\/repository\.ts|system\/(ai|electrolux)\/repository\.ts|utils\/firestore\.ts|system\/migration\/runner\.ts)$/
     const serverFiles = glob('server/**/*.ts').filter((f) => !f.endsWith('.test.ts'))
     // `db` as a named import — `auth` from the same module is not storage and is
     // deliberately left to the auth middleware and the account use case.

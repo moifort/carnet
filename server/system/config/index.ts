@@ -1,8 +1,11 @@
+import { UserId } from '~/domain/shared/primitives'
 import {
   AdminToken,
   ApiToken,
   AppleAppId,
   AppleEnvironment,
+  ElectroluxApiKey,
+  ElectroluxRefreshToken,
   GoogleApiKey,
   PremiumUserIds,
 } from '~/system/config/primitives'
@@ -31,6 +34,17 @@ export const config = () => {
       return runtimeConfig.appleEnvironment
         ? AppleEnvironment(runtimeConfig.appleEnvironment)
         : undefined
+    },
+    // The connected oven: all three or nothing. Read together so the feature can
+    // never be half-on — a key without an owner would drive somebody else's oven.
+    get electrolux() {
+      const { electroluxApiKey, electroluxRefreshToken, electroluxUserId } = runtimeConfig
+      if (!electroluxApiKey || !electroluxRefreshToken || !electroluxUserId) return undefined
+      return {
+        apiKey: ElectroluxApiKey(electroluxApiKey),
+        refreshToken: ElectroluxRefreshToken(electroluxRefreshToken),
+        ownerId: UserId(electroluxUserId),
+      }
     },
   }
 }

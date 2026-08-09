@@ -6,6 +6,8 @@ import type {
   AdminToken as AdminTokenType,
   ApiToken as ApiTokenType,
   AppleAppId as AppleAppIdType,
+  ElectroluxApiKey as ElectroluxApiKeyType,
+  ElectroluxRefreshToken as ElectroluxRefreshTokenType,
   GoogleApiKey as GoogleApiKeyType,
 } from '~/system/config/types'
 
@@ -47,3 +49,16 @@ export const AppleAppId = (value: unknown) => {
 // default) means both Production and Sandbox are tried, which is what a shipped
 // app needs; `Xcode` is for the local StoreKit configuration file.
 export const AppleEnvironment = (value: unknown) => z.enum(Environment).parse(value) as Environment
+
+// The personal key issued by developer.electrolux.one, sent as `x-api-key`.
+export const ElectroluxApiKey = (value: unknown) => {
+  const v = z.string().min(1).parse(value)
+  return make<ElectroluxApiKeyType>()(v)
+}
+
+// The SEED refresh token. Electrolux rotates it on every use, so this value is only
+// ever the first one: the current token lives in Firestore (`system/electrolux`).
+export const ElectroluxRefreshToken = (value: unknown) => {
+  const v = z.string().min(1).parse(value)
+  return make<ElectroluxRefreshTokenType>()(v)
+}

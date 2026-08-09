@@ -204,9 +204,24 @@ sets `event.context.userId`.
 
 ### System Layer (`server/system/`)
 
-Infrastructure concerns: `ai` (Gemini), `config`, `migration`, `firebase` (`db()`),
-`request-cache`. It also hosts two mini-domains that follow the domain rules:
-`changelog` (application release notes) and `portability` (user-data export/import).
+Infrastructure concerns: `ai` (Gemini), `electrolux` (the connected oven), `config`,
+`migration`, `firebase` (`db()`), `request-cache`. It also hosts two mini-domains that follow
+the domain rules: `changelog` (application release notes) and `portability` (user-data
+export/import).
+
+**`electrolux` — the connected oven.** A thin client over the Electrolux Group API: find the
+oven, read its state, send a cooking command. It is the ONLY module that knows the
+manufacturer's program codes (`program.ts`), so a change of oven costs one mapping table. Its
+three secrets (`NITRO_ELECTROLUX_API_KEY`, `NITRO_ELECTROLUX_REFRESH_TOKEN`,
+`NITRO_ELECTROLUX_USER_ID`) are read together — all three or the feature is off, because a key
+without a named owner would let any account drive the oven.
+
+It persists exactly one document, `system/electrolux`, through its own `repository.ts` (the
+same licence `ai/repository.ts` holds). **Why a stored token rather than a secret:** Electrolux
+rotates the refresh token on every use, so the value in Secret Manager is only a seed. Pinned
+there, the integration would authenticate once and die silently hours later — the failure mode
+that makes an appliance integration look haunted. Writing the rotated token back is what keeps
+it alive.
 
 ## Cross-Domain Rules
 
@@ -215,7 +230,8 @@ repositories, names that carry intent, no `throw` for expected outcomes — are 
 [ddd-best-practices.md](./ddd-best-practices.md#purity-and-isolation-rules). Here they are
 **executable**: `server/architecture.unit.test.ts` walks `server/` and fails `bun run test:unit`
 on any violation. It also pins where Firestore may be reached (`db()` is imported by the
-repositories, `utils/firestore.ts` and the migration runner — nothing else) and that each test
+repositories, `utils/firestore.ts`, the `ai` and `electrolux` system repositories, and the
+migration runner — nothing else) and that each test
 tier does what its suffix claims: every `.int.test.ts` drives the fake Firestore, every
 `.feat.test.ts` executes the GraphQL schema.
 
