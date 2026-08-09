@@ -21,6 +21,7 @@ import type {
   CookingProposal,
   CookingRecipeType,
   ImportCoffeeParameters,
+  ImportOvenProfile,
   ImportSource,
   ImportStep,
 } from '~/system/ai/types'
@@ -38,11 +39,13 @@ const brandCookingProposal = (
         kind: 'thermomix',
         ingredients: proposal.ingredients,
         steps: proposal.steps.map((s) => ({ text: s.text, settings: s.thermomix })),
+        ...(proposal.oven ? { oven: proposal.oven } : {}),
       })
     : brandVersionContent({
         kind: 'dish',
         ingredients: proposal.ingredients,
         steps: proposal.steps.map((s) => s.text),
+        ...(proposal.oven ? { oven: proposal.oven } : {}),
       })
 
 // The same, for a coffee: the whole parameter set the model answered with, one dial
@@ -76,6 +79,11 @@ const contextParameters = (
 // that set nothing, a Thermomix recipe its own per-step settings, always present
 // (`{}` when the step sets nothing) so the wire never carries a hole. A coffee has
 // no steps at all — it is wholly described by its parameters.
+// The oven profile the iteration starts from, plain numbers as the model reads
+// them. A coffee never has one, and a dish that never bakes says so by its absence.
+const contextOven = (content: VersionContent): ImportOvenProfile | undefined =>
+  content.kind === 'coffee' ? undefined : content.oven
+
 const contextSteps = (content: VersionContent): ImportStep[] => {
   if (content.kind === 'thermomix')
     return content.steps.map((s) => ({ text: s.text as string, thermomix: s.settings }))
@@ -128,6 +136,7 @@ const cookingAnswer = async (
     category,
     currentIngredients: contextIngredients(content),
     currentSteps: contextSteps(content),
+    ...(contextOven(content) ? { currentOven: contextOven(content) } : {}),
   })
   return {
     changeSummary: proposal.changeSummary,

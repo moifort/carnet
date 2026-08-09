@@ -1,7 +1,11 @@
 import { make } from 'ts-brand'
 import { z } from 'zod'
-import { RECIPE_MAX } from '~/domain/recipe/limits'
-import { BREW_METHOD_VALUES, DISH_CATEGORY_VALUES } from '~/domain/recipe/types'
+import { OVEN_RANGE, RECIPE_MAX } from '~/domain/recipe/limits'
+import {
+  BREW_METHOD_VALUES,
+  DISH_CATEGORY_VALUES,
+  OVEN_PROGRAM_VALUES,
+} from '~/domain/recipe/types'
 import type {
   CoffeeImportAnalysis,
   CoffeeProposal,
@@ -9,6 +13,7 @@ import type {
   CookingProposal,
   ImportCoffeeParameters,
   ImportHash as ImportHashType,
+  ImportOvenProfile,
   ImportStep,
   ImportThermomixSettings,
 } from '~/system/ai/types'
@@ -66,6 +71,45 @@ const ingredientSchema = z.object({
   name: clampedField(RECIPE_MAX.ingredientName),
   quantity: clampedField(RECIPE_MAX.ingredientQuantity),
 })
+
+// One oven dial: a whole number inside its range, or nothing. `.catch` rather than
+// a hard failure so a nonsense duration costs the duration, not the temperature
+// next to it.
+const ovenDial = (range: { min: number; max: number }) =>
+  z
+    .number()
+    .int()
+    .min(range.min)
+    .max(range.max)
+    .nullish()
+    .catch(undefined)
+    .transform((v) => v ?? undefined)
+
+// The oven profile Gemini returns, and the two ways it can be wrong: a heating
+// function this notebook has no word for, or a temperature no oven can reach.
+// Either DROPS the profile rather than failing the parse — a missing oven setting
+// costs the cook one form to fill in, a rejected analysis costs them the whole
+// import, and the preview is editable precisely so the first is cheap.
+const ovenSchema = z
+  .object({
+    program: z.enum(OVEN_PROGRAM_VALUES),
+    temperature: z.number().int().min(OVEN_RANGE.temperature.min).max(OVEN_RANGE.temperature.max),
+    duration: ovenDial(OVEN_RANGE.duration),
+    core: ovenDial(OVEN_RANGE.core),
+  })
+  .transform(
+    (raw): ImportOvenProfile => ({
+      program: raw.program,
+      temperature: raw.temperature,
+      ...(raw.duration !== undefined ? { duration: raw.duration } : {}),
+      ...(raw.core !== undefined ? { core: raw.core } : {}),
+    }),
+  )
+
+const optionalOvenSchema = ovenSchema
+  .nullish()
+  .catch(undefined)
+  .transform((v) => v ?? undefined)
 
 // One step's nested Thermomix settings, normalized to the domain's "absent = no
 // key" convention. `reverse: false` carries no information — Gemini sometimes emits
@@ -196,6 +240,7 @@ const CookingImportSchema = z
     ingredients: z.array(ingredientSchema).default([]),
     steps: z.array(stepSchema).default([]),
     tips: tipsSchema.nullish().transform((v) => v ?? []),
+    oven: optionalOvenSchema,
   })
   .transform(
     (raw): CookingImportAnalysis => ({
@@ -207,6 +252,7 @@ const CookingImportSchema = z
       ingredients: foldIngredients(raw.ingredients),
       steps: foldSteps(raw.steps),
       tips: raw.tips,
+      ...(raw.oven ? { oven: raw.oven } : {}),
     }),
   )
 
@@ -239,6 +285,7 @@ const CookingProposalSchema = z
     ingredients: z.array(ingredientSchema).default([]),
     steps: z.array(stepSchema).default([]),
     tips: tipsSchema,
+    oven: optionalOvenSchema,
   })
   .transform(
     (raw): CookingProposal => ({
@@ -247,6 +294,7 @@ const CookingProposalSchema = z
       ingredients: foldIngredients(raw.ingredients),
       steps: foldSteps(raw.steps),
       tips: raw.tips,
+      ...(raw.oven ? { oven: raw.oven } : {}),
     }),
   )
 

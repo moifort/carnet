@@ -11,6 +11,8 @@ import type {
   Ingredient,
   IngredientName,
   IngredientQuantity,
+  OvenDuration,
+  OvenTemperature,
   Rating,
   Recipe,
   RecipeId,
@@ -540,5 +542,66 @@ describe('ProposalUseCase.accept', () => {
         tips: [],
       }),
     ).toBe('not-found')
+  })
+})
+
+describe('the oven profile across an iteration', () => {
+  // The version the iteration starts from bakes; the model must be told so, and
+  // whatever it answers must land on the proposed content.
+  const bakedDish = (): DishContent => ({
+    kind: 'dish',
+    ingredients: [],
+    steps: stepList('Enfourner'),
+    oven: {
+      program: 'convection',
+      temperature: 180 as OvenTemperature,
+      duration: 30 as OvenDuration,
+    },
+  })
+
+  const bakedRecipe = async () => {
+    const recipe = await RecipeCommand.create(userId, {
+      ...recipeInput(),
+      content: bakedDish(),
+    })
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+    return recipe
+  }
+
+  test('hands the current profile to the model, so an iteration can move or keep it', async () => {
+    const recipe = await bakedRecipe()
+
+    await ProposalUseCase.fromAttempt(userId, recipe.id, V1, ATTEMPT)
+
+    expect(lastCookingContext?.currentOven).toEqual({
+      program: 'convection',
+      temperature: 180,
+      duration: 30,
+    })
+  })
+
+  test('brands the profile the model answered onto the proposed content', async () => {
+    const recipe = await bakedRecipe()
+    proposal = { ...proposal, oven: { program: 'convection', temperature: 180, duration: 25 } }
+
+    const result = await ProposalUseCase.fromAttempt(userId, recipe.id, V1, ATTEMPT)
+    if (typeof result === 'string') throw new Error('expected a proposal')
+
+    expect(result.content).toMatchObject({
+      oven: {
+        program: 'convection',
+        temperature: 180 as OvenTemperature,
+        duration: 25 as OvenDuration,
+      },
+    })
+  })
+
+  test('a dish that never bakes hands the model no profile', async () => {
+    const recipe = await RecipeCommand.create(userId, recipeInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+
+    await ProposalUseCase.fromAttempt(userId, recipe.id, V1, ATTEMPT)
+
+    expect(lastCookingContext?.currentOven).toBeUndefined()
   })
 })

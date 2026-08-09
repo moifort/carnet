@@ -467,3 +467,92 @@ describe('tips', () => {
     expect(parseTipsResponse(JSON.stringify({ tips: [] }))).toEqual([])
   })
 })
+
+describe('parseCookingImportResponse — the oven profile', () => {
+  test('reads the profile the model extracted from the steps', () => {
+    const result = parsedCooking({
+      ...base,
+      recipeFound: true,
+      steps: [{ text: 'Enfourner', thermomix: {} }],
+      oven: { program: 'convection', temperature: 180, duration: 30, core: null },
+    })
+
+    expect(result.oven).toEqual({ program: 'convection', temperature: 180, duration: 30 })
+  })
+
+  test('a recipe with no oven step carries no profile at all', () => {
+    const result = parsedCooking({
+      ...base,
+      recipeFound: true,
+      steps: [{ text: 'Mélanger', thermomix: {} }],
+      oven: null,
+    })
+
+    expect(result.oven).toBeUndefined()
+  })
+
+  test('drops a hallucinated temperature instead of failing the whole import', () => {
+    const result = parsedCooking({
+      ...base,
+      recipeFound: true,
+      steps: [{ text: 'Enfourner', thermomix: {} }],
+      oven: { program: 'convection', temperature: 1800 },
+    })
+
+    expect(result.oven).toBeUndefined()
+  })
+
+  test('drops a heating function this notebook has no word for', () => {
+    const result = parsedCooking({
+      ...base,
+      recipeFound: true,
+      steps: [{ text: 'Enfourner', thermomix: {} }],
+      oven: { program: 'AIR_FRY_9000', temperature: 200 },
+    })
+
+    expect(result.oven).toBeUndefined()
+  })
+
+  test('keeps a probe cook, which has a core target and no duration', () => {
+    const result = parsedCooking({
+      ...base,
+      recipeFound: true,
+      steps: [{ text: 'Enfourner', thermomix: {} }],
+      oven: { program: 'conventional', temperature: 160, duration: null, core: 63 },
+    })
+
+    expect(result.oven).toEqual({ program: 'conventional', temperature: 160, core: 63 })
+  })
+})
+
+describe('parseCookingProposalResponse — the oven profile', () => {
+  test('carries the profile an iteration moved', () => {
+    const result = parseCookingProposalResponse(
+      JSON.stringify({
+        changeSummary: 'Cuisson 30 → 25 min',
+        rationale: 'Trop cuit au dernier essai',
+        ingredients: [],
+        steps: [],
+        tips: [],
+        oven: { program: 'convection', temperature: 180, duration: 25 },
+      }),
+    )
+
+    expect(result.oven).toEqual({ program: 'convection', temperature: 180, duration: 25 })
+  })
+
+  test('an iteration that touches nothing about the oven carries no profile', () => {
+    const result = parseCookingProposalResponse(
+      JSON.stringify({
+        changeSummary: 'Sel 8 → 6 g',
+        rationale: 'Trop salé',
+        ingredients: [],
+        steps: [],
+        tips: [],
+        oven: null,
+      }),
+    )
+
+    expect(result.oven).toBeUndefined()
+  })
+})

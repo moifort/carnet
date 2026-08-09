@@ -201,7 +201,13 @@ The prompts, one module per flow under `server/system/ai/` (`import/*`, `proposa
   deltas", the model has answered with the comma as the separator *inside* a change.
 - **How far one iteration may go depends on the world**, and the two rules live in two prompts
   (`server/system/ai/proposal/cooking.ts`, `proposal/coffee.ts`):
-  - *Cooking* (`dish`, `thermomix`) — several coherent elements may move at once.
+  - *Cooking* (`dish`, `thermomix`) — several coherent elements may move at once. The **oven
+    profile** is the exception that borrows the coffee rule: it counts as **one** element, so an
+    iteration lowers the temperature *or* shortens the cooking, never both — otherwise the next
+    bake says nothing about which of the two mattered. It only moves when the remarks point at the
+    baking ("trop cuit", "pas assez doré", "cru au centre"). When the iteration is about anything
+    else, `CookingProposalContext.currentOven` is echoed back **unchanged**: a proposal that
+    dropped it would silently unset the oven of the version it creates.
   - *Coffee* — **exactly one variable per version**, from a closed list: the grind, the dose, the
     water amount (the ratio), the water temperature, the brew time, the yield or the milk. Never
     two. That is the whole point of the notebook here: with a single variable moved, the next
