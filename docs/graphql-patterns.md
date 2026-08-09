@@ -378,3 +378,13 @@ bun run generate:ios                # regenerate Generated/GraphQL from the SDL
 
 Order of changes: **domain first** (types/primitives) → GraphQL slice → regenerate SDL → iOS
 codegen. See [ios-guide.md](./ios-guide.md) for the client side.
+
+## A null root field is "this feature does not exist here"
+
+`Query.oven` answers `null` for an account that owns no connected oven — not an error, not an
+empty `Oven` with every flag false. The app reads that null as "render no oven controls at all",
+and the difference matters: an error would have to be caught and swallowed on a screen where
+nothing went wrong, and a hollow object would invite a disabled button nobody can ever enable.
+
+Use it for a capability that is genuinely absent for this caller, never for a value that failed
+to load — a failure is an error, and conflating the two teaches the client to ignore both.

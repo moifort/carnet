@@ -17,6 +17,12 @@ import '~/domain/proposal/infrastructure/graphql/types'
 import '~/domain/proposal/infrastructure/graphql/inputs'
 import '~/domain/proposal/infrastructure/graphql/mutations'
 
+// Oven domain (ephemeral — the connected oven's live state, and starting a
+// version's cooking on it; nothing about it is stored)
+import '~/domain/oven/infrastructure/graphql/types'
+import '~/domain/oven/infrastructure/graphql/queries'
+import '~/domain/oven/infrastructure/graphql/mutations'
+
 // Quota domain (the freemium plan and the monthly AI allowance it comes with)
 import '~/domain/quota/infrastructure/graphql/enums'
 import '~/domain/quota/infrastructure/graphql/types'

@@ -12,6 +12,25 @@ type AcceptProposalResult {
 }
 
 """
+One dish from the oven’s own assisted-cooking catalogue, offered as a starting point. Picking it COPIES these values onto the version — nothing keeps a reference to the manufacturer’s catalogue, so a recipe survives the oven renaming or dropping a dish.
+"""
+type AssistedProfile {
+  """
+  Its cooking time in minutes, e.g. `40`. `null` when the oven names none.
+  """
+  duration: Int
+
+  """What the oven itself calls it, e.g. `"Quiche"`"""
+  label: String!
+
+  """The heating function it uses, e.g. `CONVECTION`"""
+  program: OvenProgram!
+
+  """Its temperature in °C, e.g. `180`"""
+  temperature: Int!
+}
+
+"""
 How a coffee is brewed. Detected once at import, shared by every version, and the axis the coffee tab groups and sorts on — the counterpart of `DishCategory` for cooking. Present on a `COFFEE` recipe and on no other.
 """
 enum BrewMethod {
@@ -906,6 +925,25 @@ type Mutation {
   ): TipsProposal!
 
   """
+  Start this version’s cooking on the connected oven. What is sent is the oven profile the VERSION carries — never one passed in here: correcting a setting before cooking means editing the version, so what the oven does and what the notebook says can never disagree.
+  
+  Answers `OVEN_UNAVAILABLE` when the account has no oven, `NO_OVEN_PROFILE` when the version never bakes, `OVEN_OFFLINE` when the appliance does not answer, `REMOTE_CONTROL_DISABLED` until "remote operation" is switched on from the oven’s own screen, and `OVEN_BUSY` when it is already cooking.
+  
+  ```graphql
+  startOven(recipeId: "…", version: 2) {
+    running { program temperature remaining }
+  }
+  ```
+  """
+  startOven(
+    """Which recipe, e.g. the id of `"Quiche fine"`"""
+    recipeId: RecipeId!
+
+    """Which attempt in the chain to cook, e.g. `2`"""
+    version: VersionNumber!
+  ): Oven!
+
+  """
   Hand over a transaction the App Store signed for you — after a purchase, after a restore, and on every launch while a subscription is running. The signature is verified against Apple’s root certificates and the purchase must carry your `appAccountToken`, so this is what grants Premium: nothing else does.
   
   Answers `INVALID_TRANSACTION` when the signature does not check out, and `TRANSACTION_NOT_YOURS` when the purchase belongs to another account.
@@ -1029,6 +1067,27 @@ type Mutation {
 }
 
 """
+The connected oven. Everything the recipe sheet needs before offering to start a cooking: whether the appliance answers, whether it is willing to be driven remotely, what it is already doing, and what it can prefill a profile with.
+"""
+type Oven {
+  """
+  The oven’s assisted-cooking catalogue, e.g. `"Quiche"`. Empty when the model exposes none — the prefill disappears, nothing else does.
+  """
+  assistedProfiles: [AssistedProfile!]!
+
+  """Whether the oven answered at all, e.g. `false` when it is unplugged"""
+  reachable: Boolean!
+
+  """
+  Whether the oven accepts being started remotely, e.g. `false` until "remote operation" is switched on from its own screen. Starting a heating element is safety relevant, so the appliance gates it and no API call can bypass that.
+  """
+  remoteControlEnabled: Boolean!
+
+  """The cooking under way, or `null` when the oven is idle"""
+  running: OvenRun
+}
+
+"""
 The target temperature at the heart of the food, read by the oven’s probe, in °C from `30` to `100`, e.g. `63` for a pink leg of lamb. Absent on a plain timed cook.
 """
 scalar OvenCoreTemperature
@@ -1114,6 +1173,24 @@ enum OvenProgram {
 
   """Grill plus fan, e.g. for a roast chicken"""
   TURBO_GRILL
+}
+
+"""
+A cooking under way, as the oven reports it. Plain `Int`s, unlike a version’s branded oven dials: these are the appliance’s own readings, and a stray one must not fail the query that only meant to display it.
+"""
+type OvenRun {
+  """
+  What the oven is running, e.g. `CONVECTION`. `null` when it is running something this notebook has no word for — a cook can always start a programme on the oven itself.
+  """
+  program: OvenProgram
+
+  """
+  Minutes left on the oven’s own timer, e.g. `12`. `null` on a probe cook, which ends on a temperature rather than a clock.
+  """
+  remaining: Int
+
+  """The target temperature the oven reports, in °C, e.g. `180`"""
+  temperature: Int
 }
 
 """
@@ -1254,6 +1331,22 @@ type Query {
   ```
   """
   exportData: String!
+
+  """
+  The connected oven, or `null` when this account has none — which is how the app knows to show no oven controls at all. `null` is deliberately not an error: an account without an oven is not a failed request, it is a smaller app.
+  
+  Ask before offering to start a cooking: `reachable` tells you the appliance answered, `remoteControlEnabled` that it is willing to be driven, `running` what it is already doing, and `assistedProfiles` what a profile can be prefilled from.
+  
+  ```graphql
+  oven {
+    reachable
+    remoteControlEnabled
+    running { program remaining }
+    assistedProfiles { label program temperature duration }
+  }
+  ```
+  """
+  oven: Oven
 
   """
   Your AI allowance for the current month: the plan you are on, what you have spent, what is left and when it renews. Free plans get 3 imports and 5 iterations a month; Premium is unlimited and unlocks the URL import.
