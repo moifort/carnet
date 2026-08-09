@@ -4,9 +4,10 @@ import {
   type CoffeeParameters as CoffeeParametersType,
   toCoffeeParameters,
 } from '~/domain/recipe/content/coffee'
+import { type OvenProfile as OvenProfileType, toOvenProfile } from '~/domain/recipe/content/oven'
 import { type LooseThermomixSettings, thermomixSteps } from '~/domain/recipe/content/thermomix'
 import type { VersionContent as VersionContentType } from '~/domain/recipe/content/types'
-import { RECIPE_MAX } from '~/domain/recipe/limits'
+import { OVEN_RANGE, RECIPE_MAX } from '~/domain/recipe/limits'
 import {
   BREW_METHOD_VALUES,
   type BrewMethod as BrewMethodType,
@@ -28,6 +29,11 @@ import {
   type DishCategory as DishCategoryType,
   type IngredientName as IngredientNameType,
   type IngredientQuantity as IngredientQuantityType,
+  OVEN_PROGRAM_VALUES,
+  type OvenCoreTemperature as OvenCoreTemperatureType,
+  type OvenDuration as OvenDurationType,
+  type OvenProgram as OvenProgramType,
+  type OvenTemperature as OvenTemperatureType,
   type Rating as RatingType,
   RECIPE_TYPE_VALUES,
   type RecipeId as RecipeIdType,
@@ -59,6 +65,28 @@ export const DishCategory = (value: unknown) =>
 
 export const BrewMethod = (value: unknown) =>
   z.enum(BREW_METHOD_VALUES).parse(value) as BrewMethodType
+
+export const OvenProgram = (value: unknown) =>
+  z.enum(OVEN_PROGRAM_VALUES).parse(value) as OvenProgramType
+
+// The oven dials are whole numbers within a closed range — the one shape the three
+// of them share, so no dial can validate differently from its neighbours.
+const ovenDial = (range: { min: number; max: number }) => (value: unknown) =>
+  z
+    .preprocess(
+      (n) => (typeof n === 'string' ? Number(n) : n),
+      z.number().int().min(range.min).max(range.max),
+    )
+    .parse(value)
+
+export const OvenTemperature = (value: unknown) =>
+  make<OvenTemperatureType>()(ovenDial(OVEN_RANGE.temperature)(value))
+
+export const OvenDuration = (value: unknown) =>
+  make<OvenDurationType>()(ovenDial(OVEN_RANGE.duration)(value))
+
+export const OvenCoreTemperature = (value: unknown) =>
+  make<OvenCoreTemperatureType>()(ovenDial(OVEN_RANGE.core)(value))
 
 export const RecipeTitle = (value: unknown) => {
   const v = z.string().trim().min(1).max(RECIPE_MAX.title).parse(value)
@@ -176,16 +204,25 @@ const looseSettingsSchema = z.object({
   reverse: z.boolean().nullish(),
 })
 
+const looseOvenSchema = z.object({
+  program: z.unknown(),
+  temperature: z.unknown(),
+  duration: z.unknown().nullish(),
+  core: z.unknown().nullish(),
+})
+
 const dishContentSchema = z.object({
   kind: z.literal('dish'),
   ingredients: z.array(looseIngredientSchema),
   steps: z.array(z.unknown()),
+  oven: looseOvenSchema.nullish(),
 })
 
 const thermomixContentSchema = z.object({
   kind: z.literal('thermomix'),
   ingredients: z.array(looseIngredientSchema),
   steps: z.array(z.object({ text: z.unknown(), settings: looseSettingsSchema.nullish() })),
+  oven: looseOvenSchema.nullish(),
 })
 
 // A coffee has no ingredient list: its dose, its water and its milk are parameters.
@@ -234,6 +271,21 @@ const brandIngredient = (i: { name: unknown; quantity: unknown }) => ({
   name: IngredientName(i.name),
   quantity: IngredientQuantity(i.quantity),
 })
+
+// Every dial goes through its branded constructor, then `toOvenProfile` drops the
+// ones the cook left unset — a raw payload never sneaks in, and no null is stored.
+const brandOvenProfile = (raw: z.infer<typeof looseOvenSchema>): OvenProfileType =>
+  toOvenProfile({
+    program: OvenProgram(raw.program),
+    temperature: OvenTemperature(raw.temperature),
+    duration: raw.duration != null ? OvenDuration(raw.duration) : undefined,
+    core: raw.core != null ? OvenCoreTemperature(raw.core) : undefined,
+  })
+
+// Boundary branding for a profile alone — what an AI analysis passes through, the
+// rest of the version's content untouched.
+export const OvenProfile = (value: unknown): OvenProfileType =>
+  brandOvenProfile(looseOvenSchema.parse(value))
 
 const brandLooseSettings = (s: z.infer<typeof looseSettingsSchema>): LooseThermomixSettings => ({
   ...(s.time ? { time: ThermomixTime(s.time) } : {}),
@@ -286,12 +338,14 @@ const versionContentSchema = z
   .transform((raw): VersionContentType => {
     if (raw.kind === 'coffee') return { kind: 'coffee', ...brandCoffeeParameters(raw) }
     const ingredients = raw.ingredients.map(brandIngredient)
+    // The oven profile is the one thing the two cooking bodies share.
+    const oven = raw.oven ? { oven: brandOvenProfile(raw.oven) } : {}
     if (raw.kind === 'dish') {
-      return { kind: 'dish', ingredients, steps: raw.steps.map((s) => StepText(s)) }
+      return { kind: 'dish', ingredients, steps: raw.steps.map((s) => StepText(s)), ...oven }
     }
     const texts = raw.steps.map((s) => StepText(s.text))
     const settings = raw.steps.map((s) => brandLooseSettings(s.settings ?? {}))
-    return { kind: 'thermomix', ingredients, steps: thermomixSteps(texts, settings) }
+    return { kind: 'thermomix', ingredients, steps: thermomixSteps(texts, settings), ...oven }
   })
 
 export const VersionContent = (value: unknown): VersionContentType =>

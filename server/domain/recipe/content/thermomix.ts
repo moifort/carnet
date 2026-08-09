@@ -1,3 +1,4 @@
+import type { OvenProfile } from '~/domain/recipe/content/oven'
 import type {
   Ingredient,
   StepText,
@@ -18,6 +19,9 @@ export type ThermomixContent = {
   kind: 'thermomix'
   ingredients: Ingredient[]
   steps: ThermomixStep[]
+  // The oven settings this version bakes at — a dough kneaded on the machine still
+  // finishes in the oven. Absent when it never does.
+  oven?: OvenProfile
 }
 
 // One step's Thermomix settings as they arrive from a GraphQL input or a branded

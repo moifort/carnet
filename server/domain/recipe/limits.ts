@@ -13,3 +13,13 @@ export const RECIPE_MAX = {
   coffee: 30, // a grind setting spells out a grinder ("Niveau 12, Comandante")
   coffeeLabel: 80, // a bean or a machine spells itself out ("Belleville — Éthiopie Guji Hambela")
 } as const
+
+/** Closed ranges for the oven's numeric dials — what `RECIPE_MAX` is to string
+ *  lengths. Single source of truth: the branded constructors enforce these, and the
+ *  AI parse layer clamps untrusted Gemini output to the same numbers so the two can
+ *  never drift. */
+export const OVEN_RANGE = {
+  temperature: { min: 30, max: 300 },
+  duration: { min: 1, max: 720 }, // 12 h — a low-and-slow shoulder, not a typo
+  core: { min: 30, max: 100 },
+} as const

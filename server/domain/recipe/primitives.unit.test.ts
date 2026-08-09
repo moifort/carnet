@@ -10,6 +10,8 @@ import type {
   CoffeeWaterKind,
   IngredientName,
   IngredientQuantity,
+  OvenDuration,
+  OvenTemperature,
   StepText,
   ThermomixSpeed,
   ThermomixTime,
@@ -74,6 +76,62 @@ describe('VersionContent — a coffee is its parameters, nothing else', () => {
           settings: { time: '3 min' as ThermomixTime, speed: '5' as ThermomixSpeed },
         },
       ],
+    })
+  })
+})
+
+describe('VersionContent — the oven profile', () => {
+  test('brands the oven profile of a dish', () => {
+    const content = VersionContent({
+      kind: 'dish',
+      ingredients: [{ name: 'Pâte brisée', quantity: '1 rouleau' }],
+      steps: ['Enfourner'],
+      oven: { program: 'convection', temperature: '180', duration: 25, core: null },
+    })
+
+    expect(content).toEqual({
+      kind: 'dish',
+      ingredients: [
+        { name: 'Pâte brisée' as IngredientName, quantity: '1 rouleau' as IngredientQuantity },
+      ],
+      steps: ['Enfourner' as StepText],
+      oven: {
+        program: 'convection',
+        temperature: 180 as OvenTemperature,
+        duration: 25 as OvenDuration,
+      },
+    })
+  })
+
+  test('a dish that never sees an oven carries no oven key at all', () => {
+    const content = VersionContent({ kind: 'dish', ingredients: [], steps: ['Mélanger'] })
+
+    expect('oven' in content).toBe(false)
+  })
+
+  test('rejects a temperature no oven can reach', () => {
+    expect(() =>
+      VersionContent({
+        kind: 'dish',
+        ingredients: [],
+        steps: ['Enfourner'],
+        oven: { program: 'convection', temperature: 900 },
+      }),
+    ).toThrow()
+  })
+
+  test('brands the oven profile of a thermomix recipe too — a TM dough still bakes', () => {
+    const content = VersionContent({
+      kind: 'thermomix',
+      ingredients: [],
+      steps: [{ text: 'Pétrir', settings: { speed: 'pétrin' } }],
+      oven: { program: 'conventional', temperature: 200, duration: 30 },
+    })
+
+    expect(content.kind === 'thermomix' && content.oven).toEqual({
+      program: 'conventional',
+      temperature: 200 as OvenTemperature,
+      duration: 30 as OvenDuration,
     })
   })
 })

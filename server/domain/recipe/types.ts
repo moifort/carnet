@@ -75,6 +75,33 @@ export type CoffeeMilkAmount = Brand<string, 'CoffeeMilkAmount'>
 export type CoffeeMachine = Brand<string, 'CoffeeMachine'>
 export type CoffeeGrinder = Brand<string, 'CoffeeGrinder'>
 
+// The oven's heating functions — what the dial selects. Technical English symbols,
+// never a manufacturer's code: `system/electrolux/program.ts` is the only place that
+// knows how a given model spells them, so a new oven costs one mapping table and
+// nothing else anywhere. Unranked, unlike `BREW_METHOD_VALUES`: nothing sorts on a
+// heating function.
+export const OVEN_PROGRAM_VALUES = [
+  'conventional', // top + bottom heat, the default of every recipe book
+  'convection', // fan-assisted hot air
+  'convection-humid',
+  'top-heat',
+  'bottom-heat',
+  'grill',
+  'turbo-grill', // grill + fan
+  'pizza', // bottom-biased, for a crisp base
+  'steam',
+  'steam-combi', // steam + hot air
+  'defrost',
+] as const
+export type OvenProgram = (typeof OVEN_PROGRAM_VALUES)[number]
+
+// The oven's numeric dials. Real numbers, not the display strings a Thermomix
+// setting is: these are the only recipe values something is computed on — they
+// leave as an appliance command.
+export type OvenTemperature = Brand<number, 'OvenTemperature'> // integer °C
+export type OvenDuration = Brand<number, 'OvenDuration'> // integer minutes
+export type OvenCoreTemperature = Brand<number, 'OvenCoreTemperature'> // integer °C
+
 // A recipe component with its measured quantity ("Gin" → "50 ml", "Beurre" →
 // "170 g"). The shopping-list view of the recipe. Ordered list, never a map.
 export type Ingredient = { name: IngredientName; quantity: IngredientQuantity }

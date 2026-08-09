@@ -39,6 +39,23 @@ the digest; this doc is the spec. The mechanics of building a domain live in
   **Invariant: present if and only if `type === 'coffee'`** (`methodMatchesType`), enforced in
   `RecipeCommand.create`/`update`, returning `'method-mismatch' as const`. `other` exists so the
   AI never forces a coffee into a method it was not made with.
+- **Oven profile** (`content/oven.ts`): the oven settings a version bakes at — `program`
+  (`OVEN_PROGRAM_VALUES`, an English technical symbol the app translates), `temperature`, and how
+  the cooking ends: `duration` in minutes, `core` for a probe target, each optional and
+  independent. Carried by `DishContent` and `ThermomixContent` (a dough kneaded on the machine
+  still finishes in the oven), never by `CoffeeContent`. **Absent when the dish never sees an
+  oven** — the absence is the information, there is no `usesOven` flag and no empty profile.
+  Versioned rather than aggregate-level, and that is the point: lowering the temperature ten
+  degrees is an iteration like any other, so the lineage shows "v1: the oven's own profile, 3/5 —
+  v2: −10 min, 5/5". The dials are **numbers**, unlike Thermomix settings, because they are the
+  only recipe values something is computed on: they leave as an appliance command. Their ranges
+  live in `OVEN_RANGE` (`limits.ts`), the single source both the branded constructors and the AI
+  parse layer answer to.
+- **A profile is flat, and copied.** The connected oven proposes its own assisted-cooking profiles
+  ("Quiche"); picking one **copies its parameters** into the version and keeps no reference to the
+  manufacturer's catalogue. A version therefore stays reproducible after the oven renames or drops
+  a dish, and the deviation the cook applied ("the oven's profile, minus ten minutes") is written
+  down as plain values rather than as a diff against something that may move.
 
 ## Two import flows
 
