@@ -40,3 +40,13 @@ mutation UpdateCoffeeParameters(
     ...VersionFields
   }
 }
+
+mutation UpdateOvenProfile(
+  $recipeId: RecipeId!
+  $versionNumber: VersionNumber!
+  $oven: OvenProfileInput
+) {
+  updateOvenProfile(recipeId: $recipeId, versionNumber: $versionNumber, oven: $oven) {
+    number
+  }
+}

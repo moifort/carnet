@@ -1,0 +1,17 @@
+query Oven {
+  oven {
+    reachable
+    remoteControlEnabled
+    running {
+      program
+      temperature
+      remaining
+    }
+    assistedProfiles {
+      label
+      program
+      temperature
+      duration
+    }
+  }
+}

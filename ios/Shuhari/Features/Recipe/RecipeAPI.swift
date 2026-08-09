@@ -114,6 +114,24 @@ enum RecipeAPI {
         )
     }
 
+    /// Correct one cooked version's oven settings — in place, no version created,
+    /// the steps untouched. Passing nil says the dish never bakes and clears the
+    /// profile outright.
+    static func updateOvenProfile(
+        recipeId: String,
+        versionNumber: Int,
+        oven: OvenProfile?
+    ) async throws {
+        _ = try await GraphQLHelpers.perform(
+            GraphQLClient.shared.apollo,
+            mutation: ShuhariGraphQL.UpdateOvenProfileMutation(
+                recipeId: recipeId,
+                versionNumber: versionNumber,
+                oven: GraphQLHelpers.ovenProfileInput(oven)
+            )
+        )
+    }
+
     /// What each free-text coffee field suggests: the values this cook has already
     /// typed, most recent first. One keyed document read, whatever the library size.
     static func coffeeVocabulary() async throws -> CoffeeVocabulary {

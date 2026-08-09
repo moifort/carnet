@@ -21,6 +21,11 @@ struct RecipeDetailView: View {
     /// The coffee-parameters form, and the suggestions it offers — loaded when the
     /// sheet opens, so the sheet is not what waits on the network.
     @State private var showCoffeeParameters = false
+    @State private var showOvenProfile = false
+    /// The connected oven's own dish catalogue, offered as a prefill in the
+    /// profile editor. Stays empty when no oven is connected, which simply hides
+    /// the prefill — the editor works the same without it.
+    @State private var assistedProfiles: [AssistedProfile] = []
     @State private var coffeeVocabulary = CoffeeVocabulary.empty
     @State private var showWarnings = false
     @State private var showHistory = false
@@ -130,6 +135,24 @@ struct RecipeDetailView: View {
                         onReload()
                     }
                 }
+                // Correcting the oven settings of the displayed version: in place,
+                // no version created, the steps untouched — and turning the toggle
+                // off says the dish never bakes, which clears the profile.
+                .sheet(isPresented: $showOvenProfile) {
+                    let version = displayedVersion(recipe)
+                    OvenProfileEditSheet(
+                        initial: version.content.oven,
+                        assisted: assistedProfiles
+                    ) { oven in
+                        try await RecipeAPI.updateOvenProfile(
+                            recipeId: recipeId,
+                            versionNumber: version.number,
+                            oven: oven
+                        )
+                        await viewModel.load()
+                        onReload()
+                    }
+                }
                 .sheet(isPresented: $showEdit) {
                     let version = displayedVersion(recipe)
                     RecipeEditSheet(
@@ -197,11 +220,20 @@ struct RecipeDetailView: View {
                 modifiedIngredients: modifiedIngredients(focus, previous: previous),
                 modifiedSteps: modifiedSteps(focus, previous: previous),
                 change: focus.change,
-                why: focus.why ?? focus.originDetail
+                why: focus.why ?? focus.originDetail,
+                onEditOven: openOvenEditor
             )
         } else {
-            RecipeDetailPage(recipe: recipe)
+            RecipeDetailPage(recipe: recipe, onEditOven: openOvenEditor)
         }
+    }
+
+    /// Open the oven-profile editor, fetching the appliance's own catalogue as it
+    /// opens. The fetch is fire-and-forget: no oven, or an oven that does not
+    /// answer, simply means no prefill — the editor never waits on the appliance.
+    private func openOvenEditor() {
+        Task { assistedProfiles = (try? await OvenAPI.state())?.assisted ?? [] }
+        showOvenProfile = true
     }
 
     /// Ingredient names present in `version` but absent (by name + quantity) from
@@ -262,6 +294,13 @@ struct RecipeDetailView: View {
                         showCoffeeParameters = true
                     }
                     .accessibilityIdentifier("edit-coffee-parameters-button")
+                }
+                // Cooking only — a coffee is brewed. In the menu as well as on the
+                // section, because a dish that bakes for the first time has no
+                // section yet to edit from.
+                if recipe.type != .coffee {
+                    Button("Réglages du four", systemImage: "oven") { openOvenEditor() }
+                        .accessibilityIdentifier("edit-oven-profile-button")
                 }
                 Button(
                     recipe.warnings.isEmpty ? "Ajouter un avertissement" : "Modifier les avertissements",

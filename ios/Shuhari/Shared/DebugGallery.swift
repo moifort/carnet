@@ -56,6 +56,26 @@ struct DebugGallery: View {
             RecipeDetailGalleryScreen(recipe: Fixtures.quiche)
         case "recipe-oven-probe":
             RecipeDetailGalleryScreen(recipe: Fixtures.gigot)
+        case "oven-edit":
+            Color.clear
+                .sheet(isPresented: .constant(true)) {
+                    OvenProfileEditSheet(
+                        initial: OvenProfile(program: .convection, temperature: 180, duration: 30)
+                    ) { _ in }
+                }
+        case "oven-edit-empty":
+            Color.clear
+                .sheet(isPresented: .constant(true)) {
+                    OvenProfileEditSheet(initial: nil) { _ in }
+                }
+        case "oven-assisted":
+            Color.clear
+                .sheet(isPresented: .constant(true)) {
+                    OvenProfileEditSheet(
+                        initial: OvenProfile(program: .convection, temperature: 180, duration: 30),
+                        assisted: Fixtures.assistedProfiles
+                    ) { _ in }
+                }
         case "recipe-thermomix":
             RecipeDetailGalleryScreen(recipe: Fixtures.risotto)
         case "recipe-coffee":

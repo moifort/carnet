@@ -448,6 +448,23 @@ and `DishCategory` do.
 **A dish that never bakes renders nothing** — no empty section, no "Aucun four" row. The absence
 of a profile is the information, the same rule the coffee blocks follow.
 
+### Editing it
+
+`OvenProfileEditSheet` wraps `OvenProfileForm` and saves through `updateOvenProfile` — **in
+place, no version created**, exactly as `updateCoffeeParameters` corrects a coffee. Correcting a
+temperature you read wrong is not an iteration on the recipe.
+
+The form's first row is a **"Cuisson au four" toggle**, and turning it off is a real answer: it
+saves `nil`, which clears the profile. That is why the editor is also reachable from the more menu
+and not only from the section's "Modifier" — a dish that bakes for the first time has no section
+to edit from yet.
+
+"Partir d'un profil du four" lists the appliance's own catalogue and **copies** the entry's
+values into the form. Nothing keeps a reference to it. The catalogue is fetched fire-and-forget as
+the sheet opens: no oven, or an oven that does not answer, simply means no prefill button — the
+editor never waits on an appliance. **Attach that `.sheet` to the button, not to the enclosing
+`Section`**: inside a `Form`, a presentation modifier on a `Section` never fires.
+
 ## Error reporting — Sentry
 
 `ShuhariApp.init()` calls `SentrySDK.start` (right after `FirebaseApp.configure()`) with a

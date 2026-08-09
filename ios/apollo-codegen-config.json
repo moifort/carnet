@@ -8,6 +8,7 @@
       "Shuhari/Features/Execution/GraphQL/*.graphql",
       "Shuhari/Features/Proposal/GraphQL/*.graphql",
       "Shuhari/Features/Import/GraphQL/*.graphql",
+      "Shuhari/Features/Oven/GraphQL/*.graphql",
       "Shuhari/Features/Settings/GraphQL/*.graphql",
       "Shuhari/Features/Quota/GraphQL/*.graphql",
       "Shuhari/Features/Subscription/GraphQL/*.graphql"

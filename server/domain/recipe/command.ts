@@ -1,6 +1,7 @@
 import type { WriteBatch } from 'firebase-admin/firestore'
 import { lastWorkedOn, methodMatchesType, nextVersionNumber } from '~/domain/recipe/business-rules'
 import type { CoffeeParameters } from '~/domain/recipe/content/coffee'
+import type { OvenProfile } from '~/domain/recipe/content/oven'
 import type { VersionContent } from '~/domain/recipe/content/types'
 import * as repository from '~/domain/recipe/infrastructure/repository'
 import { randomRecipeId, VersionNumber } from '~/domain/recipe/primitives'
@@ -307,6 +308,37 @@ export namespace RecipeCommand {
       await repository.saveVersion(updated, batch)
       await repository.save(updatedRecipe, batch)
       await teachVocabulary(userId, content, batch)
+      return updated
+    })
+  }
+
+  // Correct one cooked version's oven settings in place — a temperature read wrong,
+  // a duration the source never stated. The counterpart of
+  // `updateCoffeeParameters`: no version is created, because fixing what the recipe
+  // ALWAYS said is not an iteration. Deliberately full-replacement, and `undefined`
+  // clears the profile: a dish reclassified as never baking loses it outright rather
+  // than keeping a hollow one.
+  export const updateOvenProfile = async (
+    userId: UserId,
+    recipeId: RecipeId,
+    versionNumber: VersionNumberT,
+    oven: OvenProfile | undefined,
+  ): Promise<RecipeVersion | 'not-found' | 'not-a-cooked-recipe'> => {
+    const recipe = await repository.findBy(userId, recipeId)
+    if (!recipe) return 'not-found' as const
+    const lineage = await repository.findVersionsOf(recipeId)
+    const version = lineage.find((candidate) => candidate.number === versionNumber)
+    if (!version) return 'not-found' as const
+    // A coffee has no oven — it is brewed, and its dials are its parameters.
+    if (version.content.kind === 'coffee') return 'not-a-cooked-recipe' as const
+
+    const { oven: _replaced, ...rest } = version.content
+    const content: VersionContent = { ...rest, ...(oven ? { oven } : {}) }
+    const updated: RecipeVersion = { ...version, content, updatedAt: new Date() }
+    const updatedRecipe: Recipe = { ...recipe, updatedAt: lastWorkedOn(written(lineage, updated)) }
+    return atomically(async (batch) => {
+      await repository.saveVersion(updated, batch)
+      await repository.save(updatedRecipe, batch)
       return updated
     })
   }

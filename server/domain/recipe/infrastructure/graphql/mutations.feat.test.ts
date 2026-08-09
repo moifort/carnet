@@ -532,3 +532,92 @@ describe('the oven profile on a version', () => {
     expect(result.errors?.[0]?.extensions?.code).toBe('BAD_USER_INPUT')
   })
 })
+
+describe('updateOvenProfile mutation', () => {
+  const bakedQuiche = `
+    mutation {
+      createRecipe(input: {
+        type: DISH
+        category: MAIN
+        title: "Quiche fine"
+        content: { dish: {
+          ingredients: []
+          steps: ["Enfourner"]
+          oven: { program: CONVECTION, temperature: 180, duration: 40 }
+        } }
+      }) { id }
+    }
+  `
+
+  const bakedId = async () => {
+    const result = await execute(bakedQuiche)
+    expect(result.errors).toBeUndefined()
+    return (result.data as { createRecipe: { id: string } }).createRecipe.id
+  }
+
+  test('corrects the settings in place, creating no version', async () => {
+    const id = await bakedId()
+
+    const result = await execute(`
+      mutation {
+        updateOvenProfile(recipeId: "${id}", versionNumber: 1, oven: {
+          program: CONVECTION, temperature: 180, duration: 30
+        }) {
+          number
+          content { ... on DishContent { oven { duration } steps } }
+        }
+      }
+    `)
+
+    expect(result.errors).toBeUndefined()
+    expect(result.data?.updateOvenProfile).toMatchObject({
+      number: 1,
+      // The steps are untouched: correcting what the recipe always said is not
+      // iterating on it.
+      content: { oven: { duration: 30 }, steps: ['Enfourner'] },
+    })
+    expect(fake.snapshot('recipes').get(id)?.lastVersionNumber).toBe(1)
+  })
+
+  test('a null profile says the dish never bakes, and clears it outright', async () => {
+    const id = await bakedId()
+
+    const result = await execute(`
+      mutation {
+        updateOvenProfile(recipeId: "${id}", versionNumber: 1, oven: null) {
+          content { ... on DishContent { oven { temperature } } }
+        }
+      }
+    `)
+
+    expect(result.errors).toBeUndefined()
+    expect(result.data?.updateOvenProfile).toMatchObject({ content: { oven: null } })
+    const stored = fake.snapshot('recipe-versions').get(`${id}_1`)
+    expect('oven' in (stored?.content as object)).toBe(false)
+  })
+
+  test('answers NOT_A_COOKED_RECIPE on a coffee, which has no oven', async () => {
+    const created = await execute(`
+      mutation {
+        createRecipe(input: {
+          type: COFFEE
+          category: DRINK
+          method: ESPRESSO
+          title: "Espresso"
+          content: { coffee: { extraction: { grind: "Niveau 12" } } }
+        }) { id }
+      }
+    `)
+    const id = (created.data as { createRecipe: { id: string } }).createRecipe.id
+
+    const result = await execute(`
+      mutation {
+        updateOvenProfile(recipeId: "${id}", versionNumber: 1, oven: {
+          program: CONVECTION, temperature: 180
+        }) { number }
+      }
+    `)
+
+    expect(result.errors?.[0]?.extensions?.code).toBe('NOT_A_COOKED_RECIPE')
+  })
+})

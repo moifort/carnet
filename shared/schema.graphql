@@ -986,6 +986,28 @@ type Mutation {
   ): Version!
 
   """
+  Correct one cooked version’s oven settings — the temperature you read wrong, the duration the source never stated. Full replacement, in place: no version is created, and the ingredients, steps and outcome are untouched (correcting what the recipe always said is not iterating on it). **Send `oven: null` to say the dish never bakes**, which clears the profile outright rather than leaving a hollow one. Returns the updated version.
+  
+  Answers `NOT_A_COOKED_RECIPE` on a coffee, which has no oven — it has dials.
+  
+  ```graphql
+  updateOvenProfile(recipeId: "9f1c-a3b2", versionNumber: 1, oven: {
+    program: CONVECTION, temperature: 180, duration: 25
+  }) { number }
+  ```
+  """
+  updateOvenProfile(
+    """The complete new oven settings, or `null` when the dish never bakes"""
+    oven: OvenProfileInput
+
+    """Which recipe the version belongs to"""
+    recipeId: RecipeId!
+
+    """Which version to correct, e.g. `1`"""
+    versionNumber: VersionNumber!
+  ): Version!
+
+  """
   Correct one version’s rating — the verdict you mistyped, or the one you never logged. Rewrites the rating in place: no version is created, and the photo and remarks of the attempt are left untouched (unlike recordAttempt, which replaces the whole outcome). A version that had never been cooked counts as cooked from here on, and leaves the list of versions still to test. Returns the updated version.
   
   ```graphql

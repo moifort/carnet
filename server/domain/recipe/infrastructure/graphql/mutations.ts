@@ -1,12 +1,16 @@
 import { match, P } from 'ts-pattern'
 import { RecipeCommand } from '~/domain/recipe/command'
-import { CoffeeParameters as brandCoffeeParameters } from '~/domain/recipe/primitives'
+import {
+  CoffeeParameters as brandCoffeeParameters,
+  OvenProfile as brandOvenProfile,
+} from '~/domain/recipe/primitives'
 import { RecipeUseCase } from '~/domain/recipe/use-case'
 import { builder } from '~/domain/shared/graphql/builder'
 import { domainError } from '~/domain/shared/graphql/errors'
 import {
   CoffeeParametersInput,
   CreateRecipeInput,
+  OvenProfileInput,
   RecordAttemptInput,
   UpdateRecipeInput,
   versionContentInput,
@@ -296,6 +300,57 @@ builder.mutationField('updateCoffeeParameters', (t) =>
       return match(result)
         .with('not-found', domainError)
         .with('not-a-coffee', domainError)
+        .with(P.not(P.string), (version) => version)
+        .exhaustive()
+    },
+  }),
+)
+
+builder.mutationField('updateOvenProfile', (t) =>
+  t.field({
+    type: VersionType,
+    description: [
+      'Correct one cooked version’s oven settings — the temperature you read wrong, the duration ' +
+        'the source never stated. Full replacement, in place: no version is created, and the ' +
+        'ingredients, steps and outcome are untouched (correcting what the recipe always said is ' +
+        'not iterating on it). **Send `oven: null` to say the dish never bakes**, which clears ' +
+        'the profile outright rather than leaving a hollow one. Returns the updated version.',
+      '',
+      'Answers `NOT_A_COOKED_RECIPE` on a coffee, which has no oven — it has dials.',
+      '',
+      '```graphql',
+      'updateOvenProfile(recipeId: "9f1c-a3b2", versionNumber: 1, oven: {',
+      '  program: CONVECTION, temperature: 180, duration: 25',
+      '}) { number }',
+      '```',
+    ].join('\n'),
+    args: {
+      recipeId: t.arg({
+        type: 'RecipeId',
+        required: true,
+        description: 'Which recipe the version belongs to',
+      }),
+      versionNumber: t.arg({
+        type: 'VersionNumber',
+        required: true,
+        description: 'Which version to correct, e.g. `1`',
+      }),
+      oven: t.arg({
+        type: OvenProfileInput,
+        required: false,
+        description: 'The complete new oven settings, or `null` when the dish never bakes',
+      }),
+    },
+    resolve: async (_root, { recipeId, versionNumber, oven }, { userId }) => {
+      const result = await RecipeCommand.updateOvenProfile(
+        userId,
+        recipeId,
+        versionNumber,
+        oven ? brandOvenProfile(oven) : undefined,
+      )
+      return match(result)
+        .with('not-found', domainError)
+        .with('not-a-cooked-recipe', domainError)
         .with(P.not(P.string), (version) => version)
         .exhaustive()
     },
