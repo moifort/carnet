@@ -19,6 +19,9 @@ struct RecipeDetailPage: View {
     /// Opens the oven-profile editor. nil hides the section's edit action — the
     /// execution mode reads the settings, it does not rewrite them.
     var onEditOven: (() -> Void)? = nil
+    /// The connected oven's CTA. nil when this account owns no oven, and the
+    /// section then shows the settings alone.
+    var ovenStart: OvenProfileSection.Start? = nil
 
     /// Ephemeral quantity scaling of the ingredient list — lives only while the
     /// sheet is open, the stored version is never rewritten. Only the plain sheet
@@ -105,7 +108,8 @@ struct RecipeDetailPage: View {
                     duration: oven.duration.map { "\($0) min" },
                     core: oven.core.map { "\($0) °C" }
                 ),
-                onEdit: onEditOven
+                onEdit: onEditOven,
+                start: ovenStart
             )
         }
     }

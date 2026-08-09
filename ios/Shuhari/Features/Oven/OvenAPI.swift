@@ -52,4 +52,34 @@ enum OvenAPI {
             }
         )
     }
+
+    /// Start this version's cooking on the oven. What is sent is the profile the
+    /// VERSION carries — the caller passes no settings, so the oven and the
+    /// notebook can never disagree. Answers the oven's fresh state.
+    static func start(recipeId: String, version: Int) async throws -> OvenState {
+        let data = try await GraphQLHelpers.perform(
+            GraphQLClient.shared.apollo,
+            mutation: ShuhariGraphQL.StartOvenMutation(recipeId: recipeId, version: version)
+        )
+        let oven = data.startOven
+        return OvenState(
+            reachable: oven.reachable,
+            remoteControlEnabled: oven.remoteControlEnabled,
+            running: oven.running.map {
+                OvenRun(
+                    program: $0.program.map { OvenProgram(graphql: $0) },
+                    temperature: $0.temperature,
+                    remaining: $0.remaining
+                )
+            },
+            assisted: oven.assistedProfiles.map {
+                AssistedProfile(
+                    label: $0.label,
+                    program: OvenProgram(graphql: $0.program),
+                    temperature: $0.temperature,
+                    duration: $0.duration
+                )
+            }
+        )
+    }
 }

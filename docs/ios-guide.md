@@ -465,6 +465,22 @@ the sheet opens: no oven, or an oven that does not answer, simply means no prefi
 editor never waits on an appliance. **Attach that `.sheet` to the button, not to the enclosing
 `Section`**: inside a `Form`, a presentation modifier on a `Section` never fires.
 
+### Starting the cooking
+
+`OvenViewModel` loads `Query.oven` alongside the recipe. **A nil state means this account owns no
+oven, and the CTA is then absent entirely** — not disabled, not greyed: an account without an oven
+is a smaller app, not a broken one. An oven that is merely offline or refusing remote operation
+still shows the button, because pressing it is how the cook learns *why*.
+
+The CTA obeys the "a CTA that hits the network shows it" rule (`ActionIcon` spinner), and it is
+never one tap from a heating element: a `confirmationDialog` repeats the exact settings being
+sent. While the oven reports a cooking under way, the CTA is replaced by "Cuisson en cours ·
+12 min" — a second cooking is never offered.
+
+The refusals are turned into sentences in `APIError.errorDescription`, next to `QUOTA_EXHAUSTED`,
+not in the view model. `REMOTE_CONTROL_DISABLED` is the one a cook meets most often and the only
+one they can act on, so it names the path: *Réglages → Connexions*.
+
 ## Error reporting — Sentry
 
 `ShuhariApp.init()` calls `SentrySDK.start` (right after `FirebaseApp.configure()`) with a

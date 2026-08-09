@@ -230,6 +230,21 @@ enum APIError: LocalizedError {
             if codes.contains("PREMIUM_REQUIRED") {
                 return "L’import par lien est réservé à la formule Premium. Vous pouvez importer cette recette par photo ou en collant son texte."
             }
+            // The oven's refusals. REMOTE_CONTROL_DISABLED is the one a cook will
+            // meet most often, and it is the only one they can act on — so it says
+            // exactly where to go, rather than merely reporting the refusal.
+            if codes.contains("REMOTE_CONTROL_DISABLED") {
+                return "Le four refuse les commandes à distance. Active « Opération à distance » sur son écran : Réglages → Connexions."
+            }
+            if codes.contains("OVEN_OFFLINE") {
+                return "Le four ne répond pas. Vérifie qu’il est allumé et connecté au Wi-Fi."
+            }
+            if codes.contains("OVEN_BUSY") {
+                return "Le four est déjà en cuisson. Arrête-la avant d’en lancer une autre."
+            }
+            if codes.contains("NO_OVEN_PROFILE") {
+                return "Cette version n’a pas de réglages de four. Renseigne-les avant de lancer la cuisson."
+            }
             return messages.joined(separator: " — ")
         }
     }

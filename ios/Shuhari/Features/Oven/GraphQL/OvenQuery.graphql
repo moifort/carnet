@@ -15,3 +15,21 @@ query Oven {
     }
   }
 }
+
+mutation StartOven($recipeId: RecipeId!, $version: VersionNumber!) {
+  startOven(recipeId: $recipeId, version: $version) {
+    reachable
+    remoteControlEnabled
+    running {
+      program
+      temperature
+      remaining
+    }
+    assistedProfiles {
+      label
+      program
+      temperature
+      duration
+    }
+  }
+}

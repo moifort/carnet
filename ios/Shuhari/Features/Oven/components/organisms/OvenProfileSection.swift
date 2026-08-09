@@ -25,6 +25,19 @@ struct OvenProfileSection: View {
     /// Shown as the section's trailing action when the sheet can edit the profile —
     /// left out in the read-only execution mode.
     var onEdit: (() -> Void)?
+    /// The connected oven's CTA. nil when this account owns no oven, and the
+    /// section then shows the settings alone — which is all it ever showed before
+    /// an oven was connected.
+    var start: Start?
+
+    /// What it takes to start the cooking from here.
+    struct Start {
+        /// The oven's own doing, written out ("Cuisson en cours · 12 min"). nil
+        /// when it is idle.
+        var running: String?
+        var isStarting: Bool
+        var onStart: () -> Void
+    }
 
     var body: some View {
         Section {
@@ -41,6 +54,15 @@ struct OvenProfileSection: View {
             // The probe replaces the clock rather than joining it, so it reads as
             // what ends the cooking, not as one more number.
             if let core = item.core { row("Sonde", core) }
+
+            if let start {
+                OvenStartButton(
+                    summary: summary,
+                    running: start.running,
+                    isStarting: start.isStarting,
+                    onStart: start.onStart
+                )
+            }
         } header: {
             HStack {
                 Text("Four")
@@ -55,6 +77,13 @@ struct OvenProfileSection: View {
     }
 
     private var valueFont: Font { big ? .title3 : .body }
+
+    /// The profile in one line, for the confirmation dialog.
+    private var summary: String {
+        [item.program, item.temperature, item.duration, item.core.map { "sonde \($0)" }]
+            .compactMap { $0 }
+            .joined(separator: " ")
+    }
 
     private func row(_ label: String, _ value: String) -> some View {
         LabeledContent(label) {
@@ -92,6 +121,36 @@ struct OvenProfileSection: View {
                 core: "63 °C"
             ),
             onEdit: {}
+        )
+    }
+}
+
+#Preview("Four connecté") {
+    List {
+        OvenProfileSection(
+            item: .init(
+                program: "Chaleur tournante",
+                programIcon: "fan",
+                temperature: "180 °C",
+                duration: "30 min"
+            ),
+            onEdit: {},
+            start: .init(running: nil, isStarting: false, onStart: {})
+        )
+    }
+}
+
+#Preview("Cuisson en cours") {
+    List {
+        OvenProfileSection(
+            item: .init(
+                program: "Chaleur tournante",
+                programIcon: "fan",
+                temperature: "180 °C",
+                duration: "30 min"
+            ),
+            onEdit: {},
+            start: .init(running: "Cuisson en cours · 12 min", isStarting: false, onStart: {})
         )
     }
 }

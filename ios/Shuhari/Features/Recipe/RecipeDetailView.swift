@@ -26,6 +26,9 @@ struct RecipeDetailView: View {
     /// profile editor. Stays empty when no oven is connected, which simply hides
     /// the prefill — the editor works the same without it.
     @State private var assistedProfiles: [AssistedProfile] = []
+    /// The connected oven. Loaded once with the recipe; nil state means this
+    /// account owns none, and no oven CTA is rendered at all.
+    @State private var oven = OvenViewModel()
     @State private var coffeeVocabulary = CoffeeVocabulary.empty
     @State private var showWarnings = false
     @State private var showHistory = false
@@ -203,6 +206,10 @@ struct RecipeDetailView: View {
         }
         .errorAlert(favoriteError)
         .task { if viewModel.recipe == nil { await viewModel.load() } }
+        // The appliance is asked once, alongside the recipe. No oven simply means
+        // no CTA — never an error on a screen where nothing went wrong.
+        .task { await oven.load() }
+        .errorAlert(oven.error)
     }
 
     /// The recipe sheet, focused on a version when `focusVersionNumber` is set (attempt
@@ -221,11 +228,39 @@ struct RecipeDetailView: View {
                 modifiedSteps: modifiedSteps(focus, previous: previous),
                 change: focus.change,
                 why: focus.why ?? focus.originDetail,
-                onEditOven: openOvenEditor
+                onEditOven: openOvenEditor,
+                ovenStart: ovenStart(recipe)
             )
         } else {
-            RecipeDetailPage(recipe: recipe, onEditOven: openOvenEditor)
+            RecipeDetailPage(
+                recipe: recipe,
+                onEditOven: openOvenEditor,
+                ovenStart: ovenStart(recipe)
+            )
         }
+    }
+
+    /// What the oven section offers, or nil when this account owns no oven — the
+    /// settings then read as plain notes, which is what they were before an oven
+    /// was ever connected.
+    private func ovenStart(_ recipe: Recipe) -> OvenProfileSection.Start? {
+        guard oven.isAvailable else { return nil }
+        let version = displayedVersion(recipe)
+        return OvenProfileSection.Start(
+            running: runningLabel,
+            isStarting: oven.isStarting,
+            onStart: {
+                Task { await oven.start(recipeId: recipeId, version: version.number) }
+            }
+        )
+    }
+
+    /// What the oven is already doing, written out. The remaining minutes ride
+    /// along when the oven counts them; a probe cook has none to report.
+    private var runningLabel: String? {
+        guard let running = oven.state?.running else { return nil }
+        guard let remaining = running.remaining else { return "Cuisson en cours" }
+        return "Cuisson en cours · \(remaining) min"
     }
 
     /// Open the oven-profile editor, fetching the appliance's own catalogue as it

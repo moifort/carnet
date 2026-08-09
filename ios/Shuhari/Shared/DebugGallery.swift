@@ -76,6 +76,12 @@ struct DebugGallery: View {
                         assisted: Fixtures.assistedProfiles
                     ) { _ in }
                 }
+        case "oven-start":
+            OvenSectionGalleryScreen(running: nil)
+        case "oven-running":
+            OvenSectionGalleryScreen(running: "Cuisson en cours · 12 min")
+        case "oven-starting":
+            OvenSectionGalleryScreen(running: nil, isStarting: true)
         case "recipe-thermomix":
             RecipeDetailGalleryScreen(recipe: Fixtures.risotto)
         case "recipe-coffee":
@@ -343,6 +349,32 @@ private struct QuotaGalleryScreen: View {
 /// The full recipe sheet coordinator (`RecipeDetailView`) over a fixture, so the
 /// gallery can exercise the floating action bar and its sheets offline. Owns the
 /// navigation path the coordinator writes into.
+/// The oven section as the recipe sheet renders it once an oven is connected —
+/// the settings plus the CTA, in its three states. Offline, hands-on: no server.
+private struct OvenSectionGalleryScreen: View {
+    var running: String?
+    var isStarting = false
+
+    var body: some View {
+        NavigationStack {
+            List {
+                OvenProfileSection(
+                    item: .init(
+                        program: "Chaleur tournante",
+                        programIcon: "fan",
+                        temperature: "180 °C",
+                        duration: "30 min"
+                    ),
+                    onEdit: {},
+                    start: .init(running: running, isStarting: isStarting, onStart: {})
+                )
+            }
+            .navigationTitle("Quiche fine")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+}
+
 private struct RecipeDetailGalleryScreen: View {
     let recipe: Recipe
     /// When set, focuses that version (the attempt view: orange banner + change dots).
