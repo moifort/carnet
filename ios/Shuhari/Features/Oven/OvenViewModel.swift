@@ -9,8 +9,11 @@ import SwiftUI
 @Observable
 final class OvenViewModel {
     private(set) var state: OvenState?
-    private(set) var isStarting = false
     var error = ErrorPresenter()
+
+    /// True while the appliance is being asked. Read off the presenter rather than
+    /// tracked twice: two flags for one wait is one flag too many.
+    var isStarting: Bool { error.isRunning }
 
     /// Whether the recipe sheet should offer to start a cooking. An oven that does
     /// not answer, or refuses remote operation, still shows the button — pressing
@@ -28,8 +31,6 @@ final class OvenViewModel {
     /// Start the version's cooking. Reports the oven's refusal as a sentence rather
     /// than a code — `APIError` is what turns one into the other.
     func start(recipeId: String, version: Int) async {
-        isStarting = true
-        defer { isStarting = false }
         await error.run {
             self.state = try await OvenAPI.start(recipeId: recipeId, version: version)
         }
