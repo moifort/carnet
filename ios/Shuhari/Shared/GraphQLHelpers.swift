@@ -103,19 +103,37 @@ enum GraphQLHelpers {
         )
     }
 
+    /// The oven profile as its input. A dish that never bakes sends the field
+    /// ABSENT, not null: the server reads absence as "no oven cooking", and there is
+    /// no "no oven" value to spell.
+    static func ovenProfileInput(
+        _ oven: OvenProfile?
+    ) -> GraphQLNullable<ShuhariGraphQL.OvenProfileInput> {
+        guard let oven else { return .null }
+        // Apollo orders an input's parameters alphabetically, hence core → program.
+        return .some(ShuhariGraphQL.OvenProfileInput(
+            core: oven.core.map { GraphQLNullable.some($0) } ?? .null,
+            duration: oven.duration.map { GraphQLNullable.some($0) } ?? .null,
+            program: oven.program.graphQLValue,
+            temperature: oven.temperature
+        ))
+    }
+
     /// A version body as the `content` oneOf input: EXACTLY ONE arm is set,
     /// matching the recipe type — `dish` for plain-text steps, `thermomix` for
     /// steps carrying their machine settings, `coffee` for its parameters alone.
     static func versionContentInput(_ content: VersionContent) -> ShuhariGraphQL.VersionContentInput {
         switch content {
-        case .dish(let ingredients, let steps):
+        case .dish(let ingredients, let steps, let oven):
             return .dish(ShuhariGraphQL.DishContentInput(
                 ingredients: ingredients.map { ShuhariGraphQL.IngredientInput(name: $0.name, quantity: $0.quantity) },
+                oven: ovenProfileInput(oven),
                 steps: steps
             ))
-        case .thermomix(let ingredients, let steps):
+        case .thermomix(let ingredients, let steps, let oven):
             return .thermomix(ShuhariGraphQL.ThermomixContentInput(
                 ingredients: ingredients.map { ShuhariGraphQL.IngredientInput(name: $0.name, quantity: $0.quantity) },
+                oven: ovenProfileInput(oven),
                 steps: steps.map {
                     ShuhariGraphQL.ThermomixStepInput(settings: thermomixSettingsInput($0.settings), text: $0.text)
                 }

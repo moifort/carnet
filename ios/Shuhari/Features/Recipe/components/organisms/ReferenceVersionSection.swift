@@ -14,9 +14,9 @@ struct ReferenceVersionSection: View {
         if !version.steps.isEmpty {
             Section {
                 switch version.content {
-                case .dish(_, let steps):
+                case .dish(_, let steps, _):
                     StepsList(steps: steps, modified: modified)
-                case .thermomix(_, let steps):
+                case .thermomix(_, let steps, _):
                     ThermomixStepsList(steps: steps, modified: modified)
                 // A coffee has no steps at all — its dials say everything.
                 case .coffee:

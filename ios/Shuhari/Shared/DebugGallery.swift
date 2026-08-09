@@ -52,6 +52,10 @@ struct DebugGallery: View {
             }
         case "recipe":
             RecipeDetailGalleryScreen(recipe: Fixtures.bourguignon)
+        case "recipe-oven":
+            RecipeDetailGalleryScreen(recipe: Fixtures.quiche)
+        case "recipe-oven-probe":
+            RecipeDetailGalleryScreen(recipe: Fixtures.gigot)
         case "recipe-thermomix":
             RecipeDetailGalleryScreen(recipe: Fixtures.risotto)
         case "recipe-coffee":

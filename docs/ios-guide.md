@@ -433,6 +433,21 @@ anything new is always allowed — it is what teaches the next suggestion. The l
 `coffeeVocabulary` query, loaded when the sheet is opened so the sheet is not what waits on the
 network; machine and grinder fall back to the closest earlier version that carried any.
 
+## The oven section — `Features/Oven/`
+
+A cooked version that bakes carries an `OvenProfile`, and the recipe sheet renders it as its own
+section under the steps: mode, temperature, then how the cooking ends. **A probe replaces the
+timer rather than joining it** — a probe cook shows "Sonde 63 °C" and no "Durée" row at all, so
+what ends the cooking is never ambiguous.
+
+`OvenProfileSection` is primitive-first with a nested `Item` (five parameters): it receives
+strings already written in French ("180 °C", "25 min") and an SF Symbol name. The page formats;
+the section lays out. `OvenProgram` carries its own French label and icon, exactly as `BrewMethod`
+and `DishCategory` do.
+
+**A dish that never bakes renders nothing** — no empty section, no "Aucun four" row. The absence
+of a profile is the information, the same rule the coffee blocks follow.
+
 ## Error reporting — Sentry
 
 `ShuhariApp.init()` calls `SentrySDK.start` (right after `FirebaseApp.configure()`) with a

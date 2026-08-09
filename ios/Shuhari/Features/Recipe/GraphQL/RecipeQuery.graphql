@@ -1,3 +1,10 @@
+fragment OvenProfileFields on OvenProfile {
+  program
+  temperature
+  duration
+  core
+}
+
 fragment VersionContentFields on VersionContent {
   __typename
   ... on DishContent {
@@ -6,6 +13,9 @@ fragment VersionContentFields on VersionContent {
       quantity
     }
     dishSteps: steps
+    oven {
+      ...OvenProfileFields
+    }
   }
   ... on ThermomixContent {
     ingredients {
@@ -20,6 +30,9 @@ fragment VersionContentFields on VersionContent {
         speed
         reverse
       }
+    }
+    oven {
+      ...OvenProfileFields
     }
   }
   ... on CoffeeContent {

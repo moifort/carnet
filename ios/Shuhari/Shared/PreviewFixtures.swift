@@ -174,6 +174,98 @@ enum Fixtures {
         versionToOpen: bourguignonV3
     )
 
+    // MARK: - Quiche (dish that bakes — the oven profile)
+
+    static let quicheIngredients = [
+        Ingredient(name: "Pâte brisée", quantity: "1 rouleau"),
+        Ingredient(name: "Lardons", quantity: "150 g"),
+        Ingredient(name: "Crème fraîche", quantity: "20 cl"),
+        Ingredient(name: "Œufs", quantity: "3"),
+        Ingredient(name: "Gruyère râpé", quantity: "80 g"),
+    ]
+
+    static let quicheSteps = [
+        "Étaler la pâte dans le moule et la piquer.",
+        "Faire revenir les lardons, les répartir sur le fond.",
+        "Battre les œufs avec la crème, verser sur les lardons.",
+        "Parsemer de gruyère et enfourner.",
+    ]
+
+    /// The version that bakes on a timer — the ordinary case.
+    static let quicheV1 = RecipeVersion(
+        number: 1,
+        basedOn: nil,
+        change: nil,
+        why: nil,
+        originKind: .import,
+        originDetail: "Marmiton",
+        content: .dish(
+            ingredients: quicheIngredients,
+            steps: quicheSteps,
+            oven: OvenProfile(program: .convection, temperature: 180, duration: 30)
+        ),
+        tips: ["Se mange aussi bien tiède que chaude."],
+        recipeId: "quiche",
+        rating: 4,
+        remarks: "Un peu pâle sur le dessus.",
+        executedAt: date.addingTimeInterval(-86_400 * 3),
+        photoUrl: nil,
+        createdAt: date.addingTimeInterval(-86_400 * 4),
+        updatedAt: date.addingTimeInterval(-86_400 * 3)
+    )
+
+    static let quiche = Recipe(
+        id: "quiche",
+        title: "Quiche fine",
+        type: .dish,
+        category: .main,
+        favorite: false,
+        versions: [quicheV1],
+        bestRating: 4,
+        versionToOpen: quicheV1
+    )
+
+    /// The probe case: no timer at all, the cooking ends on a core temperature.
+    static let gigotV1 = RecipeVersion(
+        number: 1,
+        basedOn: nil,
+        change: nil,
+        why: nil,
+        originKind: .manual,
+        originDetail: nil,
+        content: .dish(
+            ingredients: [
+                Ingredient(name: "Gigot d’agneau", quantity: "2 kg"),
+                Ingredient(name: "Ail", quantity: "6 gousses"),
+                Ingredient(name: "Romarin", quantity: "3 branches"),
+            ],
+            steps: [
+                "Piquer le gigot d’ail et de romarin.",
+                "Enfourner avec la sonde plantée au cœur.",
+                "Laisser reposer 15 min avant de trancher.",
+            ],
+            oven: OvenProfile(program: .conventional, temperature: 160, duration: nil, core: 63)
+        ),
+        recipeId: "gigot",
+        rating: 5,
+        remarks: "Rosé parfait.",
+        executedAt: date.addingTimeInterval(-86_400),
+        photoUrl: nil,
+        createdAt: date.addingTimeInterval(-86_400 * 2),
+        updatedAt: date.addingTimeInterval(-86_400)
+    )
+
+    static let gigot = Recipe(
+        id: "gigot",
+        title: "Gigot à la sonde",
+        type: .dish,
+        category: .main,
+        favorite: false,
+        versions: [gigotV1],
+        bestRating: 5,
+        versionToOpen: gigotV1
+    )
+
     // MARK: - Risotto (thermomix, per-step machine settings)
 
     static let risottoV2 = RecipeVersion(

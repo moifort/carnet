@@ -192,6 +192,18 @@ func mapProposal(_ d: ShuhariGraphQL.ProposalFields) -> Proposal {
     )
 }
 
+/// The oven profile a cooked version bakes at → the Swift `OvenProfile`. nil stays
+/// nil: a dish that never goes in the oven has no profile, not an empty one.
+func mapOvenProfile(_ oven: ShuhariGraphQL.OvenProfileFields?) -> OvenProfile? {
+    guard let oven else { return nil }
+    return OvenProfile(
+        program: OvenProgram(graphql: oven.program),
+        temperature: oven.temperature,
+        duration: oven.duration,
+        core: oven.core
+    )
+}
+
 /// The version-body union → the Swift `VersionContent`. An unknown `__typename`
 /// (a content type the app doesn't know yet) maps to an empty dish, matching the
 /// lenient unknown-enum style in `RecipeType+GraphQL.swift`.
@@ -199,7 +211,8 @@ func mapVersionContent(_ c: ShuhariGraphQL.VersionContentFields) -> VersionConte
     if let dish = c.asDishContent {
         return .dish(
             ingredients: dish.ingredients.map { Ingredient(name: $0.name, quantity: $0.quantity) },
-            steps: dish.dishSteps
+            steps: dish.dishSteps,
+            oven: mapOvenProfile(dish.oven?.fragments.ovenProfileFields)
         )
     }
     if let thermomix = c.asThermomixContent {
@@ -215,7 +228,8 @@ func mapVersionContent(_ c: ShuhariGraphQL.VersionContentFields) -> VersionConte
                         reverse: step.settings.reverse ?? false
                     )
                 )
-            }
+            },
+            oven: mapOvenProfile(thermomix.oven?.fragments.ovenProfileFields)
         )
     }
     if let coffee = c.asCoffeeContent {

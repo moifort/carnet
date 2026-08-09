@@ -16,6 +16,9 @@ struct RecipeDetailPage: View {
     /// change card atop an attempt recipe sheet.
     var change: String? = nil
     var why: String? = nil
+    /// Opens the oven-profile editor. nil hides the section's edit action — the
+    /// execution mode reads the settings, it does not rewrite them.
+    var onEditOven: (() -> Void)? = nil
 
     /// Ephemeral quantity scaling of the ingredient list — lives only while the
     /// sheet is open, the stored version is never rewritten. Only the plain sheet
@@ -55,6 +58,9 @@ struct RecipeDetailPage: View {
             if !displayedVersion.content.stepTexts.isEmpty {
                 ReferenceVersionSection(version: displayedVersion, modified: modifiedSteps)
             }
+            // The oven the version bakes in — absent entirely on a dish that never
+            // sees one, which is most of them.
+            ovenSection
             TipsSection(tips: displayedVersion.tips)
         }
         .listSectionSpacing(5)
@@ -81,6 +87,26 @@ struct RecipeDetailPage: View {
                 .glassEffect(.regular, in: .capsule)
                 .accessibilityElement(children: .combine)
             }
+        }
+    }
+
+    // MARK: - Oven
+
+    // The oven settings, formatted here: the page is what knows how to write a
+    // temperature in French, the section only lays out already-written values.
+    @ViewBuilder
+    private var ovenSection: some View {
+        if let oven = displayedVersion.content.oven {
+            OvenProfileSection(
+                item: .init(
+                    program: oven.program.label,
+                    programIcon: oven.program.iconName,
+                    temperature: "\(oven.temperature) °C",
+                    duration: oven.duration.map { "\($0) min" },
+                    core: oven.core.map { "\($0) °C" }
+                ),
+                onEdit: onEditOven
+            )
         }
     }
 

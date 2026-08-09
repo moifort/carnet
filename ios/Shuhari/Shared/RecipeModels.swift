@@ -140,6 +140,23 @@ struct CoffeeVocabulary: Sendable, Hashable {
     static let empty = CoffeeVocabulary()
 }
 
+/// The oven settings a version bakes at. Copied out of one of the oven's own
+/// assisted-cooking profiles or set by hand, then owned by the version — nothing
+/// points back to the manufacturer's catalogue, so a recipe survives the oven
+/// renaming or dropping a dish.
+struct OvenProfile: Sendable, Hashable {
+    var program: OvenProgram
+    /// What the dial is set to, in °C.
+    var temperature: Int
+    /// How long it bakes, in minutes. nil when the probe is what ends the cooking.
+    var duration: Int?
+    /// The target at the heart of the food, in °C. nil on a plain timed cook.
+    var core: Int?
+
+    /// What a fresh profile starts from — the setting most recipes state.
+    static let blank = OvenProfile(program: .conventional, temperature: 180, duration: 30)
+}
+
 // MARK: - Version content
 
 /// A version's body, tagged by recipe type: a cooked dish carries plain-text
@@ -147,17 +164,27 @@ struct CoffeeVocabulary: Sendable, Hashable {
 /// settings, a coffee steps that each embed their extraction settings. Adding a
 /// recipe type later is one more case here.
 enum VersionContent: Sendable, Hashable {
-    case dish(ingredients: [Ingredient], steps: [String])
-    case thermomix(ingredients: [Ingredient], steps: [ThermomixStep])
+    case dish(ingredients: [Ingredient], steps: [String], oven: OvenProfile? = nil)
+    case thermomix(ingredients: [Ingredient], steps: [ThermomixStep], oven: OvenProfile? = nil)
     case coffee(parameters: CoffeeParameters)
 
     /// The ingredient list, whichever variant this is. A coffee has none: its dose,
     /// its water and its milk are parameters.
     var ingredients: [Ingredient] {
         switch self {
-        case .dish(let ingredients, _): ingredients
-        case .thermomix(let ingredients, _): ingredients
+        case .dish(let ingredients, _, _): ingredients
+        case .thermomix(let ingredients, _, _): ingredients
         case .coffee: []
+        }
+    }
+
+    /// The oven settings this version bakes at, or nil when it never goes in the
+    /// oven — a coffee never does.
+    var oven: OvenProfile? {
+        switch self {
+        case .dish(_, _, let oven): oven
+        case .thermomix(_, _, let oven): oven
+        case .coffee: nil
         }
     }
 
@@ -170,8 +197,8 @@ enum VersionContent: Sendable, Hashable {
     /// extraction settings are dropped — this is the text-only view of the method).
     var stepTexts: [String] {
         switch self {
-        case .dish(_, let steps): steps
-        case .thermomix(_, let steps): steps.map(\.text)
+        case .dish(_, let steps, _): steps
+        case .thermomix(_, let steps, _): steps.map(\.text)
         // A coffee has no gestures: it is wholly described by its parameters.
         case .coffee: []
         }
@@ -182,8 +209,8 @@ enum VersionContent: Sendable, Hashable {
     /// Thermomix step can change through its settings alone, its text untouched.
     var stepsWithSettings: [ThermomixStep] {
         switch self {
-        case .dish(_, let steps): steps.map { ThermomixStep(text: $0, settings: .plain) }
-        case .thermomix(_, let steps): steps
+        case .dish(_, let steps, _): steps.map { ThermomixStep(text: $0, settings: .plain) }
+        case .thermomix(_, let steps, _): steps
         case .coffee: []
         }
     }
