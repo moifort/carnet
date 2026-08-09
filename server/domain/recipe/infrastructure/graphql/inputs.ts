@@ -2,7 +2,7 @@ import type { VersionContent } from '~/domain/recipe/content/types'
 import { VersionContent as brandVersionContent } from '~/domain/recipe/primitives'
 import { builder } from '~/domain/shared/graphql/builder'
 import { domainError } from '~/domain/shared/graphql/errors'
-import { BrewMethodEnum, DishCategoryEnum, RecipeTypeEnum } from './enums'
+import { BrewMethodEnum, DishCategoryEnum, OvenProgramEnum, RecipeTypeEnum } from './enums'
 
 export const IngredientInput = builder.inputType('IngredientInput', {
   description:
@@ -139,6 +139,30 @@ export const CoffeeContentInput = builder.inputType('CoffeeContentInput', {
   }),
 })
 
+export const OvenProfileInput = builder.inputType('OvenProfileInput', {
+  description:
+    'The oven settings to save on this version. Send it only when the dish actually bakes, and ' +
+    'omit it entirely otherwise — there is no "no oven" value. `duration` and `core` are each ' +
+    'optional: a timed cook has a duration, a probe cook has a core target, a dish can have both.',
+  fields: (t) => ({
+    program: t.field({
+      type: OvenProgramEnum,
+      required: true,
+      description: 'The heating function, e.g. `CONVECTION`',
+    }),
+    temperature: t.field({
+      type: 'OvenTemperature',
+      required: true,
+      description: 'What the dial is set to, e.g. `180`',
+    }),
+    duration: t.field({ type: 'OvenDuration', description: 'How long it bakes, e.g. `25`' }),
+    core: t.field({
+      type: 'OvenCoreTemperature',
+      description: 'The probe target at the heart of the food, e.g. `63`',
+    }),
+  }),
+})
+
 export const DishContentInput = builder.inputType('DishContentInput', {
   description: 'The body of a cooked-dish version: its ingredient list and plain-text steps.',
   fields: (t) => ({
@@ -154,6 +178,12 @@ export const DishContentInput = builder.inputType('DishContentInput', {
       required: true,
       description:
         'The method, one instruction per step, in order, e.g. `"Fold in the egg whites"`',
+    }),
+    oven: t.field({
+      type: OvenProfileInput,
+      description:
+        'The oven settings this version bakes at, e.g. `CONVECTION` at `180` for `25` min. ' +
+        'Omit it when the dish never goes in the oven.',
     }),
   }),
 })
@@ -172,6 +202,12 @@ export const ThermomixContentInput = builder.inputType('ThermomixContentInput', 
       type: [ThermomixStepInput],
       required: true,
       description: 'The method, each step carrying its own Thermomix settings',
+    }),
+    oven: t.field({
+      type: OvenProfileInput,
+      description:
+        'The oven settings this version bakes at — a dough kneaded on the machine still ' +
+        'finishes in the oven. Omit it when it never does.',
     }),
   }),
 })
@@ -202,7 +238,7 @@ export const VersionContentInput = builder.inputType('VersionContentInput', {
 // The GraphQL layer guarantees exactly one arm is set; the fallback guards the type.
 // The raw arms (branded scalars plus the client's `null`s on absent settings) are
 // re-validated and paired by the `VersionContent` constructor.
-type ContentArm = { ingredients: unknown[]; steps: unknown[] }
+type ContentArm = { ingredients: unknown[]; steps: unknown[]; oven?: unknown }
 // The coffee arm carries parameter blocks and nothing else — no ingredient list,
 // no steps.
 type CoffeeArm = Record<string, unknown>

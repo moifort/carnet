@@ -17,6 +17,9 @@ import {
   CoffeeYield,
   IngredientName,
   IngredientQuantity,
+  OvenCoreTemperature,
+  OvenDuration,
+  OvenTemperature,
   Rating,
   RecipeId,
   RecipeTitle,
@@ -84,6 +87,30 @@ builder.scalarType('Rating', {
     'rating across a recipe’s attempts drives the version its recipe sheet opens on.',
   serialize: (value) => value as number,
   parseValue: validatedParse('Rating', Rating),
+})
+
+builder.scalarType('OvenTemperature', {
+  description:
+    'An oven temperature in °C, as a whole number from `30` to `300`, e.g. `180`. What the dial ' +
+    'is set to — not what the food reaches inside, which is an `OvenCoreTemperature`.',
+  serialize: (value) => value as number,
+  parseValue: validatedParse('OvenTemperature', OvenTemperature),
+})
+
+builder.scalarType('OvenDuration', {
+  description:
+    'A cooking time in whole minutes, from `1` to `720` (12 h), e.g. `25`. Absent on a dish ' +
+    'whose probe is what decides it is done.',
+  serialize: (value) => value as number,
+  parseValue: validatedParse('OvenDuration', OvenDuration),
+})
+
+builder.scalarType('OvenCoreTemperature', {
+  description:
+    'The target temperature at the heart of the food, read by the oven’s probe, in °C from `30` ' +
+    'to `100`, e.g. `63` for a pink leg of lamb. Absent on a plain timed cook.',
+  serialize: (value) => value as number,
+  parseValue: validatedParse('OvenCoreTemperature', OvenCoreTemperature),
 })
 
 builder.scalarType('IngredientName', {

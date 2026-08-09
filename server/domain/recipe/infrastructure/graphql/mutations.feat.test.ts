@@ -463,3 +463,72 @@ describe('updateCoffeeParameters mutation', () => {
     expect(result.errors?.[0]?.extensions?.code).toBe('NOT_FOUND')
   })
 })
+
+describe('the oven profile on a version', () => {
+  test('a dish saved with an oven profile reads it back', async () => {
+    const result = await execute(`
+      mutation {
+        createRecipe(input: {
+          type: DISH
+          category: MAIN
+          title: "Quiche fine"
+          content: { dish: {
+            ingredients: [{ name: "Pâte brisée", quantity: "1 rouleau" }]
+            steps: ["Enfourner"]
+            oven: { program: CONVECTION, temperature: 180, duration: 30 }
+          } }
+        }) {
+          versionToOpen { content { ... on DishContent { oven { program temperature duration core } } } }
+        }
+      }
+    `)
+
+    expect(result.errors).toBeUndefined()
+    expect(result.data?.createRecipe).toMatchObject({
+      versionToOpen: {
+        content: {
+          oven: { program: 'CONVECTION', temperature: 180, duration: 30, core: null },
+        },
+      },
+    })
+  })
+
+  test('a dish that never bakes reads back no profile at all', async () => {
+    const result = await execute(`
+      mutation {
+        createRecipe(input: {
+          type: DISH
+          category: STARTER
+          title: "Salade"
+          content: { dish: { ingredients: [], steps: ["Mélanger"] } }
+        }) {
+          versionToOpen { content { ... on DishContent { oven { program } } } }
+        }
+      }
+    `)
+
+    expect(result.errors).toBeUndefined()
+    expect(result.data?.createRecipe).toMatchObject({
+      versionToOpen: { content: { oven: null } },
+    })
+  })
+
+  test('refuses a temperature no oven can reach, as bad input', async () => {
+    const result = await execute(`
+      mutation {
+        createRecipe(input: {
+          type: DISH
+          category: MAIN
+          title: "Gratin"
+          content: { dish: {
+            ingredients: []
+            steps: ["Enfourner"]
+            oven: { program: CONVECTION, temperature: 900 }
+          } }
+        }) { id }
+      }
+    `)
+
+    expect(result.errors?.[0]?.extensions?.code).toBe('BAD_USER_INPUT')
+  })
+})

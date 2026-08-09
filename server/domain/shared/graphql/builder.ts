@@ -18,6 +18,9 @@ import type {
   CoffeeYield,
   IngredientName,
   IngredientQuantity,
+  OvenCoreTemperature,
+  OvenDuration,
+  OvenTemperature,
   Rating,
   RecipeId,
   RecipeTitle,
@@ -58,6 +61,9 @@ export const builder = new SchemaBuilder<{
     RecipeTitle: { Input: RecipeTitle; Output: RecipeTitle }
     VersionNumber: { Input: VersionNumber; Output: VersionNumber }
     Rating: { Input: Rating; Output: Rating }
+    OvenTemperature: { Input: OvenTemperature; Output: OvenTemperature }
+    OvenDuration: { Input: OvenDuration; Output: OvenDuration }
+    OvenCoreTemperature: { Input: OvenCoreTemperature; Output: OvenCoreTemperature }
     IngredientName: { Input: IngredientName; Output: IngredientName }
     IngredientQuantity: { Input: IngredientQuantity; Output: IngredientQuantity }
     StepText: { Input: StepText; Output: StepText }

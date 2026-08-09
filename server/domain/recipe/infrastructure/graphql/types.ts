@@ -9,6 +9,7 @@ import {
   restDays,
 } from '~/domain/recipe/content/coffee'
 import type { DishContent } from '~/domain/recipe/content/dish'
+import type { OvenProfile } from '~/domain/recipe/content/oven'
 import type { ThermomixContent, ThermomixStep } from '~/domain/recipe/content/thermomix'
 import type { VersionContent } from '~/domain/recipe/content/types'
 import type { RecipeLibraryPage } from '~/domain/recipe/query'
@@ -21,7 +22,13 @@ import type {
   ThermomixSettings,
   VersionNumber,
 } from '../../types'
-import { BrewMethodEnum, DishCategoryEnum, RecipeTypeEnum, VersionOriginKindEnum } from './enums'
+import {
+  BrewMethodEnum,
+  DishCategoryEnum,
+  OvenProgramEnum,
+  RecipeTypeEnum,
+  VersionOriginKindEnum,
+} from './enums'
 
 export const IngredientType = builder.objectRef<Ingredient>('Ingredient').implement({
   description:
@@ -74,6 +81,36 @@ export const ThermomixSettingsType = builder
     }),
   })
 
+export const OvenProfileType = builder.objectRef<OvenProfile>('OvenProfile').implement({
+  description:
+    'The oven settings a version bakes at: the heating function, the dial temperature, and how ' +
+    'the cooking ends — a timer, a probe target, or both. Copied out of the oven’s own ' +
+    'assisted-cooking catalogue or set by hand, then owned by the version, so it stays ' +
+    'reproducible whatever the oven does with its own profiles afterwards.',
+  fields: (t) => ({
+    program: t.field({
+      type: OvenProgramEnum,
+      description: 'The heating function, e.g. `CONVECTION`',
+      resolve: (p) => p.program,
+    }),
+    temperature: t.expose('temperature', {
+      type: 'OvenTemperature',
+      description: 'What the dial is set to, e.g. `180`',
+    }),
+    duration: t.expose('duration', {
+      type: 'OvenDuration',
+      nullable: true,
+      description: 'How long it bakes, in minutes, e.g. `25`. `null` when the probe decides.',
+    }),
+    core: t.expose('core', {
+      type: 'OvenCoreTemperature',
+      nullable: true,
+      description:
+        'The probe target at the heart of the food, e.g. `63`. `null` when there is no probe.',
+    }),
+  }),
+})
+
 export const DishContentType = builder.objectRef<DishContent>('DishContent').implement({
   description:
     'The body of a cooked-dish version: its ingredient list and its plain-text method (no ' +
@@ -90,6 +127,14 @@ export const DishContentType = builder.objectRef<DishContent>('DishContent').imp
       type: ['StepText'],
       description:
         'The method, one short instruction per step, in order, e.g. `"Fold in the egg whites"`',
+    }),
+    oven: t.field({
+      type: OvenProfileType,
+      nullable: true,
+      description:
+        'The oven settings this version bakes at, e.g. `CONVECTION` at `180` for `25` min. ' +
+        '`null` when the dish never goes in the oven.',
+      resolve: (c) => c.oven ?? null,
     }),
   }),
 })
@@ -129,6 +174,14 @@ export const ThermomixContentType = builder
         type: [ThermomixStepType],
         description: 'The method, each step carrying its own Thermomix settings',
         resolve: (c) => c.steps,
+      }),
+      oven: t.field({
+        type: OvenProfileType,
+        nullable: true,
+        description:
+          'The oven settings this version bakes at — a dough kneaded on the machine still ' +
+          'finishes in the oven. `null` when it never does.',
+        resolve: (c) => c.oven ?? null,
       }),
     }),
   })

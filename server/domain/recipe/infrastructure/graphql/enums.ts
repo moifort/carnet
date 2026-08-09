@@ -65,6 +65,35 @@ export const DishCategoryEnum = builder.enumType('DishCategory', {
   } as const,
 })
 
+export const OvenProgramEnum = builder.enumType('OvenProgram', {
+  description:
+    'An oven heating function — what the dial selects, e.g. `CONVECTION`. Model-independent: a ' +
+    'connected oven’s own codes are mapped behind the scenes, so a recipe survives a change of ' +
+    'oven.',
+  values: {
+    CONVENTIONAL: {
+      value: 'conventional',
+      description: 'Top and bottom heat, no fan — what a recipe book means by "oven at 180°C"',
+    },
+    CONVECTION: { value: 'convection', description: 'Fan-assisted hot air, e.g. for a quiche' },
+    CONVECTION_HUMID: {
+      value: 'convection-humid',
+      description: 'Fan-assisted with added humidity, e.g. for a moist cake',
+    },
+    TOP_HEAT: { value: 'top-heat', description: 'Top element only, e.g. to finish a gratin' },
+    BOTTOM_HEAT: { value: 'bottom-heat', description: 'Bottom element only, e.g. to dry a base' },
+    GRILL: { value: 'grill', description: 'Grill element, e.g. to brown a top' },
+    TURBO_GRILL: {
+      value: 'turbo-grill',
+      description: 'Grill plus fan, e.g. for a roast chicken',
+    },
+    PIZZA: { value: 'pizza', description: 'Bottom-biased heat, for a crisp base' },
+    STEAM: { value: 'steam', description: 'Steam only, e.g. for vegetables' },
+    STEAM_COMBI: { value: 'steam-combi', description: 'Steam plus hot air, e.g. for bread' },
+    DEFROST: { value: 'defrost', description: 'Fan without heat' },
+  } as const,
+})
+
 export const RecipeSortEnum = builder.enumType('RecipeSort', {
   description: 'Field the paginated recipe library is ordered by, e.g. `UPDATED_AT`',
   values: {

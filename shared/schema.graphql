@@ -486,6 +486,11 @@ type DishContent {
   ingredients: [Ingredient!]!
 
   """
+  The oven settings this version bakes at, e.g. `CONVECTION` at `180` for `25` min. `null` when the dish never goes in the oven.
+  """
+  oven: OvenProfile
+
+  """
   The method, one short instruction per step, in order, e.g. `"Fold in the egg whites"`
   """
   steps: [StepText!]!
@@ -499,6 +504,11 @@ input DishContentInput {
   The ingredient list, in order, e.g. `"Flour — 250 g"` then `"Eggs — 3"` (send `[]` when the recipe has nothing measurable)
   """
   ingredients: [IngredientInput!]!
+
+  """
+  The oven settings this version bakes at, e.g. `CONVECTION` at `180` for `25` min. Omit it when the dish never goes in the oven.
+  """
+  oven: OvenProfileInput
 
   """
   The method, one instruction per step, in order, e.g. `"Fold in the egg whites"`
@@ -1019,6 +1029,99 @@ type Mutation {
 }
 
 """
+The target temperature at the heart of the food, read by the oven’s probe, in °C from `30` to `100`, e.g. `63` for a pink leg of lamb. Absent on a plain timed cook.
+"""
+scalar OvenCoreTemperature
+
+"""
+A cooking time in whole minutes, from `1` to `720` (12 h), e.g. `25`. Absent on a dish whose probe is what decides it is done.
+"""
+scalar OvenDuration
+
+"""
+The oven settings a version bakes at: the heating function, the dial temperature, and how the cooking ends — a timer, a probe target, or both. Copied out of the oven’s own assisted-cooking catalogue or set by hand, then owned by the version, so it stays reproducible whatever the oven does with its own profiles afterwards.
+"""
+type OvenProfile {
+  """
+  The probe target at the heart of the food, e.g. `63`. `null` when there is no probe.
+  """
+  core: OvenCoreTemperature
+
+  """
+  How long it bakes, in minutes, e.g. `25`. `null` when the probe decides.
+  """
+  duration: OvenDuration
+
+  """The heating function, e.g. `CONVECTION`"""
+  program: OvenProgram!
+
+  """What the dial is set to, e.g. `180`"""
+  temperature: OvenTemperature!
+}
+
+"""
+The oven settings to save on this version. Send it only when the dish actually bakes, and omit it entirely otherwise — there is no "no oven" value. `duration` and `core` are each optional: a timed cook has a duration, a probe cook has a core target, a dish can have both.
+"""
+input OvenProfileInput {
+  """The probe target at the heart of the food, e.g. `63`"""
+  core: OvenCoreTemperature
+
+  """How long it bakes, e.g. `25`"""
+  duration: OvenDuration
+
+  """The heating function, e.g. `CONVECTION`"""
+  program: OvenProgram!
+
+  """What the dial is set to, e.g. `180`"""
+  temperature: OvenTemperature!
+}
+
+"""
+An oven heating function — what the dial selects, e.g. `CONVECTION`. Model-independent: a connected oven’s own codes are mapped behind the scenes, so a recipe survives a change of oven.
+"""
+enum OvenProgram {
+  """Bottom element only, e.g. to dry a base"""
+  BOTTOM_HEAT
+
+  """Fan-assisted hot air, e.g. for a quiche"""
+  CONVECTION
+
+  """Fan-assisted with added humidity, e.g. for a moist cake"""
+  CONVECTION_HUMID
+
+  """
+  Top and bottom heat, no fan — what a recipe book means by "oven at 180°C"
+  """
+  CONVENTIONAL
+
+  """Fan without heat"""
+  DEFROST
+
+  """Grill element, e.g. to brown a top"""
+  GRILL
+
+  """Bottom-biased heat, for a crisp base"""
+  PIZZA
+
+  """Steam only, e.g. for vegetables"""
+  STEAM
+
+  """Steam plus hot air, e.g. for bread"""
+  STEAM_COMBI
+
+  """Top element only, e.g. to finish a gratin"""
+  TOP_HEAT
+
+  """Grill plus fan, e.g. for a roast chicken"""
+  TURBO_GRILL
+}
+
+"""
+An oven temperature in °C, as a whole number from `30` to `300`, e.g. `180`. What the dial is set to — not what the food reaches inside, which is an `OvenCoreTemperature`.
+"""
+scalar OvenTemperature
+
+"""
 What a cook is entitled to. The notebook itself is free and unlimited — the plan only decides how much AI comes with it.
 """
 enum Plan {
@@ -1454,6 +1557,11 @@ type ThermomixContent {
   """The full ingredient list, in order (empty list when it has none)"""
   ingredients: [Ingredient!]!
 
+  """
+  The oven settings this version bakes at — a dough kneaded on the machine still finishes in the oven. `null` when it never does.
+  """
+  oven: OvenProfile
+
   """The method, each step carrying its own Thermomix settings"""
   steps: [ThermomixStep!]!
 }
@@ -1464,6 +1572,11 @@ The body of a Thermomix version: its ingredient list and its steps, each carryin
 input ThermomixContentInput {
   """The ingredient list, in order (send `[]` when the recipe has none)"""
   ingredients: [IngredientInput!]!
+
+  """
+  The oven settings this version bakes at — a dough kneaded on the machine still finishes in the oven. Omit it when it never does.
+  """
+  oven: OvenProfileInput
 
   """The method, each step carrying its own Thermomix settings"""
   steps: [ThermomixStepInput!]!

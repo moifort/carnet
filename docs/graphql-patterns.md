@@ -98,6 +98,13 @@ builder.scalarType('RecipeId', {
 
 Adding a new scalar: declare it in the `Scalars` map (builder.ts) and register it (scalars.ts).
 
+**A bounded number is a scalar too, never a bare `Int`.** `Rating` (1..5) and the three oven dials
+(`OvenTemperature` 30..300, `OvenDuration` 1..720, `OvenCoreTemperature` 30..100) all carry their
+range in the type, checked once at the boundary: a client sending `900` gets `BAD_USER_INPUT` from
+the scalar, not a resolver assertion further in. The exception is a value the *appliance* reports
+rather than the cook writing it — `OvenRun` exposes plain `Int`s, because a stray reading must not
+fail the query that only meant to display it.
+
 ## Object Types back domain models
 
 Pothos objects reference domain types as backing models via `objectRef<T>` — no type
