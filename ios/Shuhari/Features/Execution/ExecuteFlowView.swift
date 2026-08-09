@@ -1,16 +1,25 @@
 import SwiftUI
 
-/// The execution flow: capture → record → next step.
+/// The single flow behind the recipe sheet's play CTA: capture → what the form says
+/// → next step. One page collects everything the cook has to say about the displayed
+/// version — the note, the remark, the photo, the tips — and what is filled decides
+/// where it goes, at most one AI request per validation:
 ///
-/// Where the cook lands depends on the remark. A blank remark asks for nothing: the
-/// rating (and photo) is recorded on the version cooked, and the flow ends. A written
-/// remark asks the AI for the next version to try, and the cook goes with it — it is
-/// recorded on the version the accepted proposal creates, leaving the version cooked
-/// untouched. Nothing is saved before that: closing the proposal saves nothing.
+/// - **the note alone** is a cook that asks for nothing: it is recorded on the version
+///   shown, and the flow ends;
+/// - **a remark** asks the AI for the next version to try. Rated, the cook rides along
+///   and is recorded on the version the accepted proposal creates, leaving the one
+///   cooked untouched; unrated, it is an improvement asked with no cook behind it, and
+///   the version it creates simply lands on the to-cook list. Tips typed beside the
+///   remark are carried into the proposed version, where they stay editable;
+/// - **tips alone** are reworded and merged into the displayed version's own — in
+///   place, no version created. A note typed with them is recorded first, on its own.
 ///
-/// Presented as a half-screen `.sheet` from the recipe sheet's record CTA — the sheet
-/// already shows the recipe, so the flow opens straight on the attempt capture. On
-/// completion it dismisses and asks the caller to refresh.
+/// Nothing is saved before the proposal is accepted: closing it saves nothing.
+///
+/// Presented as a `.sheet` from the recipe sheet — the sheet already shows the recipe,
+/// so the flow opens straight on the capture. On completion it dismisses and asks the
+/// caller to refresh.
 struct ExecuteFlowView: View {
     let request: ExecutionRequest
     let onFinished: () -> Void
@@ -22,13 +31,19 @@ struct ExecuteFlowView: View {
 
     @State private var path: [Step] = []
     @State private var isSaving = false
-    @State private var analyzing = false
-    @State private var detent: PresentationDetent = .medium
+    /// What the AI is doing, while it is doing it — nil when nothing is running.
+    @State private var thinking: String?
+    /// Opens on the capture height, grows to `.large` for whichever proposal follows.
+    @State private var detent: PresentationDetent = Self.capture
     @State private var errorPresenter = ErrorPresenter()
     /// The ephemeral AI proposal, held in memory while the `.proposal` step is shown.
     @State private var proposal: Proposal?
+    /// The ephemeral merged tips list, held in memory while the `.tips` step is shown.
+    @State private var proposedTips: [String] = []
+    @State private var isSavingTips = false
     /// The cook that asked for that proposal — held here, unwritten, until the
-    /// proposal is accepted and it lands on the version it created.
+    /// proposal is accepted and it lands on the version it created. Nil when the
+    /// remark was written with no note: there is no cook to carry.
     @State private var pendingAttempt: Attempt?
     /// What the coffee form suggests. Loaded alongside the proposal, and left empty
     /// on anything that is not a coffee — or if the load fails, which costs
@@ -37,12 +52,19 @@ struct ExecuteFlowView: View {
     @State private var isAcceptingProposal = false
     @State private var isCreatingRecipe = false
 
-    /// The only push the flow makes: the capture is the root, the proposal follows it.
-    private enum Step: Hashable { case proposal }
+    /// The capture is the root; whichever proposal the form asked for follows it.
+    private enum Step: Hashable { case proposal, tips }
+
+    /// The height the form opens at — 70% of the screen: the note, the remark with
+    /// its photos and the tips field are all in view (the last footer takes a nudge
+    /// of scroll), while the recipe still shows behind. Neither stock detent does
+    /// that: `.medium` opens on the remark alone, `.large` covers the recipe the
+    /// form is talking about.
+    private static let capture = PresentationDetent.fraction(0.7)
 
     var body: some View {
         flow
-            .presentationDetents([.medium, .large], selection: $detent)
+            .presentationDetents([Self.capture, .large], selection: $detent)
             .presentationDragIndicator(.visible)
     }
 
@@ -70,7 +92,7 @@ struct ExecuteFlowView: View {
             }
         }
         .task { await load() }
-        .overlay { if analyzing { AIThinkingCard(message: "L’IA analyse tes remarques…") } }
+        .overlay { if let thinking { AIThinkingCard(message: thinking) } }
         .errorAlert(errorPresenter)
     }
 
@@ -120,12 +142,20 @@ struct ExecuteFlowView: View {
                     )
                 }
             }
+        case .tips:
+            TipsProposalPage(
+                proposedTips: proposedTips,
+                baseTips: recipe.version(request.versionNumber)?.tips ?? [],
+                isWorking: isSavingTips,
+                onClose: { finish() },
+                onValidate: { edited in Task { await saveTips(edited) } }
+            )
         }
     }
 
     private var captureScreen: some View {
-        CapturePage(isSaving: isSaving) { rating, remarks, photo in
-            Task { await save(rating: rating, remarks: remarks, photo: photo) }
+        CapturePage(isSaving: isSaving) { rating, remarks, tips, photo in
+            Task { await submit(rating: rating, remarks: remarks, tips: tips, photo: photo) }
         }
     }
 
@@ -140,27 +170,52 @@ struct ExecuteFlowView: View {
         }
     }
 
-    // A written remark is the request to iterate: nothing is recorded here, the cook
-    // rides along to the proposal and lands on the version it creates. A blank remark
-    // is a cook that asks for nothing — it goes straight onto the version cooked.
-    private func save(rating: Int, remarks: String, photo: String?) async {
-        guard !remarks.isEmpty else {
-            await recordBareAttempt(rating: rating, photo: photo)
-            return
+    /// The one router of the flow: what the form says decides what is asked, and a
+    /// remark outranks tips — asking for the next version is the bigger move, and the
+    /// tips typed with it travel into that version rather than costing a second call.
+    private func submit(rating: Int?, remarks: String, tips: String, photo: String?) async {
+        if !remarks.isEmpty {
+            await requestNextVersion(rating: rating, remarks: remarks, tips: tips, photo: photo)
+        } else if !tips.isEmpty {
+            await requestTips(rating: rating, tips: tips, photo: photo)
+        } else if let rating {
+            if await recordAttempt(rating: rating, photo: photo) { finish() }
         }
-        pendingAttempt = Attempt(rating: rating, remarks: remarks, photoBase64: photo)
+    }
+
+    // A written remark is the request to iterate: nothing is recorded here, the cook
+    // rides along to the proposal and lands on the version it creates. Unrated, the
+    // remark is an improvement asked with no cook behind it — same ephemeral proposal,
+    // nothing to carry.
+    private func requestNextVersion(rating: Int?, remarks: String, tips: String, photo: String?) async {
+        pendingAttempt = rating.map { Attempt(rating: $0, remarks: remarks, photoBase64: photo) }
         // Grow first so the Siri loader fills the sheet.
         detent = .large
-        analyzing = true
-        defer { analyzing = false }
+        thinking = "L’IA imagine la prochaine version…"
+        defer { thinking = nil }
         do {
-            proposal = try await ExecutionAPI.requestProposal(
-                recipeId: request.recipeId,
-                versionNumber: request.versionNumber,
-                rating: rating,
-                remarks: remarks
-            )
-            if proposal?.content.coffeeParameters != nil {
+            var next: Proposal
+            if let rating {
+                next = try await ExecutionAPI.requestProposal(
+                    recipeId: request.recipeId,
+                    versionNumber: request.versionNumber,
+                    rating: rating,
+                    remarks: remarks
+                )
+            } else {
+                next = try await ProposalAPI.requestImprovement(
+                    recipeId: request.recipeId,
+                    versionNumber: request.versionNumber,
+                    improvement: remarks
+                )
+            }
+            // Advice typed beside the remark is not a change to make: it joins the
+            // tips of the version being proposed, verbatim and editable there.
+            if !tips.isEmpty {
+                next.tips.append(tips)
+            }
+            proposal = next
+            if next.content.coffeeParameters != nil {
                 vocabulary = (try? await RecipeAPI.coffeeVocabulary()) ?? .empty
             }
             path.append(.proposal)
@@ -169,7 +224,48 @@ struct ExecuteFlowView: View {
         }
     }
 
-    private func recordBareAttempt(rating: Int, photo: String?) async {
+    // Tips with no remark ask for nothing new: the AI rewords and merges them into the
+    // displayed version's own. A note typed with them is a cook of its own and is
+    // written first — the tips proposal that follows can be closed without losing it.
+    private func requestTips(rating: Int?, tips: String, photo: String?) async {
+        if let rating {
+            guard await recordAttempt(rating: rating, photo: photo) else { return }
+        }
+        // Grow first so the Siri loader fills the sheet.
+        detent = .large
+        thinking = "L’IA met en forme vos conseils…"
+        defer { thinking = nil }
+        do {
+            proposedTips = try await ProposalAPI.requestTips(
+                recipeId: request.recipeId,
+                versionNumber: request.versionNumber,
+                tips: tips
+            )
+            path.append(.tips)
+        } catch {
+            errorPresenter.message = reportError(error)
+        }
+    }
+
+    /// Accepting replaces the displayed version's tips — no version is created.
+    private func saveTips(_ tips: [String]) async {
+        isSavingTips = true
+        defer { isSavingTips = false }
+        do {
+            try await ProposalAPI.updateTips(
+                recipeId: request.recipeId,
+                versionNumber: request.versionNumber,
+                tips: tips
+            )
+            finish()
+        } catch {
+            errorPresenter.message = reportError(error)
+        }
+    }
+
+    /// Write the cook on the version shown. Answers whether it went through, so a
+    /// caller with more to do stops on a failure the error alert already reports.
+    private func recordAttempt(rating: Int, photo: String?) async -> Bool {
         isSaving = true
         defer { isSaving = false }
         do {
@@ -179,19 +275,18 @@ struct ExecuteFlowView: View {
                 rating: rating,
                 photoBase64: photo
             )
-            finish()
+            return true
         } catch {
             errorPresenter.message = reportError(error)
+            return false
         }
     }
 
     // Accepting is what writes the cook down: it lands on the version being created,
     // and the version it iterates on stays as it was. Closing the proposal instead
-    // records nothing at all.
+    // records nothing at all. A remark written with no note behind it carries no cook
+    // at all — the version it appends is one to test.
     private func acceptProposal(_ edited: ProposalEdit) async {
-        // Always set: the `.proposal` step is only ever reached through `save` with
-        // remarks, which stores the cook before asking the AI.
-        guard let pendingAttempt else { return }
         isAcceptingProposal = true
         defer { isAcceptingProposal = false }
         do {

@@ -76,13 +76,20 @@ struct DebugGallery: View {
             RecipeDetailGalleryScreen(recipe: Fixtures.bourguignon, focusVersionNumber: 3)
         case "attempt-pending":
             RecipeDetailGalleryScreen(recipe: Fixtures.bourguignon, focusVersionNumber: 4)
+        // In its sheet, at the height the flow opens it — the form is only ever
+        // read through that window, so reviewing it outside of one proves nothing.
         case "capture":
-            NavigationStack {
-                CapturePage(
-                    isSaving: false,
-                    onSave: { _, _, _ in }
-                )
-            }
+            Color.clear
+                .sheet(isPresented: .constant(true)) {
+                    NavigationStack {
+                        CapturePage(
+                            isSaving: false,
+                            onSave: { _, _, _, _ in }
+                        )
+                    }
+                    .presentationDetents([.fraction(0.7), .large])
+                    .presentationDragIndicator(.visible)
+                }
         case "proposal":
             NavigationStack {
                 ProposalPage(
@@ -186,19 +193,6 @@ struct DebugGallery: View {
                         versionNumber: Fixtures.v60.versionToOpen.number,
                         initialRating: Fixtures.v60.versionToOpen.rating
                     ) { _, _, _, _ in }
-                }
-        case "improve":
-            Color.clear
-                .sheet(isPresented: .constant(true)) {
-                    ImproveFlowView(
-                        recipeId: Fixtures.bourguignon.id,
-                        version: Fixtures.bourguignonV4,
-                        nextVersionNumber: 5,
-                        recipeTitle: Fixtures.bourguignon.title,
-                        recipeType: Fixtures.bourguignon.type,
-                        category: Fixtures.bourguignon.category,
-                        onFinished: {}
-                    )
                 }
         case "viewfinder":
             ZStack {

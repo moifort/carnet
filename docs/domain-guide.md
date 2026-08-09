@@ -15,7 +15,7 @@ The rule — one business concept, one word, at every layer — is in
 [ddd-best-practices.md](./ddd-best-practices.md#ubiquitous-language--one-concept-one-word).
 Here it means: the word the functional conversation uses travels through the domain
 (`ProposalUseCase.fromImprovement`), GraphQL (`requestImprovement(improvement:)`), iOS
-(`ImproveFlowView`) and the tests identically, and the app's on-screen French is its
+(`ExecuteFlowView.requestNextVersion`) and the tests identically, and the app's on-screen French is its
 *translation*, not a second vocabulary. Two concepts that share a word get split instead
 (`attempt` — the cook — vs `proposal` — the AI's answer).
 

@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// A 5-star rating on the app's native 1–5 scale: tapping star `i` sets the rating
-/// to `i`. The rating stays an `Int?` so the domain (best rating, colour
-/// thresholds, "/5") reads it directly.
+/// to `i`, tapping it again clears it — the note is optional wherever it is asked,
+/// and a star tapped by mistake must be takeable back. The rating stays an `Int?`
+/// so the domain (best rating, colour thresholds, "/5") reads it directly.
 struct StarRating: View {
     @Binding var selection: Int?
 
@@ -13,7 +14,7 @@ struct StarRating: View {
         HStack(spacing: Theme.Spacing.s) {
             ForEach(1...5, id: \.self) { star in
                 Button {
-                    selection = star
+                    selection = selection == star ? nil : star
                 } label: {
                     Image(systemName: star <= filledStars ? "star.fill" : "star")
                         .font(.title3)

@@ -1,12 +1,16 @@
 import PhotosUI
 import SwiftUI
 
-/// Capture the attempt's feedback: a 5-star rating, then remarks and photos of the
-/// result. Validation lives in the top-right toolbar; the flow provides the close
-/// button.
+/// Everything the cook has to say about the displayed version, in one page: a 5-star
+/// rating, remarks and photos of the result, and the tips worth keeping. Each field
+/// is optional and what is filled decides what happens — the flow routes, the page
+/// only collects. Validation lives in the top-right toolbar; the flow provides the
+/// close button.
 struct CapturePage: View {
     let isSaving: Bool
-    let onSave: (_ rating: Int, _ remarks: String, _ photoBase64: String?) -> Void
+    /// Emits the whole form. The rating is optional: without it the remark is an
+    /// improvement asked with no cook behind it.
+    let onSave: (_ rating: Int?, _ remarks: String, _ tips: String, _ photoBase64: String?) -> Void
 
     /// A picked photo kept both decoded (for the thumbnail) and encoded (payload).
     private struct LoadedPhoto: Identifiable {
@@ -17,6 +21,7 @@ struct CapturePage: View {
 
     @State private var rating: Int?
     @State private var remarks: String = ""
+    @State private var tips: String = ""
     @State private var photoItems: [PhotosPickerItem] = []
     @State private var photos: [LoadedPhoto] = []
 
@@ -31,11 +36,30 @@ struct CapturePage: View {
             // Remarks and photos share one block.
             Section {
                 TextField("Ex. : trop amer, coule trop vite, manque de liant…", text: $remarks, axis: .vertical)
-                    .lineLimit(8...20)
-                    .frame(minHeight: 140, alignment: .top)
+                    .lineLimit(5...20)
+                    .frame(minHeight: 100, alignment: .top)
                     .accessibilityIdentifier("remarks-field")
 
                 photoRow
+            } footer: {
+                Text("Une remarque demande la version suivante à l’IA.")
+            }
+
+            // The advice worth keeping, which is not a change to make: it is
+            // reworded onto THIS version instead of asking for another one.
+            Section {
+                TextField(
+                    "Ex. : servir avec du riz, se congèle bien, sortir du frigo 1 h avant…",
+                    text: $tips,
+                    axis: .vertical
+                )
+                .lineLimit(3...12)
+                .frame(minHeight: 60, alignment: .top)
+                .accessibilityIdentifier("tips-field")
+            } header: {
+                Text("Conseils")
+            } footer: {
+                Text("Un conseil est retenu sur cette version, sans en créer une nouvelle.")
             }
         }
         .listSectionSpacing(.compact)
@@ -46,19 +70,28 @@ struct CapturePage: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button {
-                    guard let rating else { return }
-                    onSave(rating, remarks.trimmingCharacters(in: .whitespacesAndNewlines), photos.first?.base64)
+                    onSave(rating, trimmed(remarks), trimmed(tips), photos.first?.base64)
                 } label: {
                     ActionIcon(systemImage: "checkmark", isRunning: isSaving)
                 }
-                .disabled(rating == nil || isSaving)
+                .disabled(!hasSomethingToSay || isSaving)
                 .accessibilityIdentifier("save-attempt-button")
-                .accessibilityLabel("Enregistrer l’essai")
+                .accessibilityLabel("Valider")
             }
         }
         .onChange(of: photoItems) { _, newValue in
             Task { await loadPhotos(newValue) }
         }
+    }
+
+    /// An empty form has nothing to send: a photo alone says nothing either, it
+    /// illustrates a cook that has to be rated to exist.
+    private var hasSomethingToSay: Bool {
+        rating != nil || !trimmed(remarks).isEmpty || !trimmed(tips).isEmpty
+    }
+
+    private func trimmed(_ text: String) -> String {
+        text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     // MARK: - Photos
@@ -107,7 +140,7 @@ struct CapturePage: View {
     NavigationStack {
         CapturePage(
             isSaving: false,
-            onSave: { _, _, _ in }
+            onSave: { _, _, _, _ in }
         )
     }
 }

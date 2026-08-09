@@ -25,8 +25,6 @@ struct RecipeDetailView: View {
     @State private var showWarnings = false
     @State private var showHistory = false
     @State private var showToTest = false
-    @State private var showImprove = false
-    @State private var showTips = false
     @State private var recordRequest: ExecutionRequest?
     @State private var showDeleteConfirm = false
     /// The version picked in the history / to-cook sheet, opened once that sheet has
@@ -80,8 +78,8 @@ struct RecipeDetailView: View {
                 // The recipe sheet is a focused, Photos-style detail: hide the tab bar so the
                 // floating action bar owns the bottom edge.
                 .toolbar(.hidden, for: .tabBar)
-                // The record-attempt flow as a half-screen sheet: capture at .medium,
-                // grows to .large for the AI proposal.
+                // The one flow the play CTA opens, as a sheet: the capture form at
+                // 70%, growing to .large for whichever AI proposal it asked for.
                 .sheet(item: $recordRequest) { request in
                     ExecuteFlowView(request: request) {
                         onReload()
@@ -102,27 +100,6 @@ struct RecipeDetailView: View {
                     ToTestSheet(versions: recipe.versionsToTest) { versionNumber in
                         pickedVersion = versionNumber
                         showToTest = false
-                    }
-                }
-                .sheet(isPresented: $showImprove) {
-                    ImproveFlowView(
-                        recipeId: recipeId,
-                        version: displayedVersion(recipe),
-                        nextVersionNumber: recipe.nextVersionNumber,
-                        recipeTitle: recipe.title,
-                        recipeType: recipe.type,
-                        category: recipe.category
-                    ) {
-                        onReload()
-                        Task { await viewModel.load() }
-                    }
-                }
-                // The tips flow: reword and merge what the cook types into the
-                // displayed version's own tips — rewritten in place, no version created.
-                .sheet(isPresented: $showTips) {
-                    TipsFlowView(recipeId: recipeId, version: displayedVersion(recipe)) {
-                        onReload()
-                        Task { await viewModel.load() }
                     }
                 }
                 // The warnings sheet: rewrite the recipe's cautions in place —
@@ -299,37 +276,20 @@ struct RecipeDetailView: View {
             .accessibilityIdentifier("recipe-menu")
         }
 
-        // Floating glass action bar, in two capsules: what you do to this version
-        // (rate a cook, ask for an improvement) on the left, what you browse (the
-        // versions to cook, then all of them) on the right. Any version is cookable
-        // and an attempt is overwritable, so the record CTA is always available and
-        // targets the displayed version.
+        // Floating glass action bar, in two capsules: what you say about this version
+        // on the left — one CTA, one sheet, where the note, the remark and the tips
+        // are collected together and what is filled decides what happens — and what
+        // you browse on the right (the versions to cook, then all of them). Any
+        // version is cookable and an attempt is overwritable, so the CTA is always
+        // available and targets the displayed version.
         ToolbarItem(placement: .bottomBar) {
             Button {
                 presentRecordAttempt(versionNumber: displayedVersion(recipe).number)
             } label: {
-                Image(systemName: "pencil.and.ruler")
+                Image(systemName: "play")
             }
             .accessibilityIdentifier("record-attempt-button")
-            .accessibilityLabel("Noter un essai")
-        }
-        ToolbarItem(placement: .bottomBar) {
-            Button {
-                showImprove = true
-            } label: {
-                Image(systemName: "sparkles")
-            }
-            .accessibilityIdentifier("improve-recipe-button")
-            .accessibilityLabel("Proposer une amélioration")
-        }
-        ToolbarItem(placement: .bottomBar) {
-            Button {
-                showTips = true
-            } label: {
-                Image(systemName: "lightbulb")
-            }
-            .accessibilityIdentifier("add-tips-button")
-            .accessibilityLabel("Ajouter des conseils")
+            .accessibilityLabel("Noter, améliorer ou conseiller")
         }
         ToolbarSpacer(.flexible, placement: .bottomBar)
         ToolbarItem(placement: .bottomBar) {

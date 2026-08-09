@@ -119,7 +119,9 @@ Everything is derived (`recipe/business-rules.ts`), nothing is promoted:
   what they want changed and
   `ProposalUseCase.fromImprovement(userId, recipeId, versionNumber, improvement)` feeds it to the
   AI in place of the attempts (same ephemeral `Proposal`). Accepting it appends `n+1` **without**
-  an attempt, which is the **sole** way a version gets `toTest: true`.
+  an attempt, which is the **sole** way a version gets `toTest: true`. The app asks for it with
+  the same remark field as an attempt, left unrated: what makes it an improvement is the absence
+  of a note, not a screen of its own.
 - **`toTest`** (`RecipeVersion.toTest?: true`, absent = not on the list): the versions waiting to
   be cooked, listed by the recipe sheet's flask CTA. Only an improvement raises it; it drops the
   moment the version is cooked — `recordAttempt` rewrites it away, and accepting an attempt-born
@@ -135,7 +137,7 @@ no section). Three ways in:
 1. the AI extracts them at **import** (they land on v1);
 2. a **proposal** always returns the complete tips list of the version it creates (the AI folds
    advice it reads in the remarks into it);
-3. the recipe sheet's **lightbulb CTA** (`ProposalUseCase.fromTips` → `Ai.formatTips`,
+3. the **tips field** of the recipe sheet's play CTA (`ProposalUseCase.fromTips` → `Ai.formatTips`,
    merged/reworded/deduplicated, then `RecipeCommand.updateTips`) rewrites them **in place on the
    displayed version — no new version, no `toTest`, nothing else touched**.
 
