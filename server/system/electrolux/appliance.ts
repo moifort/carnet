@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/node'
 import type { OvenProfile } from '~/domain/recipe/content/oven'
 import { config } from '~/system/config'
 import { electroluxProgram, ovenProgram } from '~/system/electrolux/program'
@@ -149,12 +150,13 @@ export const startCooking = async (
 
   // The appliance says WHY it refuses, in the body, and this integration used to
   // drop it — which is how a 406 reaches the cook as "remote control is off"
-  // without anyone ever having read one. Logged verbatim, with the programme that
+  // without anyone ever having read one. Reported verbatim, with the programme that
   // drew it: the token rides in the headers, the body carries the complaint alone.
-  console.error(
-    `Electrolux refused the command (${program}): ${response.status} ${await response
-      .text()
-      .catch(() => '')}`,
+  // A refusal is not a fault the hook would catch, so it is captured by hand.
+  const complaint = await response.text().catch(() => '')
+  Sentry.captureMessage(
+    `Electrolux refused the command (${program}): ${response.status} ${complaint}`,
+    'warning',
   )
   // The documented validation failure: disconnected, or remote control off. The
   // oven can be switched off between the two calls above, so this is reachable.
