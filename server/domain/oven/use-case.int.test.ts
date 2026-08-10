@@ -119,6 +119,26 @@ describe('OvenUseCase.start', () => {
     expect(await OvenUseCase.start(OWNER, QUICHE, V1)).toBe('program-unsupported')
   })
 
+  // The appliance reports the code it is running and refuses that same code as a
+  // command, so the refusal is ours to make: nothing must reach the oven, or the
+  // 406 comes back dressed as "remote operation is off".
+  test('one of the oven’s own programmes is refused without ever being sent', async () => {
+    seedRecipe(QUICHE, {
+      kind: 'dish',
+      ingredients: [],
+      steps: ['Enfourner'],
+      oven: {
+        program: 'assisted',
+        assisted: 'ASSIST_QUICHEANDTARTETHIN',
+        temperature: 180,
+        duration: 35,
+      },
+    })
+
+    expect(await OvenUseCase.start(OWNER, QUICHE, V1)).toBe('assisted-not-startable')
+    expect(appliance.commanded).toEqual([])
+  })
+
   test('an unplugged oven is offline, not a crash', async () => {
     appliance.found = false
 

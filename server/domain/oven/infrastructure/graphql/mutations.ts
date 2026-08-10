@@ -16,8 +16,10 @@ builder.mutationField('startOven', (t) =>
       'Answers `OVEN_UNAVAILABLE` when the account has no oven, `NO_OVEN_PROFILE` when the ' +
         'version never bakes, `OVEN_OFFLINE` when the appliance does not answer, ' +
         '`REMOTE_CONTROL_DISABLED` until "remote operation" is switched on from the oven’s own ' +
-        'screen, `OVEN_BUSY` when it is already cooking, and `PROGRAM_UNSUPPORTED` when this oven ' +
-        'has no such heating function.',
+        'screen, `OVEN_BUSY` when it is already cooking, `PROGRAM_UNSUPPORTED` when this oven ' +
+        'has no such heating function, and `ASSISTED_NOT_STARTABLE` when the version bakes on one ' +
+        'of the oven’s own programmes — the appliance reports those but refuses them as a ' +
+        'command, so such a cooking starts from its own panel.',
       '',
       '```graphql',
       'startOven(recipeId: "…", version: 2) {',
@@ -46,6 +48,7 @@ builder.mutationField('startOven', (t) =>
         .with('remote-control-disabled', domainError)
         .with('oven-busy', domainError)
         .with('program-unsupported', domainError)
+        .with('assisted-not-startable', domainError)
         .with(P.not(P.string), (state) => state)
         .exhaustive()
     },

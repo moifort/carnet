@@ -63,6 +63,11 @@ export const OvenUseCase = {
 
     const profile = profileOf(found.content)
     if (!profile) return 'no-oven-profile'
+    // Asked before the appliance is even reached: the API accepts a heating
+    // function and nothing else, so an assisted programme is a cooking only the
+    // oven's own panel can start. Sending it anyway earned a 406 the cook read as
+    // "remote operation is off", which sent them to fix a setting that was fine.
+    if (profile.program === 'assisted') return 'assisted-not-startable'
 
     const oven = await findOven()
     if (oven === 'no-oven') return 'oven-offline'

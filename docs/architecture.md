@@ -247,7 +247,11 @@ wrong or leave out. They were read off an AEG KOBAS3XH; re-check them against an
    leftover there from the cooking before, so it is never read as a duration.
 6. **`program` can be an assisted-cooking code** (`ASSIST_QUICHEANDTARTETHIN`) that the
    capabilities enum does not list. The capabilities advertise the heating functions; the dishes
-   the oven's screen offers are programme values all the same.
+   the oven's screen offers are programme values all the same — **in reading only**. Commanding
+   one answers 406 `COMMAND_VALIDATION_ERROR / String value not allowed`, and neither
+   `favoriteSelect` nor `favorite` is a way round it (both answer `Capability not found`, the
+   second despite being declared `readwrite`). Read `capabilities.upperOven.program.values` with
+   `bun scripts/oven-capabilities.ts` before believing anything else on the subject.
 
 The heating functions this model exposes are a subset of the notebook's vocabulary (no top-only,
 bottom-only, pizza or defrost) and a superset in other ways (cleaning cycles, air fry). Hence

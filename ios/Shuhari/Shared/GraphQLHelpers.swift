@@ -246,6 +246,12 @@ enum APIError: LocalizedError {
             if codes.contains("PROGRAM_UNSUPPORTED") {
                 return "Ton four n’a pas ce mode de cuisson. Choisis-en un autre dans les réglages du four."
             }
+            // The oven reports its own programmes but refuses them as a command,
+            // so this one is never a step away from working: it says where the
+            // cooking does start rather than what to switch on.
+            if codes.contains("ASSISTED_NOT_STARTABLE") {
+                return "Une cuisson assistée se lance sur le four lui-même : sélectionne le programme sur son écran. L’app la garde en mémoire, mais ne peut pas la déclencher."
+            }
             if codes.contains("NO_OVEN_PROFILE") {
                 return "Cette version n’a pas de réglages de four. Renseigne-les avant de lancer la cuisson."
             }

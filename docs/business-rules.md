@@ -66,6 +66,15 @@ the digest; this doc is the spec. The mechanics of building a domain live in
   programme without a code, is a profile nobody can start. The cost is stated rather than hidden —
   such a version does not survive a change of oven, keeping its temperature and duration but
   losing the programme.
+- **An assisted programme is read-only: it is recorded, never started remotely.** The appliance
+  reports the code it is running and refuses that same code as a command — `program` enumerates
+  the heating functions and nothing else, so the API answers 406 `String value not allowed`. The
+  favourites are no way round it (`favoriteSelect` and `favorite` both answer `Capability not
+  found`), and the appliance's own app reaches them through a different platform altogether.
+  `OvenUseCase.start` therefore refuses `assisted-not-startable` **before the appliance is
+  reached**: sending it anyway earned a refusal the cook read as "remote operation is off", which
+  sent them to fix a setting that was never wrong. Such a version is still worth writing down —
+  the notebook remembers the programme, the cook presses start on the oven.
 - **The oven's own dials are copyable into a version** (`Oven.settings`, read whether the oven is
   cooking or merely selected). That is what replaces the catalogue the API does not offer: the
   cook sets a cooking up on the appliance — using its assisted programmes if they like — and the

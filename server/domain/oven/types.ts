@@ -41,3 +41,9 @@ export type StartRefusal =
   // The heating function the version asks for is not on this oven's menu — the
   // notebook's vocabulary is wider than any one model, on purpose.
   | 'program-unsupported'
+  // The version bakes on one of the oven's OWN programmes, and those are read-only:
+  // the appliance reports the code it is running, and refuses the very same code as
+  // a command ("String value not allowed" — the capability enumerates the heating
+  // functions and nothing else). Refused here rather than sent, so the cook is told
+  // to press start on the oven instead of being sent to fix a setting that is fine.
+  | 'assisted-not-startable'

@@ -539,7 +539,10 @@ sent. While the oven reports a cooking under way, the CTA is replaced by "Cuisso
 
 The refusals are turned into sentences in `APIError.errorDescription`, next to `QUOTA_EXHAUSTED`,
 not in the view model. `REMOTE_CONTROL_DISABLED` is the one a cook meets most often and the only
-one they can act on, so it names the path: *Réglages → Connexions*.
+one they can act on, so it names the path: *Réglages → Connexions*. `ASSISTED_NOT_STARTABLE` is
+the opposite case — nothing the cook switches on will ever make it work, the appliance simply
+refuses its own programmes as commands — so the sentence says where the cooking *does* start (the
+oven's screen) instead of what to change.
 
 **The state is polled, because nothing pushes it.** The appliance answers a cloud API and takes a
 few seconds to admit it is RUNNING, so the state the `startOven` mutation hands back still reads
