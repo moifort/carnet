@@ -39,7 +39,7 @@ the digest; this doc is the spec. The mechanics of building a domain live in
   **Invariant: present if and only if `type === 'coffee'`** (`methodMatchesType`), enforced in
   `RecipeCommand.create`/`update`, returning `'method-mismatch' as const`. `other` exists so the
   AI never forces a coffee into a method it was not made with.
-- **Oven profile** (`content/oven.ts`): the oven settings a version bakes at — `program`
+- **Oven profile** (`content/oven.ts`), set by hand and by hand only: the oven settings a version bakes at — `program`
   (`OVEN_PROGRAM_VALUES`, an English technical symbol the app translates), `temperature`, and how
   the cooking ends: `duration` in minutes, `core` for a probe target, each optional and
   independent. Carried by `DishContent` and `ThermomixContent` (a dough kneaded on the machine
@@ -220,13 +220,12 @@ The prompts, one module per flow under `server/system/ai/` (`import/*`, `proposa
   deltas", the model has answered with the comma as the separator *inside* a change.
 - **How far one iteration may go depends on the world**, and the two rules live in two prompts
   (`server/system/ai/proposal/cooking.ts`, `proposal/coffee.ts`):
-  - *Cooking* (`dish`, `thermomix`) — several coherent elements may move at once. The **oven
-    profile** is the exception that borrows the coffee rule: it counts as **one** element, so an
-    iteration lowers the temperature *or* shortens the cooking, never both — otherwise the next
-    bake says nothing about which of the two mattered. It only moves when the remarks point at the
-    baking ("trop cuit", "pas assez doré", "cru au centre"). When the iteration is about anything
-    else, `CookingProposalContext.currentOven` is echoed back **unchanged**: a proposal that
-    dropped it would silently unset the oven of the version it creates.
+  - *Cooking* (`dish`, `thermomix`) — several coherent elements may move at once. **The oven is
+    not one of them**: the AI never reads it, never proposes it, and is never even told about it.
+    A heating function is set by hand — on the appliance or in the app — because a model that has
+    never seen the dish brown cannot judge one, and because getting it wrong cooks something else
+    without saying so. The profile is carried forward to the proposed version **by the code**
+    (`carriedOven`), so accepting a change of seasoning never silently unsets the oven.
   - *Coffee* — **exactly one variable per version**, from a closed list: the grind, the dose, the
     water amount (the ratio), the water temperature, the brew time, the yield or the milk. Never
     two. That is the whole point of the notebook here: with a single variable moved, the next

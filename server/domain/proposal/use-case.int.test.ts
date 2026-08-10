@@ -545,9 +545,9 @@ describe('ProposalUseCase.accept', () => {
   })
 })
 
-describe('the oven profile across an iteration', () => {
-  // The version the iteration starts from bakes; the model must be told so, and
-  // whatever it answers must land on the proposed content.
+describe('the oven across an iteration', () => {
+  // The version the iteration starts from bakes. The model is never told about it
+  // and never answers one — the profile must survive all the same.
   const bakedDish = (): DishContent => ({
     kind: 'dish',
     ingredients: [],
@@ -568,21 +568,16 @@ describe('the oven profile across an iteration', () => {
     return recipe
   }
 
-  test('hands the current profile to the model, so an iteration can move or keep it', async () => {
+  test('the model is told nothing about the oven', async () => {
     const recipe = await bakedRecipe()
 
     await ProposalUseCase.fromAttempt(userId, recipe.id, V1, ATTEMPT)
 
-    expect(lastCookingContext?.currentOven).toEqual({
-      program: 'convection',
-      temperature: 180,
-      duration: 30,
-    })
+    expect(lastCookingContext).not.toHaveProperty('currentOven')
   })
 
-  test('brands the profile the model answered onto the proposed content', async () => {
+  test('carries the profile forward, so accepting a change of seasoning keeps the heat', async () => {
     const recipe = await bakedRecipe()
-    proposal = { ...proposal, oven: { program: 'convection', temperature: 180, duration: 25 } }
 
     const result = await ProposalUseCase.fromAttempt(userId, recipe.id, V1, ATTEMPT)
     if (typeof result === 'string') throw new Error('expected a proposal')
@@ -591,17 +586,18 @@ describe('the oven profile across an iteration', () => {
       oven: {
         program: 'convection',
         temperature: 180 as OvenTemperature,
-        duration: 25 as OvenDuration,
+        duration: 30 as OvenDuration,
       },
     })
   })
 
-  test('a dish that never bakes hands the model no profile', async () => {
+  test('a dish that never bakes gains no profile out of nowhere', async () => {
     const recipe = await RecipeCommand.create(userId, recipeInput())
     if (typeof recipe === 'string') throw new Error('expected a recipe')
 
-    await ProposalUseCase.fromAttempt(userId, recipe.id, V1, ATTEMPT)
+    const result = await ProposalUseCase.fromAttempt(userId, recipe.id, V1, ATTEMPT)
+    if (typeof result === 'string') throw new Error('expected a proposal')
 
-    expect(lastCookingContext?.currentOven).toBeUndefined()
+    expect('oven' in result.content).toBe(false)
   })
 })

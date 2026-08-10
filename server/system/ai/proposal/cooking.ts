@@ -3,16 +3,10 @@ import { parseCookingProposalResponse } from '~/system/ai/primitives'
 import { formatRequest } from '~/system/ai/prompt'
 import {
   ingredientsSchemaProperty,
-  ovenSchemaProperty,
   stepsSchemaProperty,
   tipsSchemaProperty,
 } from '~/system/ai/schema'
-import type {
-  CookingProposal,
-  CookingProposalContext,
-  ImportOvenProfile,
-  ImportStep,
-} from '~/system/ai/types'
+import type { CookingProposal, CookingProposalContext, ImportStep } from '~/system/ai/types'
 
 const responseSchema = {
   type: 'object',
@@ -26,30 +20,16 @@ const responseSchema = {
     ingredients: ingredientsSchemaProperty,
     steps: stepsSchemaProperty,
     tips: tipsSchemaProperty,
-    oven: ovenSchemaProperty,
   },
   required: ['changeSummary', 'rationale', 'ingredients', 'steps', 'tips'],
-  propertyOrdering: ['changeSummary', 'rationale', 'ingredients', 'steps', 'tips', 'oven'],
+  propertyOrdering: ['changeSummary', 'rationale', 'ingredients', 'steps', 'tips'],
 }
 
 // How far one iteration may go here: cooking converges faster when several coherent
 // elements move together (a coffee, whose single-variable rule is the opposite,
 // lives in its own module).
 const ITERATION_RULE =
-  'For a dish or a Thermomix recipe, you may adjust several coherent elements at once. Return the COMPLETE ingredient and step list of the next version (not only what changes), plus a short summary of the changes. When the remarks ask for a precise adjustment (a new cooking time, temperature, speed or quantity), apply that exact value in the right structured field — a Thermomix time/temperature/speed in the step settings, a duration in the dish step text, a quantity on the ingredient — and record every change in changeSummary as "old → new", with the arrow character U+2192 between the two, whether the change is a new value or one ingredient replacing another. Also return tips: the COMPLETE tips list of the next version — keep the current tips, and when a remark carries advice that changes nothing in the method (a serving suggestion, storage advice, a technique pointer like "la prochaine fois, servir avec du riz"), fold it in as a short reworded tip instead of forcing it into an ingredient or a step. The OVEN PROFILE counts as ONE element: lower the temperature OR shorten the cooking, never both in the same iteration, and only when the remarks point at the baking ("trop cuit", "pas assez doré", "cru au centre"). When the iteration changes anything else, echo the current oven profile back UNCHANGED — a proposal that drops it would silently unset the oven. Return null for oven only when the current version has none.'
-
-// The current oven profile, spelled out for the prompt. A dish that never bakes
-// says so plainly rather than leaving the model to guess from a blank.
-const formatOven = (oven: ImportOvenProfile | undefined): string => {
-  if (!oven) return 'This dish does not go in the oven.'
-  const parts = [
-    `program ${oven.program}`,
-    `${oven.temperature}°C`,
-    oven.duration && `${oven.duration} min`,
-    oven.core && `core ${oven.core}°C`,
-  ].filter(Boolean)
-  return parts.join(', ')
-}
+  'For a dish or a Thermomix recipe, you may adjust several coherent elements at once. Return the COMPLETE ingredient and step list of the next version (not only what changes), plus a short summary of the changes. When the remarks ask for a precise adjustment (a new cooking time, temperature, speed or quantity), apply that exact value in the right structured field — a Thermomix time/temperature/speed in the step settings, a duration in the dish step text, a quantity on the ingredient — and record every change in changeSummary as "old → new", with the arrow character U+2192 between the two, whether the change is a new value or one ingredient replacing another. Also return tips: the COMPLETE tips list of the next version — keep the current tips, and when a remark carries advice that changes nothing in the method (a serving suggestion, storage advice, a technique pointer like "la prochaine fois, servir avec du riz"), fold it in as a short reworded tip instead of forcing it into an ingredient or a step. NEVER touch the oven: its programme, temperature, duration and probe are set by hand, on the appliance or in the app, and are carried over to the next version untouched. A model that has never seen the dish brown cannot judge a heating function.'
 
 // A step's Thermomix settings, spelled out for the prompt. A step that sets nothing
 // adds nothing.
@@ -87,12 +67,9 @@ ${steps}
 Current tips:
 ${tips}
 
-Current oven:
-${formatOven(context.currentOven)}
-
 ${formatRequest(context)}
 
-Propose an iteration: an improvement of this recipe. Fill changeSummary (a short summary of what changes), rationale (why), ingredients, steps and tips (the COMPLETE lists of the next version), and oven (the next version's oven profile — the current one unchanged unless THIS iteration is what moves it, null when the dish never bakes).
+Propose an iteration: an improvement of this recipe. Fill changeSummary (a short summary of what changes), rationale (why), ingredients, steps and tips (the COMPLETE lists of the next version).
 
 Reminder: all text values you produce must be written in French.`
 }

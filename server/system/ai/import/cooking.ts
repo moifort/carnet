@@ -3,7 +3,6 @@ import { callGemini, importBody } from '~/system/ai/gemini'
 import { parseCookingImportResponse } from '~/system/ai/primitives'
 import {
   ingredientsSchemaProperty,
-  ovenSchemaProperty,
   stepsSchemaProperty,
   tipsSchemaProperty,
 } from '~/system/ai/schema'
@@ -38,7 +37,6 @@ const responseSchema = {
     ingredients: ingredientsSchemaProperty,
     steps: stepsSchemaProperty,
     tips: { ...tipsSchemaProperty, nullable: true },
-    oven: ovenSchemaProperty,
   },
   required: ['recipeFound', 'type', 'category', 'title'],
   propertyOrdering: [
@@ -50,7 +48,6 @@ const responseSchema = {
     'ingredients',
     'steps',
     'tips',
-    'oven',
   ],
 }
 
@@ -64,7 +61,6 @@ Rules:
 - steps: short steps, imperative mood, in order. Precise settings (oven temperature, duration, ratio…) stay in the step text.
 - tips: the cooking tips found in the source — serving suggestions, storage/freezing advice, technique pointers ("Servir avec du riz", "Se congèle bien"). One short sentence per tip. A tip is neither an ingredient nor a step: never duplicate the method here. Empty array when the source carries none.
 - For a Thermomix recipe (type thermomix): for every step performed on the Thermomix, fill the nested thermomix object (time, temperature, speed, reverse) exactly as stated in the recipe (time "3 min" / "30 s" / "1 h 10 min"; temperature "100°C" or "Varoma"; speed "0,5" to "10", "pétrin", "mijotage" or "turbo"). ALWAYS return every step as an object: use null for every missing setting, and set thermomix to null (or leave its fields null) when the step is not done on the Thermomix or when the recipe is not of type thermomix — never omit or merge a step because it carries no setting.
-- oven: the oven settings, and ONLY when the source states an oven cooking ("180°C", "th. 6", "chaleur tournante 25 min"). null for anything cooked on a hob, raw or assembled. NEVER invent a temperature, a duration or a core target the source does not state — a made-up setting is a setting the cook then bakes against. A gas mark "th. N" is N × 30 °C. Set core only when the source names a temperature at the heart of the food. The step text keeps its own wording either way: the profile STRUCTURES what the step says, it never replaces it, so the step stays readable on its own.
 - Be concise: every value stays short (ingredient name ≤120, quantity ≤60, step ≤300, title ≤200, Thermomix setting ≤20 characters).
 - If the source contains no usable recipe (unreadable image or one without a recipe, off-topic page or text), set recipeFound to false and leave every other field empty or null. Otherwise set recipeFound to true.
 - Use null for any missing information.

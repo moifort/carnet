@@ -135,3 +135,35 @@ describe('VersionContent — the oven profile', () => {
     })
   })
 })
+
+describe('VersionContent — the oven’s own programmes', () => {
+  test('keeps the appliance code that makes an assisted cooking reproducible', () => {
+    const content = VersionContent({
+      kind: 'dish',
+      ingredients: [],
+      steps: ['Enfourner'],
+      oven: {
+        program: 'assisted',
+        assisted: 'ASSIST_QUICHEANDTARTETHIN',
+        temperature: 170,
+        duration: 52,
+      },
+    })
+
+    expect(content.kind === 'dish' && content.oven).toMatchObject({
+      program: 'assisted',
+      assisted: 'ASSIST_QUICHEANDTARTETHIN',
+    })
+  })
+
+  test('refuses an assisted programme with no code — half a pair starts nothing', () => {
+    expect(() =>
+      VersionContent({
+        kind: 'dish',
+        ingredients: [],
+        steps: ['Enfourner'],
+        oven: { program: 'assisted', temperature: 170 },
+      }),
+    ).toThrow()
+  })
+})

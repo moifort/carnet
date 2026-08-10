@@ -1,5 +1,5 @@
 import type { Brand } from 'ts-brand'
-import type { BrewMethod, DishCategory, OvenProgram, RecipeType } from '~/domain/recipe/types'
+import type { BrewMethod, DishCategory, RecipeType } from '~/domain/recipe/types'
 
 export type ImportHash = Brand<string, 'ImportHash'>
 
@@ -44,16 +44,6 @@ export type ImportCoffeeParameters = {
 // has no steps at all, it is wholly described by its parameters.
 export type ImportStep = { text: string; thermomix: ImportThermomixSettings }
 
-// The oven profile as extracted by Gemini. Already narrowed to a known heating
-// function — an unknown one drops the whole profile at the parse — but the numbers
-// stay plain until the cook confirms and the domain brands them.
-export type ImportOvenProfile = {
-  program: OvenProgram
-  temperature: number
-  duration?: number
-  core?: number
-}
-
 // A cooked recipe extracted by Gemini. Plain strings — the domain layer validates
 // them into branded types when the cook confirms the import.
 export type CookingImportAnalysis = {
@@ -66,9 +56,6 @@ export type CookingImportAnalysis = {
   // Cooking tips found in the source (serving, storage, technique) — `[]` when
   // the source carries none.
   tips: string[]
-  // The oven settings the source states. Absent when it states none — the model is
-  // told never to invent one, and anything it invents anyway is dropped at the parse.
-  oven?: ImportOvenProfile
 }
 
 // A coffee extracted by Gemini: how it is brewed and the dials it is set by. No
@@ -109,9 +96,6 @@ export type CookingProposalContext = ProposalRequest & {
   currentIngredients: { name: string; quantity: string }[]
   // Each step carries its own settings (an empty object is a step that sets nothing).
   currentSteps: ImportStep[]
-  // What the current version bakes at, so the model can either move it or echo it
-  // back. Without it in the context, every iteration would silently lose the oven.
-  currentOven?: ImportOvenProfile
 }
 
 // Context handed to the coffee proposal model: the dials the extraction starts
@@ -132,10 +116,6 @@ export type CookingProposal = {
   // The complete tips list of the next version (current tips carried over,
   // advice found in the remarks folded in).
   tips: string[]
-  // The next version's oven settings — the base version's, echoed back unchanged
-  // unless THIS iteration is the one that moves them. Absent on a dish that never
-  // bakes.
-  oven?: ImportOvenProfile
 }
 
 // The next version's dials — the whole set, exactly one of them moved. A parameter

@@ -281,14 +281,24 @@ const brandIngredient = (i: { name: unknown; quantity: unknown }) => ({
 
 // Every dial goes through its branded constructor, then `toOvenProfile` drops the
 // ones the cook left unset — a raw payload never sneaks in, and no null is stored.
-const brandOvenProfile = (raw: z.infer<typeof looseOvenSchema>): OvenProfileType =>
-  toOvenProfile({
-    program: OvenProgram(raw.program),
+const brandOvenProfile = (raw: z.infer<typeof looseOvenSchema>): OvenProfileType => {
+  const program = OvenProgram(raw.program)
+  // The pair is an invariant, so it is REFUSED here rather than quietly repaired:
+  // `assisted` names one of the oven's own programmes and means nothing without the
+  // code that identifies it. Coercing it to a heating function would cook something
+  // else without saying so, and dropping the profile would lose the temperature the
+  // cook did give us. A caller that sends half a pair has a bug worth hearing about.
+  if (program === 'assisted' && raw.assisted == null) {
+    throw new Error('An assisted oven programme needs the appliance code that names it')
+  }
+  return toOvenProfile({
+    program,
     assisted: raw.assisted != null ? AssistedProgram(raw.assisted) : undefined,
     temperature: OvenTemperature(raw.temperature),
     duration: raw.duration != null ? OvenDuration(raw.duration) : undefined,
     core: raw.core != null ? OvenCoreTemperature(raw.core) : undefined,
   })
+}
 
 // Boundary branding for a profile alone — what an AI analysis passes through, the
 // rest of the version's content untouched.

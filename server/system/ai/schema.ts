@@ -1,6 +1,3 @@
-import { OVEN_RANGE } from '~/domain/recipe/limits'
-import { OVEN_PROGRAM_VALUES } from '~/domain/recipe/types'
-
 // The Gemini response-schema fragments, in one place so an import and a proposal
 // of the same world can never describe the same field differently.
 
@@ -212,43 +209,6 @@ export const coffeeParametersSchemaProperty = {
     },
   },
   propertyOrdering: ['beans', 'water', 'extraction', 'milk', 'gear'],
-}
-
-// The oven a dish bakes in. Null on anything cooked on a hob, raw or assembled —
-// and a setting the source does not state is never guessed: a made-up temperature
-// is a temperature the cook then bakes against.
-export const ovenSchemaProperty = {
-  type: 'object',
-  nullable: true,
-  description:
-    'The oven settings, ONLY when the source states an oven cooking; null otherwise. Never ' +
-    'invent a value the source does not give.',
-  properties: {
-    program: {
-      type: 'string',
-      enum: OVEN_PROGRAM_VALUES,
-      description:
-        'The heating function. "chaleur tournante"/"fan" → convection; a plain oven or a ' +
-        'thermostat number → conventional; "gril" → grill; "vapeur" → steam. When the source ' +
-        'gives a temperature but names no function, use conventional.',
-    },
-    temperature: {
-      type: 'integer',
-      description: `Dial temperature in °C, ${OVEN_RANGE.temperature.min}–${OVEN_RANGE.temperature.max}. A French gas mark "th. N" means N × 30 °C (th. 6 = 180).`,
-    },
-    duration: {
-      type: 'integer',
-      nullable: true,
-      description: `Cooking time in WHOLE MINUTES, ${OVEN_RANGE.duration.min}–${OVEN_RANGE.duration.max} (e.g. "1 h 15" → 75); null when the source states none`,
-    },
-    core: {
-      type: 'integer',
-      nullable: true,
-      description: `Target temperature at the HEART of the food, read by a probe, ${OVEN_RANGE.core.min}–${OVEN_RANGE.core.max} °C (e.g. "63°C à cœur" → 63); null unless the source names a core temperature`,
-    },
-  },
-  required: ['program', 'temperature'],
-  propertyOrdering: ['program', 'temperature', 'duration', 'core'],
 }
 
 export const tipsSchemaProperty = {
