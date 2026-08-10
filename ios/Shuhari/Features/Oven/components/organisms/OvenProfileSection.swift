@@ -9,11 +9,9 @@ struct OvenProfileSection: View {
     /// One profile's worth of already-formatted values.
     struct Item {
         /// The heating function, written out ("Chaleur tournante") — or the dish an
-        /// assisted programme runs ("Quiche et tarte fine").
+        /// assisted programme runs ("Quiche et tarte fine"). One line, always: the
+        /// mode is a value like the temperature is, never a value plus a caption.
         var program: String
-        /// The second line under it, when the mode needs one ("Cuisson assistée").
-        /// nil on a plain heating function, which says everything in one line.
-        var programDetail: String?
         /// The SF Symbol of that function, chosen by the page.
         var programIcon: String
         /// The dial temperature, written out ("180 °C").
@@ -46,17 +44,10 @@ struct OvenProfileSection: View {
     var body: some View {
         Section {
             LabeledContent("Mode") {
-                VStack(alignment: .trailing, spacing: Theme.Spacing.xs) {
-                    Label(item.program, systemImage: item.programIcon)
-                        .labelStyle(.titleAndIcon)
-                        .font(valueFont)
-                        .multilineTextAlignment(.trailing)
-                    if let detail = item.programDetail {
-                        Text(detail)
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
+                Label(item.program, systemImage: item.programIcon)
+                    .labelStyle(.titleAndIcon)
+                    .font(valueFont)
+                    .multilineTextAlignment(.trailing)
             }
             .font(valueFont)
             .accessibilityElement(children: .combine)
@@ -143,7 +134,6 @@ struct OvenProfileSection: View {
         OvenProfileSection(
             item: .init(
                 program: "Quiche et tarte fine",
-                programDetail: "Cuisson assistée",
                 programIcon: "wand.and.stars",
                 temperature: "180 °C",
                 duration: "35 min"
@@ -158,7 +148,6 @@ struct OvenProfileSection: View {
         OvenProfileSection(
             item: .init(
                 program: "Cuisson assistée",
-                programDetail: "ASSIST_LASAGNE",
                 programIcon: "wand.and.stars",
                 temperature: "180 °C",
                 duration: "45 min"

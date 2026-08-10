@@ -98,14 +98,13 @@ struct OvenProfileForm: View {
             Section("Réglages") {
                 Picker("Mode", selection: $draft.program) {
                     ForEach(pickable) { program in
-                        // The assisted row names the dish the copied code stands for:
+                        // Text, not Label: a menu of thirteen heating functions reads
+                        // as a list of names, and an icon per row only adds noise.
+                        // The assisted row names the dish the copied code stands for —
                         // the picker is where the cook checks they kept the right
                         // programme, and "Cuisson assistée" tells them nothing.
-                        Label(
-                            program.label(assisted: draft.assisted),
-                            systemImage: program.iconName
-                        )
-                        .tag(program)
+                        Text(program.label(assisted: draft.assisted))
+                            .tag(program)
                     }
                 }
                 Stepper(value: $draft.temperature, in: 30...300, step: 5) {

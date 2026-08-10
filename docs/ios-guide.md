@@ -509,12 +509,16 @@ notebook lie about the recipe.
 **An assisted cooking is named by the dish it runs**, never by "Cuisson assistée": a mode row that
 cannot say *which* programme is a recipe nobody can follow. The appliance hands over a code and no
 label, and its API exposes no catalogue, so `assistedNames` in `OvenProgram.swift` holds the pairs
-(`ASSIST_QUICHEANDTARTETHIN` → "Quiche et tarte fine") and `label(assisted:)` / `detail(assisted:)`
-read them. The table is **partial by design**, exactly like the server's `PROGRAM_CODES`: a code
-with no name yet shows as "Cuisson assistée" with the raw code underneath — recognisable between
-two versions, and the cue to add the pair — rather than being guessed into the wrong dish. The
-second line carries the other half in both cases: the kind of programme when the dish is named
-above, the code when it is not.
+(`ASSIST_QUICHEANDTARTETHIN` → "Quiche et tarte fine") and `label(assisted:)` reads them. The table
+is **partial by design**, exactly like the server's `PROGRAM_CODES`: a code with no name yet falls
+back to "Cuisson assistée" — the cue to add the pair — rather than being guessed into the wrong
+dish.
+
+**The mode is a value, not a value plus a caption**: one line, like the temperature and the
+duration next to it. No second line under the name, and no icon in the picker's own list — a menu
+of thirteen heating functions reads as a list of names, and a symbol per row is noise the cook has
+to look past. The function's icon stays where it identifies the row at a glance: the mode line of
+`OvenProfileSection` on the recipe sheet.
 
 ### Starting the cooking
 

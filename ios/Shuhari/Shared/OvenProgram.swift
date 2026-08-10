@@ -81,8 +81,9 @@ enum OvenProgram: String, CaseIterable, Sendable, Identifiable {
 /// up in, so the dish a code stands for is written here or nowhere.
 ///
 /// PARTIAL on purpose, like the heating functions the server maps: a code with no
-/// name yet reads as itself rather than as the wrong dish. A row showing a raw code
-/// is the cue to add the pair — the name is the one on the oven's own screen.
+/// name yet falls back to "Cuisson assistée" rather than to the wrong dish. A row
+/// that says only that is the cue to add the pair — the name is the one on the
+/// oven's own screen.
 private let assistedNames: [String: String] = [
     "ASSIST_QUICHEANDTARTETHIN": "Quiche et tarte fine",
 ]
@@ -94,13 +95,5 @@ extension OvenProgram {
     func label(assisted code: String?) -> String {
         guard self == .assisted, let name = code.flatMap({ assistedNames[$0] }) else { return label }
         return name
-    }
-
-    /// The line under it: the kind of programme once the dish is named above, the
-    /// bare code when it is not — an unnamed programme still tells the cook what to
-    /// look for on the oven, and stays recognisable between two versions.
-    func detail(assisted code: String?) -> String? {
-        guard self == .assisted, let code else { return nil }
-        return assistedNames[code] != nil ? label : code
     }
 }

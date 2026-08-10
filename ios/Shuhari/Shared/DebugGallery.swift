@@ -362,7 +362,7 @@ private struct OvenSectionGalleryScreen: View {
     var running: String?
     var isStarting = false
     /// The version bakes on one of the oven's own programmes: the mode row names the
-    /// dish and says underneath which kind of programme that is.
+    /// dish it runs.
     var assisted = false
 
     var body: some View {
@@ -372,7 +372,6 @@ private struct OvenSectionGalleryScreen: View {
                     item: assisted
                         ? .init(
                             program: "Quiche et tarte fine",
-                            programDetail: "Cuisson assistée",
                             programIcon: "wand.and.stars",
                             temperature: "180 °C",
                             duration: "35 min"
