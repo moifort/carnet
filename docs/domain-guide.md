@@ -321,6 +321,14 @@ test('add persists a bean', async () => {
 - **Read budget**: `const before = fake.queryReads; …; expect(fake.queryReads - before).toBe(2)`.
 - **Cache**: a second read in the same request should add `0` to `fake.queryReads`.
 
+**A faked module and the module under test are never the same specifier.** `mock.module`
+replaces a module for the whole process, so the file that tests a system adapter for real cannot
+import what another file fakes — it would silently receive that fake, and fail on calls it never
+made, in whichever file order the runner happens to pick (green locally, red in CI). Give the
+adapter a barrel: the implementation lives beside it (`system/electrolux/appliance.ts`) and the
+entry point (`system/electrolux/index.ts`) only re-exports it. Domains import the entry point and
+domain tests fake it; the adapter's own test imports the implementation, which nobody fakes.
+
 Feature tests execute the real schema, with the same context `routes/graphql.ts` builds —
 which is what makes them the place to pin error codes, the freemium gates and the N+1
 budget as the client actually sees them:

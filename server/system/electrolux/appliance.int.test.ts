@@ -3,6 +3,10 @@ import { fakeFirebase, resetFakeFirestore } from '~/test/fake-firestore'
 
 mock.module('~/system/firebase', fakeFirebase)
 
+// The real adapter, imported straight from `appliance.ts` rather than through
+// `~/system/electrolux`: the domain tests fake that specifier for the whole process
+// (see the barrel), and this file is the one that must get the real thing.
+//
 // The oven is configured through runtime config; this answers what a provisioned
 // deployment would. Every field of the real `config()` is present, not just the
 // oven's: `mock.module` replaces a module wholesale for the WHOLE test process, so a
@@ -20,7 +24,7 @@ mock.module('~/system/config', () => ({
   }),
 }))
 
-const { applianceState, findOven, startCooking } = await import('~/system/electrolux')
+const { applianceState, findOven, startCooking } = await import('~/system/electrolux/appliance')
 const { forgetAccessToken } = await import('~/system/electrolux/token')
 
 const realFetch = globalThis.fetch
