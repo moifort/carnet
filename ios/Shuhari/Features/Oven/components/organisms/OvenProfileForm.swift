@@ -98,7 +98,14 @@ struct OvenProfileForm: View {
             Section("Réglages") {
                 Picker("Mode", selection: $draft.program) {
                     ForEach(pickable) { program in
-                        Label(program.label, systemImage: program.iconName).tag(program)
+                        // The assisted row names the dish the copied code stands for:
+                        // the picker is where the cook checks they kept the right
+                        // programme, and "Cuisson assistée" tells them nothing.
+                        Label(
+                            program.label(assisted: draft.assisted),
+                            systemImage: program.iconName
+                        )
+                        .tag(program)
                     }
                 }
                 Stepper(value: $draft.temperature, in: 30...300, step: 5) {
@@ -135,7 +142,7 @@ struct OvenProfileForm: View {
     /// before it does it.
     private func summary(of settings: OvenSettings) -> String {
         [
-            settings.program?.label,
+            settings.program?.label(assisted: settings.assisted),
             settings.temperature.map { "\($0) °C" },
             settings.duration.map { "\($0) min" },
             settings.core.map { "sonde \($0) °C" },

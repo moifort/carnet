@@ -75,3 +75,32 @@ enum OvenProgram: String, CaseIterable, Sendable, Identifiable {
 
     var iconImage: Image { Image(systemName: iconName) }
 }
+
+/// The oven's own programmes, by name. The appliance hands over a code and nothing
+/// else — `ASSIST_QUICHEANDTARTETHIN` — and its API exposes no catalogue to look one
+/// up in, so the dish a code stands for is written here or nowhere.
+///
+/// PARTIAL on purpose, like the heating functions the server maps: a code with no
+/// name yet reads as itself rather than as the wrong dish. A row showing a raw code
+/// is the cue to add the pair — the name is the one on the oven's own screen.
+private let assistedNames: [String: String] = [
+    "ASSIST_QUICHEANDTARTETHIN": "Quiche et tarte fine",
+]
+
+extension OvenProgram {
+    /// The mode as a cook reads it. An assisted cooking is named by the DISH it runs:
+    /// "Cuisson assistée" says which kind of programme it is, never which one, and a
+    /// recipe sheet that cannot say which one cannot be followed.
+    func label(assisted code: String?) -> String {
+        guard self == .assisted, let name = code.flatMap({ assistedNames[$0] }) else { return label }
+        return name
+    }
+
+    /// The line under it: the kind of programme once the dish is named above, the
+    /// bare code when it is not — an unnamed programme still tells the cook what to
+    /// look for on the oven, and stays recognisable between two versions.
+    func detail(assisted code: String?) -> String? {
+        guard self == .assisted, let code else { return nil }
+        return assistedNames[code] != nil ? label : code
+    }
+}

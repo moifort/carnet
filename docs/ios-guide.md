@@ -506,6 +506,16 @@ down "Pizza 250 °C" is legitimate even on an oven that cannot run it. Starting 
 `PROGRAM_UNSUPPORTED`, which says so; the alternative, hiding the function, would make the
 notebook lie about the recipe.
 
+**An assisted cooking is named by the dish it runs**, never by "Cuisson assistée": a mode row that
+cannot say *which* programme is a recipe nobody can follow. The appliance hands over a code and no
+label, and its API exposes no catalogue, so `assistedNames` in `OvenProgram.swift` holds the pairs
+(`ASSIST_QUICHEANDTARTETHIN` → "Quiche et tarte fine") and `label(assisted:)` / `detail(assisted:)`
+read them. The table is **partial by design**, exactly like the server's `PROGRAM_CODES`: a code
+with no name yet shows as "Cuisson assistée" with the raw code underneath — recognisable between
+two versions, and the cue to add the pair — rather than being guessed into the wrong dish. The
+second line carries the other half in both cases: the kind of programme when the dish is named
+above, the code when it is not.
+
 ### Starting the cooking
 
 `OvenViewModel` loads `Query.oven` alongside the recipe. **A nil state means this account owns no

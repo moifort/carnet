@@ -83,6 +83,8 @@ struct DebugGallery: View {
                 }
         case "oven-start":
             OvenSectionGalleryScreen(running: nil)
+        case "oven-assisted":
+            OvenSectionGalleryScreen(running: nil, assisted: true)
         case "oven-running":
             OvenSectionGalleryScreen(running: "Cuisson en cours · 12 min")
         case "oven-starting":
@@ -359,17 +361,28 @@ private struct QuotaGalleryScreen: View {
 private struct OvenSectionGalleryScreen: View {
     var running: String?
     var isStarting = false
+    /// The version bakes on one of the oven's own programmes: the mode row names the
+    /// dish and says underneath which kind of programme that is.
+    var assisted = false
 
     var body: some View {
         NavigationStack {
             List {
                 OvenProfileSection(
-                    item: .init(
-                        program: "Chaleur tournante",
-                        programIcon: "fan",
-                        temperature: "180 °C",
-                        duration: "30 min"
-                    ),
+                    item: assisted
+                        ? .init(
+                            program: "Quiche et tarte fine",
+                            programDetail: "Cuisson assistée",
+                            programIcon: "wand.and.stars",
+                            temperature: "180 °C",
+                            duration: "35 min"
+                        )
+                        : .init(
+                            program: "Chaleur tournante",
+                            programIcon: "fan",
+                            temperature: "180 °C",
+                            duration: "30 min"
+                        ),
                     onEdit: {},
                     start: .init(running: running, isStarting: isStarting, onStart: {})
                 )

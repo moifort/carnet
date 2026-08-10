@@ -102,7 +102,10 @@ struct RecipeDetailPage: View {
         if let oven = displayedVersion.content.oven {
             OvenProfileSection(
                 item: .init(
-                    program: oven.program.label,
+                    // An assisted cooking is named by the dish it runs, and the
+                    // second line says it is one of the oven's own programmes.
+                    program: oven.program.label(assisted: oven.assisted),
+                    programDetail: oven.program.detail(assisted: oven.assisted),
                     programIcon: oven.program.iconName,
                     temperature: "\(oven.temperature) °C",
                     duration: oven.duration.map { "\($0) min" },
