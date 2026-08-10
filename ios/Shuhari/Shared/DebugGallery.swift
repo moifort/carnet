@@ -362,7 +362,7 @@ private struct OvenSectionGalleryScreen: View {
     var running: String?
     var isStarting = false
     /// The version bakes on one of the oven's own programmes: the mode row names the
-    /// dish it runs.
+    /// dish it runs, and the CTA gives way to what to select on the appliance.
     var assisted = false
 
     var body: some View {
@@ -383,7 +383,12 @@ private struct OvenSectionGalleryScreen: View {
                             duration: "30 min"
                         ),
                     onEdit: {},
-                    start: .init(running: running, isStarting: isStarting, onStart: {})
+                    start: assisted
+                        ? nil
+                        : .init(running: running, isStarting: isStarting, onStart: {}),
+                    onAppliance: assisted
+                        ? "Sélectionne « Quiche et tarte fine » sur l’écran du four."
+                        : nil
                 )
             }
             .navigationTitle("Quiche fine")

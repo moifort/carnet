@@ -110,9 +110,25 @@ struct RecipeDetailPage: View {
                     core: oven.core.map { "\($0) °C" }
                 ),
                 onEdit: onEditOven,
-                start: ovenStart
+                // The oven refuses its own programmes as a command, so this cooking
+                // is never started from here — the CTA gives way to the programme to
+                // select on the appliance.
+                start: oven.program == .assisted ? nil : ovenStart,
+                onAppliance: ovenStart != nil ? startOnAppliance(oven) : nil
             )
         }
+    }
+
+    /// What to select on the oven for a cooking the app cannot start. nil for every
+    /// heating function, which the CTA starts itself. Named when the programme is
+    /// known, so the cook looks for the same words the sheet shows above.
+    private func startOnAppliance(_ oven: OvenProfile) -> String? {
+        guard oven.program == .assisted else { return nil }
+        let name = oven.program.label(assisted: oven.assisted)
+        guard name != OvenProgram.assisted.label else {
+            return "Cette cuisson assistée se lance sur l’écran du four."
+        }
+        return "Sélectionne « \(name) » sur l’écran du four."
     }
 
     /// When the displayed version was last worked on, e.g. "12 juin 2025" — the date

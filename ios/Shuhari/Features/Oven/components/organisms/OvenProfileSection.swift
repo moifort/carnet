@@ -31,6 +31,12 @@ struct OvenProfileSection: View {
     /// then shows the settings alone — which is all it ever showed before an oven
     /// was connected.
     var start: Start?
+    /// What to select on the appliance when the cooking cannot be started from here,
+    /// written out ("Sélectionne « Quiche et tarte fine » sur l’écran du four").
+    /// Mutually exclusive with `start`: an oven's own programme is refused as a
+    /// command, so the row that would light it gives way to the one that says where
+    /// it does start.
+    var onAppliance: String?
 
     /// What it takes to start the cooking from here.
     struct Start {
@@ -70,6 +76,16 @@ struct OvenProfileSection: View {
                     isStarting: start.isStarting,
                     onStart: start.onStart
                 )
+            }
+
+            // Not a disabled button: there is nothing to wait for and nothing to
+            // switch on, so the row states the one thing left to do instead of
+            // dangling an action that will never become available.
+            if let onAppliance {
+                Label(onAppliance, systemImage: "hand.tap")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .accessibilityIdentifier("oven-start-on-appliance")
             }
         } header: {
             HStack {
@@ -143,7 +159,8 @@ struct OvenProfileSection: View {
                 temperature: "180 °C",
                 duration: "35 min"
             ),
-            onEdit: {}
+            onEdit: {},
+            onAppliance: "Sélectionne « Quiche et tarte fine » sur l’écran du four."
         )
     }
 }
@@ -157,7 +174,8 @@ struct OvenProfileSection: View {
                 temperature: "180 °C",
                 duration: "45 min"
             ),
-            onEdit: {}
+            onEdit: {},
+            onAppliance: "Cette cuisson assistée se lance sur l’écran du four."
         )
     }
 }

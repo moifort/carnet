@@ -537,6 +537,13 @@ never one tap from a heating element: a `confirmationDialog` repeats the exact s
 sent. While the oven reports a cooking under way, the CTA is replaced by "Cuisson en cours ·
 12 min" — a second cooking is never offered.
 
+**An assisted cooking shows the programme to select instead of a CTA.** The oven refuses its own
+programmes as a command, so a "Lancer la cuisson" button on such a version could never work: the
+page passes `start: nil` and `onAppliance:` instead, and the section renders one grey line —
+"Sélectionne « Quiche et tarte fine » sur l'écran du four." Named when the code is known, generic
+when it is not, and never a disabled button: there is nothing to wait for and nothing to switch
+on. Every heating function keeps its CTA, unchanged.
+
 The refusals are turned into sentences in `APIError.errorDescription`, next to `QUOTA_EXHAUSTED`,
 not in the view model. `REMOTE_CONTROL_DISABLED` is the one a cook meets most often and the only
 one they can act on, so it names the path: *Réglages → Connexions*. `ASSISTED_NOT_STARTABLE` is
