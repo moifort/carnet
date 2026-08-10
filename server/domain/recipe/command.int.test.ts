@@ -224,7 +224,7 @@ describe('RecipeCommand.addVersion', () => {
     expect(fake.snapshot('recipe-versions').get(`${recipe.id}_2`)?.toTest).toBe(true)
   })
 
-  test('an attempt-born version is not to test, and clears the flag of the one it answers', async () => {
+  test('an attempt-born version is one to test too, and the one it answers is cooked', async () => {
     const recipe = await RecipeCommand.create(userId, newInput())
     if (typeof recipe === 'string') throw new Error('expected a recipe')
     // v2 comes from an improvement: it is waiting to be cooked.
@@ -235,7 +235,8 @@ describe('RecipeCommand.addVersion', () => {
       tips: [],
     })
 
-    // Cooking it with remarks answers it with v3 — v2 owes nothing anymore.
+    // Cooking it with remarks answers it with v3: v2 has been made, so it owes
+    // nothing anymore — and v3, which has not, takes its place on the list.
     await RecipeCommand.addVersion(userId, recipe.id, {
       change: 'Moins de sel',
       basedOn: 2 as VersionNumber,
@@ -245,10 +246,10 @@ describe('RecipeCommand.addVersion', () => {
     })
 
     expect(fake.snapshot('recipe-versions').get(`${recipe.id}_2`)).not.toHaveProperty('toTest')
-    expect(fake.snapshot('recipe-versions').get(`${recipe.id}_3`)).not.toHaveProperty('toTest')
+    expect(fake.snapshot('recipe-versions').get(`${recipe.id}_3`)?.toTest).toBe(true)
   })
 
-  test('records the attempt that produced v2 on v2, leaving v1 untouched', async () => {
+  test('records the cook that asked for v2 on v1, the version it was made from', async () => {
     const recipe = await RecipeCommand.create(userId, newInput())
     if (typeof recipe === 'string') throw new Error('expected a recipe')
 
@@ -260,16 +261,17 @@ describe('RecipeCommand.addVersion', () => {
       attempt: { rating: 3 as Rating, remarks: 'Trop liquide' as Remarks },
     })
 
-    // The cook that asked for v2 is v2's own outcome.
-    const v2 = fake.snapshot('recipe-versions').get(`${recipe.id}_2`)
-    expect(v2?.rating).toBe(3 as Rating)
-    expect(v2?.remarks).toBe('Trop liquide' as Remarks)
-    expect(v2?.executedAt).toBeInstanceOf(Date)
-    // The version it iterates on keeps no trace of it.
+    // The cook that asked for v2 is the outcome of v1 — the plate that was made.
     const v1 = fake.snapshot('recipe-versions').get(`${recipe.id}_1`)
-    expect(v1).not.toHaveProperty('executedAt')
-    expect(v1).not.toHaveProperty('rating')
-    expect(v1).not.toHaveProperty('remarks')
+    expect(v1?.rating).toBe(3 as Rating)
+    expect(v1?.remarks).toBe('Trop liquide' as Remarks)
+    expect(v1?.executedAt).toBeInstanceOf(Date)
+    // v2 has never been made: no outcome at all, and it waits on the to-cook list.
+    const v2 = fake.snapshot('recipe-versions').get(`${recipe.id}_2`)
+    expect(v2).not.toHaveProperty('executedAt')
+    expect(v2).not.toHaveProperty('rating')
+    expect(v2).not.toHaveProperty('remarks')
+    expect(v2?.toTest).toBe(true)
   })
 
   test('rejects content whose kind does not match the recipe type', async () => {
@@ -910,11 +912,11 @@ describe('a version’s updatedAt', () => {
     expect(corrected.createdAt).toEqual(new Date('2026-03-11T08:00:00.000Z'))
   })
 
-  test('bookkeeping leaves it alone: the base a new version iterates on', async () => {
+  test('the base an attempt-born version iterates on is dated by that cook', async () => {
     at('2026-03-11T08:00:00.000Z')
     const recipe = await RecipeCommand.create(userId, newInput())
     if (typeof recipe === 'string') throw new Error('expected a recipe')
-    // v2 is asked for by an improvement, so v1 is the version waiting to be cooked.
+    // v2 is asked for by an improvement, so v1 is left exactly as it was.
     at('2026-03-12T09:00:00.000Z')
     await RecipeCommand.addVersion(userId, recipe.id, {
       change: 'Moins de bouillon',
@@ -922,8 +924,12 @@ describe('a version’s updatedAt', () => {
       content: dishContent(),
       tips: [],
     })
+    expect(fake.snapshot('recipe-versions').get(`${recipe.id}_1`)?.updatedAt).toEqual(
+      new Date('2026-03-11T08:00:00.000Z'),
+    )
 
-    // Cooking v2 clears v1’s `toTest` flag — a flag the cook never wrote on v1.
+    // Iterating on v1 with a cook behind it writes that cook on v1: not bookkeeping
+    // but the cook's own work on it, so it is dated by it, like any attempt.
     at('2026-03-13T10:00:00.000Z')
     await RecipeCommand.addVersion(userId, recipe.id, {
       change: 'Encore moins',
@@ -934,8 +940,8 @@ describe('a version’s updatedAt', () => {
     })
 
     const v1 = fake.snapshot('recipe-versions').get(`${recipe.id}_1`)
-    expect(v1?.toTest).toBeUndefined()
-    expect(v1?.updatedAt).toEqual(new Date('2026-03-11T08:00:00.000Z'))
+    expect(v1?.rating).toBe(4 as Rating)
+    expect(v1?.updatedAt).toEqual(new Date('2026-03-13T10:00:00.000Z'))
   })
 })
 
@@ -995,14 +1001,19 @@ describe('a recipe’s date — the version it opens on', () => {
       rating: 5 as Rating,
     })
 
-    // A v2 cooked in August, but rated below: v1 still answers for the recipe.
+    // A v2 asked for, then cooked in August but rated below: v1 still answers for
+    // the recipe, so the recipe stays filed under March.
     at('2026-08-06T10:00:00.000Z')
     await RecipeCommand.addVersion(userId, recipe.id, {
       change: 'Moins de bouillon',
       basedOn: V1,
       content: dishContent(),
       tips: [],
-      attempt: { rating: 3 as Rating, remarks: 'Trop sec' as Remarks },
+    })
+    await RecipeCommand.recordAttempt(userId, {
+      recipeId: recipe.id,
+      versionNumber: V2,
+      rating: 3 as Rating,
     })
 
     expect(storedDate(recipe.id)).toEqual(new Date('2026-03-11T08:00:00.000Z'))
@@ -1024,7 +1035,11 @@ describe('a recipe’s date — the version it opens on', () => {
       basedOn: V1,
       content: dishContent(),
       tips: [],
-      attempt: { rating: 5 as Rating, remarks: 'Parfait' as Remarks },
+    })
+    await RecipeCommand.recordAttempt(userId, {
+      recipeId: recipe.id,
+      versionNumber: V2,
+      rating: 5 as Rating,
     })
 
     expect(storedDate(recipe.id)).toEqual(new Date('2026-08-06T10:00:00.000Z'))
@@ -1057,7 +1072,11 @@ describe('a recipe’s date — the version it opens on', () => {
       basedOn: V1,
       content: dishContent(),
       tips: [],
-      attempt: { rating: 5 as Rating, remarks: 'Parfait' as Remarks },
+    })
+    await RecipeCommand.recordAttempt(userId, {
+      recipeId: recipe.id,
+      versionNumber: V2,
+      rating: 5 as Rating,
     })
     expect(storedDate(recipe.id)).toEqual(new Date('2026-08-06T10:00:00.000Z'))
 

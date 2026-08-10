@@ -41,14 +41,16 @@ export const ProposalInput = builder.inputType('ProposalInput', {
         'The complete tips list of the next version — echo back the proposal’s `tips` (with ' +
         'any edits), e.g. `["Serve over rice"]`; send `[]` when it has none',
     }),
-    // The cook that asked for this version, when one did. Recorded on the version
-    // being created, never on the one it iterates on. Both are left out when the
-    // proposal answers an improvement instead of a cook.
+    // The cook that asked for this version, when one did. Recorded on `basedOn` —
+    // the version that cook was made from — never on the one being created, which
+    // has not been made yet. Both are left out when the proposal answers an
+    // improvement instead of a cook.
     rating: t.field({
       type: 'Rating',
       description:
-        'How the cook that asked for this version turned out, `1` to `5`, e.g. `3` (leave out ' +
-        'when the proposal came from requestImprovement)',
+        'How the cook that asked for this version turned out, `1` to `5`, e.g. `3`. Recorded on ' +
+        'the version you cooked (`basedOn`), which is what it is a verdict on (leave out when ' +
+        'the proposal came from requestImprovement)',
     }),
     remarks: t.field({
       type: 'Remarks',

@@ -47,8 +47,8 @@ builder.mutationField('requestProposal', (t) =>
     description: [
       'Ask the AI for a suggested next version. It looks at the version you just cooked and at ' +
         'how the cook went — the rating and remarks you send here — and proposes one ' +
-        'improvement. Nothing is saved yet, not even your rating: it is recorded on the new ' +
-        'version when you accept the proposal (see acceptProposal). Spends one iteration of ' +
+        'improvement. Nothing is saved yet, not even your rating: it is recorded on the version ' +
+        'you cooked when you accept the proposal (see acceptProposal). Spends one iteration of ' +
         'your monthly AI allowance (see quota) — `QUOTA_EXHAUSTED` once it is used up.',
       '',
       '```graphql',
@@ -212,10 +212,10 @@ builder.mutationField('acceptProposal', (t) =>
     type: AcceptProposalResultType,
     description: [
       'Accept an AI suggestion (optionally after editing it). It becomes the next version in ' +
-        'the chain, ready to cook. Coming from a cook (requestProposal), it carries that ' +
-        'attempt — the rating, remarks and photo you just gave — and the version it iterates on ' +
-        'is left exactly as it was. Coming from an improvement (requestImprovement), it carries ' +
-        'no attempt and lands on your to-cook list instead.',
+        'the chain and lands on your to-cook list: it has never been made, whatever asked for ' +
+        'it. Coming from a cook (requestProposal), the attempt you just gave — the rating, the ' +
+        'remarks and the photo — is recorded on the version you cooked (`basedOn`), which stops ' +
+        'owing a try. Coming from an improvement (requestImprovement), nothing is recorded.',
       '',
       '```graphql',
       'acceptProposal(recipeId: "9f1c-a3b2", proposal: {',

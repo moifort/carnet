@@ -7,11 +7,12 @@ import SwiftUI
 ///
 /// - **the note alone** is a cook that asks for nothing: it is recorded on the version
 ///   shown, and the flow ends;
-/// - **a remark** asks the AI for the next version to try. Rated, the cook rides along
-///   and is recorded on the version the accepted proposal creates, leaving the one
-///   cooked untouched; unrated, it is an improvement asked with no cook behind it, and
-///   the version it creates simply lands on the to-cook list. Tips typed beside the
-///   remark are carried into the proposed version, where they stay editable;
+/// - **a remark** asks the AI for the next version to try, and the version it creates
+///   lands on the to-cook list — it has not been made yet. Rated, the cook rides along
+///   and is recorded, on accept, on the version shown: the one that was actually made.
+///   Unrated, it is an improvement asked with no cook behind it and nothing is
+///   recorded. Tips typed beside the remark are carried into the proposed version,
+///   where they stay editable;
 /// - **tips alone** are reworded and merged into the displayed version's own — in
 ///   place, no version created. A note typed with them is recorded first, on its own.
 ///
@@ -282,10 +283,10 @@ struct ExecuteFlowView: View {
         }
     }
 
-    // Accepting is what writes the cook down: it lands on the version being created,
-    // and the version it iterates on stays as it was. Closing the proposal instead
-    // records nothing at all. A remark written with no note behind it carries no cook
-    // at all — the version it appends is one to test.
+    // Accepting is what writes the cook down: it lands on the version it was made on —
+    // the one this iterates from — while the version created is one to test, since
+    // nobody has made it. Closing the proposal instead records nothing at all, and a
+    // remark written with no note behind it carries no cook to write.
     private func acceptProposal(_ edited: ProposalEdit) async {
         isAcceptingProposal = true
         defer { isAcceptingProposal = false }

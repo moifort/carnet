@@ -316,8 +316,9 @@ struct ProposalEdit: Sendable {
 
 /// A cook: how it was rated, what was noticed, what it looked like. When it carries
 /// remarks it asks for a next version, and it is held in memory through the proposal
-/// step — recorded on the version the proposal creates, never on the version cooked.
-/// A remark-less cook goes straight onto the version cooked (`recordAttempt`).
+/// step — written, on accept, onto the version cooked, exactly where a remark-less
+/// cook goes straight away (`recordAttempt`). The version the proposal creates has
+/// been made by nobody: it carries no cook, and waits on the to-cook list.
 struct Attempt: Sendable {
     let rating: Int
     let remarks: String

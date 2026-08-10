@@ -145,6 +145,71 @@ describe('requestProposal mutation', () => {
   })
 })
 
+describe('acceptProposal mutation — where the cook lands', () => {
+  // The whole loop as the app runs it: the cook makes the version they had to test,
+  // rates it, writes what was off, and accepts what the AI answers.
+  const accept = (rating?: number) =>
+    execute(`
+      mutation {
+        acceptProposal(recipeId: "${recipeId}", proposal: {
+          basedOn: 1
+          changeSummary: "Bouillon 700 → 650 ml"
+          rationale: "Trop liquide au dernier essai"
+          content: { dish: { ingredients: [], steps: ["Mijoter 40 min"] } }
+          tips: []
+          ${rating === undefined ? '' : `rating: ${rating}, remarks: "Trop liquide"`}
+        }) {
+          recipe {
+            toTestCount
+            versions { number toTest }
+            versionToOpen { number }
+          }
+        }
+      }
+    `)
+
+  test('writes the cook on the version made, and leaves the new one to test', async () => {
+    const result = await accept(3)
+    expect(result.errors).toBeUndefined()
+    // The rating is a verdict on the plate that was made: it belongs to v1.
+    const v1 = fake.snapshot('recipe-versions').get(`${recipeId}_1`)
+    expect(v1?.rating).toBe(3)
+    expect(v1?.remarks).toBe('Trop liquide')
+    expect(v1).not.toHaveProperty('toTest')
+    // v2 has never been made: no outcome, and it is what the flask CTA lists.
+    const v2 = fake.snapshot('recipe-versions').get(`${recipeId}_2`)
+    expect(v2).not.toHaveProperty('rating')
+    expect(v2?.toTest).toBe(true)
+    expect(result.data?.acceptProposal).toMatchObject({
+      recipe: {
+        toTestCount: 1,
+        versions: [
+          { number: 1, toTest: false },
+          { number: 2, toTest: true },
+        ],
+        // The sheet opens on what is known to work, never on a version still to test.
+        versionToOpen: { number: 1 },
+      },
+    })
+  })
+
+  test('an improvement with no cook behind it leaves the version it iterates on alone', async () => {
+    const result = await accept()
+    expect(result.errors).toBeUndefined()
+    // Nothing was cooked, so v1 gains no outcome — and v2 owes its first try.
+    expect(fake.snapshot('recipe-versions').get(`${recipeId}_1`)).not.toHaveProperty('rating')
+    expect(result.data?.acceptProposal).toMatchObject({
+      recipe: {
+        toTestCount: 1,
+        versions: [
+          { number: 1, toTest: false },
+          { number: 2, toTest: true },
+        ],
+      },
+    })
+  })
+})
+
 describe('quota query', () => {
   test('reports what the free plan has left this month', async () => {
     seedIterationsUsed(2)

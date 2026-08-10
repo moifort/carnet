@@ -45,8 +45,9 @@ export type NewRecipeInput = {
   tips: Tip[]
 }
 
-// The cook that produced a version: the rating, remarks and photo of the attempt
-// whose remarks the AI answered. It rides along with the version it gave birth to.
+// The cook that asked for an iteration: the rating, remarks and photo of the attempt
+// whose remarks the AI answered. It rides along with the version it gave birth to, and
+// is written on the version it was made from — the plate the rating is a verdict on.
 export type Attempt = {
   rating: Rating
   remarks: Remarks
@@ -59,8 +60,9 @@ export type NewVersionInput = {
   why?: string
   content: VersionContent
   tips: Tip[]
-  // The attempt that produced this version — absent when an improvement asked for it
-  // instead, in which case the version created is one to test.
+  // The attempt that asked for this version — absent when an improvement asked for it
+  // instead, with no cook behind it. Either way the version created is one to test:
+  // the attempt is recorded on `basedOn`, the version it was cooked from.
   attempt?: Attempt
 }
 
@@ -125,11 +127,11 @@ export namespace RecipeCommand {
 
   // Accepted AI iteration → append version n+1 to the lineage, stamping the version
   // it was proposed from (`basedOn`). No reference/pending pointer to maintain: the
-  // recipe just bumps its `lastVersionNumber` and restamps its date. The attempt that
-  // asked for this version lands on it, never on the version it iterates on — that one
-  // only loses its `toTest` flag, since the cook that answers it is the cook it owed.
-  // Born of an improvement instead (no attempt), the version is the one waiting to be
-  // cooked: it is the sole way a version becomes `toTest`.
+  // recipe just bumps its `lastVersionNumber` and restamps its date. The version
+  // created has never been made, whatever asked for it, so it is always one to test.
+  // The cook that asked for it, when there was one, lands on the version it was
+  // actually cooked on — the one it iterates on: a rating is a verdict on the plate
+  // that was made, and that plate is the previous version.
   export const addVersion = async (userId: UserId, recipeId: RecipeId, input: NewVersionInput) => {
     const recipe = await repository.findBy(userId, recipeId)
     if (!recipe) return 'not-found' as const
@@ -151,27 +153,24 @@ export namespace RecipeCommand {
       ...(input.why ? { why: input.why } : {}),
       content: input.content,
       tips: input.tips,
-      // The outcome of the attempt that produced it, when there was one; without it
-      // the version is what the cook asked for and still owes a try.
-      ...(input.attempt
-        ? {
-            executedAt: new Date(),
-            rating: input.attempt.rating,
-            remarks: input.attempt.remarks,
-            ...(input.attempt.photoPath ? { photoPath: input.attempt.photoPath } : {}),
-          }
-        : { toTest: true as const }),
+      // What the cook asked for and has not made yet: it owes a try.
+      toTest: true as const,
     }
-    // The version this one answers has been cooked: it owes nothing anymore.
-    const cooked = input.attempt ? cookedBase(lineage, input.basedOn) : undefined
+    // The cook that asked for this iteration, written on the version it was made
+    // from — which stops owing a try, since it has just been made.
+    const base =
+      input.basedOn === undefined
+        ? undefined
+        : lineage.find(({ number }) => number === input.basedOn)
+    const cookedBase = input.attempt && base ? cooked(base, input.attempt, now) : undefined
     const updated: Recipe = {
       ...recipe,
       lastVersionNumber: number,
-      updatedAt: lastWorkedOn(written(lineage, cooked, version)),
+      updatedAt: lastWorkedOn(written(lineage, cookedBase, version)),
     }
     return atomically(async (batch) => {
       await repository.saveVersion(version, batch)
-      if (cooked) await repository.saveVersion(cooked, batch)
+      if (cookedBase) await repository.saveVersion(cookedBase, batch)
       await repository.save(updated, batch)
       await teachVocabulary(userId, input.content, batch)
       return updated
@@ -193,24 +192,7 @@ export namespace RecipeCommand {
     const lineage = await repository.findVersionsOf(input.recipeId)
     const version = lineage.find(({ number }) => number === input.versionNumber)
     if (!version) return 'not-found' as const
-    // Drop the previous photo and remarks before spreading: a re-cook that leaves
-    // them out must erase what the earlier attempt left behind, not inherit it. The
-    // `toTest` flag goes too — the version has just been cooked.
-    const {
-      photoPath: _replacedPhoto,
-      remarks: _replacedRemarks,
-      toTest: _cooked,
-      ...rest
-    } = version
-    const now = new Date()
-    const executed: RecipeVersion = {
-      ...rest,
-      updatedAt: now,
-      executedAt: now,
-      rating: input.rating,
-      ...(input.remarks ? { remarks: input.remarks } : {}),
-      ...(input.photoPath ? { photoPath: input.photoPath } : {}),
-    }
+    const executed = cooked(version, input, new Date())
     const updatedRecipe: Recipe = {
       ...recipe,
       updatedAt: lastWorkedOn(written(lineage, executed)),
@@ -457,15 +439,25 @@ export namespace RecipeCommand {
     return [...byNumber.values()]
   }
 
-  // The version an attempt-born iteration is based on, stripped of its `toTest` flag —
-  // or nothing when there is no base, or it was not waiting to be cooked. Bookkeeping
-  // again: the outcome landed on the new version, so the base keeps its `updatedAt`.
-  const cookedBase = (lineage: RecipeVersion[], basedOn?: VersionNumberT) => {
-    if (basedOn === undefined) return undefined
-    const base = lineage.find((version) => version.number === basedOn)
-    if (!base?.toTest) return undefined
-    const { toTest: _cooked, ...rest } = base
-    return rest
+  // A version as it reads once it has been made: the outcome REPLACES whatever the
+  // previous attempt left — a re-cook that leaves the photo or the remarks out erases
+  // them rather than inheriting them — and the version stops owing a try. The one
+  // shape of a cooked version, whether the cook was logged on its own
+  // (`recordAttempt`) or rode along with the iteration it asked for (`addVersion`).
+  const cooked = (
+    version: RecipeVersion,
+    attempt: { rating: Rating; remarks?: Remarks; photoPath?: string },
+    now: Date,
+  ): RecipeVersion => {
+    const { photoPath: _replacedPhoto, remarks: _replacedRemarks, toTest: _owed, ...rest } = version
+    return {
+      ...rest,
+      updatedAt: now,
+      executedAt: now,
+      rating: attempt.rating,
+      ...(attempt.remarks ? { remarks: attempt.remarks } : {}),
+      ...(attempt.photoPath ? { photoPath: attempt.photoPath } : {}),
+    }
   }
 
   const firstVersion = (
