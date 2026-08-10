@@ -1,4 +1,5 @@
 import type { OvenProfile } from '~/domain/recipe/content/oven'
+import { AssistedProgram } from '~/domain/recipe/primitives'
 import { RecipeQuery } from '~/domain/recipe/query'
 import type { RecipeId, VersionNumber } from '~/domain/recipe/types'
 import type { UserId } from '~/domain/shared/types'
@@ -33,6 +34,7 @@ export const OvenUseCase = {
       remoteControlEnabled: state.remoteControlEnabled,
       settings: {
         ...(state.program ? { program: state.program } : {}),
+        ...(state.assisted ? { assisted: AssistedProgram(state.assisted) } : {}),
         ...(state.temperature !== undefined ? { temperature: state.temperature } : {}),
         ...(state.duration !== undefined ? { duration: state.duration } : {}),
         ...(state.core !== undefined ? { core: state.core } : {}),

@@ -1,6 +1,7 @@
 import { GraphQLError } from 'graphql'
 import { ZodError } from 'zod'
 import {
+  AssistedProgram,
   CoffeeBeanName,
   CoffeeCountry,
   CoffeeDose,
@@ -87,6 +88,15 @@ builder.scalarType('Rating', {
     'rating across a recipe’s attempts drives the version its recipe sheet opens on.',
   serialize: (value) => value as number,
   parseValue: validatedParse('Rating', Rating),
+})
+
+builder.scalarType('AssistedProgram', {
+  description:
+    'One of the oven’s own assisted-cooking programmes, as the appliance names it, e.g. ' +
+    '`"ASSIST_QUICHEANDTARTETHIN"`. Opaque: copied off the oven and handed back to it, never ' +
+    'parsed. Paired with `OvenProgram.ASSISTED`.',
+  serialize: (value) => value as string,
+  parseValue: validatedParse('AssistedProgram', AssistedProgram),
 })
 
 builder.scalarType('OvenTemperature', {

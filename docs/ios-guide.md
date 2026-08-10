@@ -502,6 +502,11 @@ after have to be comparable at a glance.
 The section's copy needs a profile to already exist (no profile, no section); the sheet's is what
 creates the first one. That is why it lives in both places rather than one.
 
+`assisted` is never offered by the picker (`OvenProgram.selectable` drops it): it is not a dial
+anyone turns, it only ever arrives by copying what the oven is set to. Picking it by hand would
+build a programme with no code behind it, which starts nothing. It joins the list only on a draft
+that already carries one, so the row can show what is selected.
+
 The picker lists every function the notebook knows, including ones a given oven lacks — writing
 down "Pizza 250 °C" is legitimate even on an oven that cannot run it. Starting it then answers
 `PROGRAM_UNSUPPORTED`, which says so; the alternative, hiding the function, would make the

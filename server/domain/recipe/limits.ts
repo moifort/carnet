@@ -11,6 +11,7 @@ export const RECIPE_MAX = {
   warning: 300,
   thermomix: 20,
   coffee: 30, // a grind setting spells out a grinder ("Niveau 12, Comandante")
+  assistedProgram: 60, // "ASSIST_QUICHEANDTARTETHIN" and its longest cousins
   coffeeLabel: 80, // a bean or a machine spells itself out ("Belleville — Éthiopie Guji Hambela")
 } as const
 

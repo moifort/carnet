@@ -24,8 +24,17 @@ enum OvenProgram: String, CaseIterable, Sendable, Identifiable {
     /// Steam plus hot air.
     case steamCombi = "steam-combi"
     case defrost
+    /// One of the oven's OWN programmes — "Quiche et tarte fine" and its kin. Never
+    /// picked from the list: it only ever arrives by copying what the oven is set to,
+    /// and `OvenProfile.assisted` carries the code that names it.
+    case assisted
 
     var id: String { rawValue }
+
+    /// What the picker offers. `assisted` is left out: it is not a dial anyone turns,
+    /// it arrives only by copying what the oven is set to — offering it would let a
+    /// cook pick a programme with no code behind it, which starts nothing.
+    static var selectable: [OvenProgram] { allCases.filter { $0 != .assisted } }
 
     var label: String {
         switch self {
@@ -41,6 +50,7 @@ enum OvenProgram: String, CaseIterable, Sendable, Identifiable {
         case .steam: "Vapeur"
         case .steamCombi: "Vapeur combinée"
         case .defrost: "Décongélation"
+        case .assisted: "Cuisson assistée"
         }
     }
 
@@ -59,6 +69,7 @@ enum OvenProgram: String, CaseIterable, Sendable, Identifiable {
         case .airFry: "wind"
         case .steam, .steamCombi: "humidity"
         case .defrost: "snowflake"
+        case .assisted: "wand.and.stars"
         }
     }
 

@@ -216,6 +216,7 @@ func mapOvenProfile(_ oven: ShuhariGraphQL.OvenProfileFields?) -> OvenProfile? {
     guard let oven else { return nil }
     return OvenProfile(
         program: OvenProgram(graphql: oven.program),
+        assisted: oven.assisted,
         temperature: oven.temperature,
         duration: oven.duration,
         core: oven.core

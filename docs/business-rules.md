@@ -57,6 +57,15 @@ the digest; this doc is the spec. The mechanics of building a domain live in
   therefore stays reproducible after the oven renames or drops anything, and the deviation the
   cook applied ("the oven's profile, minus ten minutes") is written down as values rather than as
   a diff against something that may move.
+- **`assisted` is the one manufacturer string a recipe stores.** `OVEN_PROGRAM_VALUES` gains
+  `assisted`, and `OvenProfile.assisted` carries the appliance's own code
+  (`ASSIST_QUICHEANDTARTETHIN`) present if and only if the programme is that one. It earns its
+  place: an assisted cooking is a recipe the oven runs, varying heat and humidity over time, so
+  rewriting it as a heating function plus a temperature does not reproduce it — it cooks something
+  else, silently. The pair is normalized in `toOvenProfile`: a code without the programme, or the
+  programme without a code, is a profile nobody can start. The cost is stated rather than hidden —
+  such a version does not survive a change of oven, keeping its temperature and duration but
+  losing the programme.
 - **The oven's own dials are copyable into a version** (`Oven.settings`, read whether the oven is
   cooking or merely selected). That is what replaces the catalogue the API does not offer: the
   cook sets a cooking up on the appliance — using its assisted programmes if they like — and the

@@ -96,6 +96,15 @@ export const OvenProgramEnum = builder.enumType('OvenProgram', {
     STEAM: { value: 'steam', description: 'Steam only, e.g. for vegetables' },
     STEAM_COMBI: { value: 'steam-combi', description: 'Steam plus hot air, e.g. for bread' },
     DEFROST: { value: 'defrost', description: 'Fan without heat' },
+    ASSISTED: {
+      value: 'assisted',
+      description:
+        'One of the oven’s OWN programmes — "Quiche et tarte fine" and its kin. Not a heating ' +
+        'function but a recipe the appliance runs, varying heat and humidity over time. The ' +
+        'profile’s `assisted` field carries the code that names it, and reproducing the cooking ' +
+        'means sending that code back: rewritten as a heating function it would cook something ' +
+        'else without saying so.',
+    },
   } as const,
 })
 

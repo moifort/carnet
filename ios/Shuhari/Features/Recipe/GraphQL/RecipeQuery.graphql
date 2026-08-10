@@ -1,5 +1,6 @@
 fragment OvenProfileFields on OvenProfile {
   program
+  assisted
   temperature
   duration
   core

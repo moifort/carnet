@@ -9,6 +9,7 @@ import { type LooseThermomixSettings, thermomixSteps } from '~/domain/recipe/con
 import type { VersionContent as VersionContentType } from '~/domain/recipe/content/types'
 import { OVEN_RANGE, RECIPE_MAX } from '~/domain/recipe/limits'
 import {
+  type AssistedProgram as AssistedProgramType,
   BREW_METHOD_VALUES,
   type BrewMethod as BrewMethodType,
   type CoffeeBeanName as CoffeeBeanNameType,
@@ -78,6 +79,11 @@ const ovenDial = (range: { min: number; max: number }) => (value: unknown) =>
       z.number().int().min(range.min).max(range.max),
     )
     .parse(value)
+
+export const AssistedProgram = (value: unknown) => {
+  const v = z.string().trim().min(1).max(RECIPE_MAX.assistedProgram).parse(value)
+  return make<AssistedProgramType>()(v)
+}
 
 export const OvenTemperature = (value: unknown) =>
   make<OvenTemperatureType>()(ovenDial(OVEN_RANGE.temperature)(value))
@@ -206,6 +212,7 @@ const looseSettingsSchema = z.object({
 
 const looseOvenSchema = z.object({
   program: z.unknown(),
+  assisted: z.unknown().nullish(),
   temperature: z.unknown(),
   duration: z.unknown().nullish(),
   core: z.unknown().nullish(),
@@ -277,6 +284,7 @@ const brandIngredient = (i: { name: unknown; quantity: unknown }) => ({
 const brandOvenProfile = (raw: z.infer<typeof looseOvenSchema>): OvenProfileType =>
   toOvenProfile({
     program: OvenProgram(raw.program),
+    assisted: raw.assisted != null ? AssistedProgram(raw.assisted) : undefined,
     temperature: OvenTemperature(raw.temperature),
     duration: raw.duration != null ? OvenDuration(raw.duration) : undefined,
     core: raw.core != null ? OvenCoreTemperature(raw.core) : undefined,

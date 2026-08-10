@@ -6,6 +6,10 @@ import SwiftUI
 struct OvenProfileDraft {
     var enabled: Bool
     var program: OvenProgram
+    /// The oven's own programme code, carried untouched when the draft came from a
+    /// copy. Turning the picker to a heating function drops it — the pair is what
+    /// makes an assisted cooking startable.
+    var assisted: String?
     var temperature: Int
     var usesTimer: Bool
     var duration: Int
@@ -16,6 +20,7 @@ struct OvenProfileDraft {
         let base = profile ?? .blank
         enabled = profile != nil
         program = base.program
+        assisted = base.assisted
         temperature = base.temperature
         usesTimer = base.duration != nil
         duration = base.duration ?? 30
@@ -31,6 +36,7 @@ struct OvenProfileDraft {
         guard let program = settings.program, let temperature = settings.temperature else { return }
         enabled = true
         self.program = program
+        assisted = settings.assisted
         self.temperature = temperature
         usesTimer = settings.duration != nil
         if let duration = settings.duration { self.duration = duration }
@@ -44,6 +50,7 @@ struct OvenProfileDraft {
         guard enabled else { return nil }
         return OvenProfile(
             program: program,
+            assisted: program == .assisted ? assisted : nil,
             temperature: temperature,
             duration: usesTimer ? duration : nil,
             core: usesProbe ? core : nil
@@ -62,6 +69,13 @@ struct OvenProfileForm: View {
     /// when no oven is connected, or when it says too little to make a profile —
     /// the row then disappears rather than offering an empty gesture.
     var applianceSettings: OvenSettings?
+
+    /// The functions the picker offers. An assisted programme copied off the oven
+    /// joins them so the row can show what is selected — but it is never offered on a
+    /// draft that does not already carry one.
+    private var pickable: [OvenProgram] {
+        draft.program == .assisted ? [.assisted] + OvenProgram.selectable : OvenProgram.selectable
+    }
 
     var body: some View {
         Section {
@@ -83,7 +97,7 @@ struct OvenProfileForm: View {
         if draft.enabled {
             Section("Réglages") {
                 Picker("Mode", selection: $draft.program) {
-                    ForEach(OvenProgram.allCases) { program in
+                    ForEach(pickable) { program in
                         Label(program.label, systemImage: program.iconName).tag(program)
                     }
                 }
@@ -135,6 +149,13 @@ struct OvenProfileForm: View {
 private struct FormHost: View {
     @State var draft: OvenProfileDraft
     var applianceSettings: OvenSettings?
+
+    /// The functions the picker offers. An assisted programme copied off the oven
+    /// joins them so the row can show what is selected — but it is never offered on a
+    /// draft that does not already carry one.
+    private var pickable: [OvenProgram] {
+        draft.program == .assisted ? [.assisted] + OvenProgram.selectable : OvenProgram.selectable
+    }
 
     var body: some View {
         Form { OvenProfileForm(draft: $draft, applianceSettings: applianceSettings) }

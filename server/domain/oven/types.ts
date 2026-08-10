@@ -1,4 +1,4 @@
-import type { OvenProgram } from '~/domain/recipe/types'
+import type { AssistedProgram, OvenProgram } from '~/domain/recipe/types'
 
 // What the oven's dials are set to right now — whatever it is doing, and whoever
 // turned them, including the cook standing in front of it. This is what "copy the
@@ -7,6 +7,7 @@ import type { OvenProgram } from '~/domain/recipe/types'
 // the recipe sheet that only meant to display them.
 export type OvenSettings = {
   program?: OvenProgram
+  assisted?: AssistedProgram
   temperature?: number
   duration?: number
   core?: number

@@ -92,6 +92,13 @@ export const OvenProfileType = builder.objectRef<OvenProfile>('OvenProfile').imp
       description: 'The heating function, e.g. `CONVECTION`',
       resolve: (p) => p.program,
     }),
+    assisted: t.expose('assisted', {
+      type: 'AssistedProgram',
+      nullable: true,
+      description:
+        'The oven’s own programme code, e.g. `"ASSIST_QUICHEANDTARTETHIN"`. Present if and only ' +
+        'if `program` is `ASSISTED`, and what makes that cooking reproducible.',
+    }),
     temperature: t.expose('temperature', {
       type: 'OvenTemperature',
       description: 'What the dial is set to, e.g. `180`',

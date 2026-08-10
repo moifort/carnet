@@ -12,6 +12,11 @@ type AcceptProposalResult {
 }
 
 """
+One of the oven’s own assisted-cooking programmes, as the appliance names it, e.g. `"ASSIST_QUICHEANDTARTETHIN"`. Opaque: copied off the oven and handed back to it, never parsed. Paired with `OvenProgram.ASSISTED`.
+"""
+scalar AssistedProgram
+
+"""
 How a coffee is brewed. Detected once at import, shared by every version, and the axis the coffee tab groups and sorts on — the counterpart of `DishCategory` for cooking. Present on a `COFFEE` recipe and on no other.
 """
 enum BrewMethod {
@@ -1105,6 +1110,11 @@ The oven settings a version bakes at: the heating function, the dial temperature
 """
 type OvenProfile {
   """
+  The oven’s own programme code, e.g. `"ASSIST_QUICHEANDTARTETHIN"`. Present if and only if `program` is `ASSISTED`, and what makes that cooking reproducible.
+  """
+  assisted: AssistedProgram
+
+  """
   The probe target at the heart of the food, e.g. `63`. `null` when there is no probe.
   """
   core: OvenCoreTemperature
@@ -1125,6 +1135,11 @@ type OvenProfile {
 The oven settings to save on this version. Send it only when the dish actually bakes, and omit it entirely otherwise — there is no "no oven" value. `duration` and `core` are each optional: a timed cook has a duration, a probe cook has a core target, a dish can have both.
 """
 input OvenProfileInput {
+  """
+  The oven’s own programme code — required when `program` is `ASSISTED`, rejected otherwise. Copy it off `oven.settings`, never type it.
+  """
+  assisted: AssistedProgram
+
   """The probe target at the heart of the food, e.g. `63`"""
   core: OvenCoreTemperature
 
@@ -1144,6 +1159,11 @@ An oven heating function — what the dial selects, e.g. `CONVECTION`. Model-ind
 enum OvenProgram {
   """High fan and little fat, e.g. for chips or wings"""
   AIR_FRY
+
+  """
+  One of the oven’s OWN programmes — "Quiche et tarte fine" and its kin. Not a heating function but a recipe the appliance runs, varying heat and humidity over time. The profile’s `assisted` field carries the code that names it, and reproducing the cooking means sending that code back: rewritten as a heating function it would cook something else without saying so.
+  """
+  ASSISTED
 
   """Bottom element only, e.g. to dry a base"""
   BOTTOM_HEAT
@@ -1197,6 +1217,11 @@ What the oven’s dials are set to RIGHT NOW — whatever it is doing, and whoev
 Plain `Int`s, unlike a version’s branded oven dials: these are the appliance’s readings, not what a cook wrote down, and a stray one must not fail the query that only meant to display them.
 """
 type OvenSettings {
+  """
+  The oven’s own programme code when one is selected, e.g. `"ASSIST_QUICHEANDTARTETHIN"`. Copy it onto the version alongside `program: ASSISTED` — it is what makes that cooking reproducible.
+  """
+  assisted: AssistedProgram
+
   """
   The probe target in °C, e.g. `63`. `null` unless a probe is plugged in — the appliance reports the field only then.
   """

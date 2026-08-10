@@ -19,6 +19,9 @@ struct OvenState: Sendable, Equatable {
 /// anyone wrote down.
 struct OvenSettings: Sendable, Equatable {
     var program: OvenProgram?
+    /// The oven's own programme code when one is selected — what makes an assisted
+    /// cooking reproducible.
+    var assisted: String?
     var temperature: Int?
     var duration: Int?
     var core: Int?
@@ -28,7 +31,16 @@ struct OvenSettings: Sendable, Equatable {
     /// needs to be startable.
     var profile: OvenProfile? {
         guard let program, let temperature else { return nil }
-        return OvenProfile(program: program, temperature: temperature, duration: duration, core: core)
+        // An assisted programme without its code starts nothing, so it is not a
+        // profile — better no button than one the oven will refuse.
+        if program == .assisted, assisted == nil { return nil }
+        return OvenProfile(
+            program: program,
+            assisted: assisted,
+            temperature: temperature,
+            duration: duration,
+            core: core
+        )
     }
 }
 
@@ -52,6 +64,7 @@ enum OvenAPI {
             reachable: oven.reachable,
             remoteControlEnabled: oven.remoteControlEnabled,
             program: oven.settings.program,
+            assisted: oven.settings.assisted,
             temperature: oven.settings.temperature,
             duration: oven.settings.duration,
             core: oven.settings.core,
@@ -72,6 +85,7 @@ enum OvenAPI {
             reachable: oven.reachable,
             remoteControlEnabled: oven.remoteControlEnabled,
             program: oven.settings.program,
+            assisted: oven.settings.assisted,
             temperature: oven.settings.temperature,
             duration: oven.settings.duration,
             core: oven.settings.core,
@@ -87,6 +101,7 @@ enum OvenAPI {
         reachable: Bool,
         remoteControlEnabled: Bool,
         program: GraphQLEnum<ShuhariGraphQL.OvenProgram>?,
+        assisted: String?,
         temperature: Int?,
         duration: Int?,
         core: Int?,
@@ -97,6 +112,7 @@ enum OvenAPI {
             remoteControlEnabled: remoteControlEnabled,
             settings: OvenSettings(
                 program: program.map { OvenProgram(graphql: $0) },
+                assisted: assisted,
                 temperature: temperature,
                 duration: duration,
                 core: core

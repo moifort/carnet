@@ -4,6 +4,7 @@ query Oven {
     remoteControlEnabled
     settings {
       program
+      assisted
       temperature
       duration
       core
@@ -20,6 +21,7 @@ mutation StartOven($recipeId: RecipeId!, $version: VersionNumber!) {
     remoteControlEnabled
     settings {
       program
+      assisted
       temperature
       duration
       core

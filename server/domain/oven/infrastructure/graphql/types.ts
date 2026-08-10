@@ -19,6 +19,14 @@ export const OvenSettingsType = builder.objectRef<OvenSettings>('OvenSettings').
         'combinations.',
       resolve: (s) => s.program ?? null,
     }),
+    assisted: t.expose('assisted', {
+      type: 'AssistedProgram',
+      nullable: true,
+      description:
+        'The oven’s own programme code when one is selected, e.g. `"ASSIST_QUICHEANDTARTETHIN"`. ' +
+        'Copy it onto the version alongside `program: ASSISTED` — it is what makes that cooking ' +
+        'reproducible.',
+    }),
     temperature: t.int({
       nullable: true,
       description: 'The target temperature in °C, e.g. `180`',

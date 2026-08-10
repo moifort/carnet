@@ -1,12 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 import { toOvenProfile } from '~/domain/recipe/content/oven'
 import {
+  AssistedProgram,
   OvenCoreTemperature,
   OvenDuration,
   OvenProgram,
   OvenTemperature,
 } from '~/domain/recipe/primitives'
 import type {
+  AssistedProgram as AssistedProgramType,
   OvenCoreTemperature as OvenCoreTemperatureType,
   OvenDuration as OvenDurationType,
   OvenTemperature as OvenTemperatureType,
@@ -40,5 +42,28 @@ describe('toOvenProfile', () => {
     expect(profile).toEqual({ program: 'grill', temperature: 220 as OvenTemperatureType })
     expect('duration' in profile).toBe(false)
     expect('core' in profile).toBe(false)
+  })
+})
+
+describe('toOvenProfile — the oven’s own programmes', () => {
+  test('keeps the appliance code beside an assisted programme', () => {
+    const profile = toOvenProfile({
+      program: OvenProgram('assisted'),
+      assisted: AssistedProgram('ASSIST_QUICHEANDTARTETHIN'),
+      temperature: OvenTemperature(170),
+      duration: OvenDuration(52),
+    })
+
+    expect(profile.assisted).toBe('ASSIST_QUICHEANDTARTETHIN' as AssistedProgramType)
+  })
+
+  test('drops a code that came without its programme — half a pair starts nothing', () => {
+    const profile = toOvenProfile({
+      program: OvenProgram('convection'),
+      assisted: AssistedProgram('ASSIST_QUICHEANDTARTETHIN'),
+      temperature: OvenTemperature(180),
+    })
+
+    expect('assisted' in profile).toBe(false)
   })
 })

@@ -14,6 +14,8 @@ export type ApplianceState = {
   // What the dials are set to right now — readable whether the oven is cooking or
   // merely selected, which is what makes them copyable into a recipe.
   program?: OvenProgram
+  // The oven's own programme code, beside `program: 'assisted'`.
+  assisted?: string
   temperature?: number
   // Minutes, converted from the seconds the appliance counts in.
   duration?: number

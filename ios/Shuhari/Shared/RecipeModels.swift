@@ -144,6 +144,11 @@ struct CoffeeVocabulary: Sendable, Hashable {
 /// a reference to anything the oven might rename or drop.
 struct OvenProfile: Sendable, Hashable {
     var program: OvenProgram
+    /// The oven's own programme code, set if and only if `program == .assisted`. The
+    /// one manufacturer string a recipe stores, and it earns its place: an assisted
+    /// cooking varies heat and humidity over time, so rewriting it as a heating
+    /// function would cook something else without saying so.
+    var assisted: String?
     /// What the dial is set to, in °C.
     var temperature: Int
     /// How long it bakes, in minutes. nil when the probe is what ends the cooking.

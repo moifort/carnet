@@ -93,6 +93,12 @@ export const OVEN_PROGRAM_VALUES = [
   'steam',
   'steam-combi', // steam + hot air
   'defrost',
+  // The oven's OWN programme — "Quiche et tarte fine" and its kin. Not a heating
+  // function but a recipe the appliance runs, varying heat and humidity over time,
+  // which is why it cannot be rewritten as one of the above: reproducing it means
+  // sending the appliance its own code back. `OvenProfile.assisted` carries that
+  // code, and this value is what says to read it.
+  'assisted',
 ] as const
 export type OvenProgram = (typeof OVEN_PROGRAM_VALUES)[number]
 
@@ -102,6 +108,11 @@ export type OvenProgram = (typeof OVEN_PROGRAM_VALUES)[number]
 export type OvenTemperature = Brand<number, 'OvenTemperature'> // integer °C
 export type OvenDuration = Brand<number, 'OvenDuration'> // integer minutes
 export type OvenCoreTemperature = Brand<number, 'OvenCoreTemperature'> // integer °C
+
+// One of the oven's own assisted-cooking programmes, as the appliance names it
+// ("ASSIST_QUICHEANDTARTETHIN"). Opaque on purpose: the notebook neither parses it
+// nor curates the catalogue, it copies the code and hands it back.
+export type AssistedProgram = Brand<string, 'AssistedProgram'>
 
 // A recipe component with its measured quantity ("Gin" → "50 ml", "Beurre" →
 // "170 g"). The shopping-list view of the recipe. Ordered list, never a map.

@@ -150,6 +150,12 @@ export const OvenProfileInput = builder.inputType('OvenProfileInput', {
       required: true,
       description: 'The heating function, e.g. `CONVECTION`',
     }),
+    assisted: t.field({
+      type: 'AssistedProgram',
+      description:
+        'The oven’s own programme code — required when `program` is `ASSISTED`, rejected ' +
+        'otherwise. Copy it off `oven.settings`, never type it.',
+    }),
     temperature: t.field({
       type: 'OvenTemperature',
       required: true,

@@ -76,7 +76,7 @@ export const applianceState = async (applianceId: string): Promise<ApplianceStat
   const body = (await response.json()) as { properties?: { reported?: Record<string, unknown> } }
   const reported = body.properties?.reported ?? {}
   const cavity = (reported[CAVITY] ?? {}) as Record<string, unknown>
-  const program = typeof cavity.program === 'string' ? ovenProgram(cavity.program) : undefined
+  const selected = typeof cavity.program === 'string' ? ovenProgram(cavity.program) : undefined
 
   const busy = cavity.applianceState === 'RUNNING' || cavity.applianceState === 'DELAYED_START'
 
@@ -87,7 +87,8 @@ export const applianceState = async (applianceId: string): Promise<ApplianceStat
     // IS safety relevant, and the other three all mean "not from here".
     remoteControlEnabled: reported.remoteControl === 'ENABLED',
     busy,
-    ...(program ? { program } : {}),
+    ...(selected ? { program: selected.program } : {}),
+    ...(selected?.assisted ? { assisted: selected.assisted } : {}),
     ...(typeof cavity.targetTemperatureC === 'number'
       ? { temperature: cavity.targetTemperatureC }
       : {}),
@@ -129,7 +130,7 @@ export const startCooking = async (
   // Refused here rather than by the appliance, so the cook is told their oven has
   // no such function instead of reading a validation error about a code they never
   // typed.
-  const program = electroluxProgram(profile.program)
+  const program = electroluxProgram(profile)
   if (!program) return 'program-unsupported'
 
   // Asked before commanding, so the cook is told WHY rather than shown a bare

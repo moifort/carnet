@@ -112,6 +112,7 @@ enum GraphQLHelpers {
         guard let oven else { return .null }
         // Apollo orders an input's parameters alphabetically, hence core → program.
         return .some(ShuhariGraphQL.OvenProfileInput(
+            assisted: oven.assisted.map { GraphQLNullable.some($0) } ?? .null,
             core: oven.core.map { GraphQLNullable.some($0) } ?? .null,
             duration: oven.duration.map { GraphQLNullable.some($0) } ?? .null,
             program: oven.program.graphQLValue,

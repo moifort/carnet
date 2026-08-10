@@ -21,6 +21,7 @@ extension OvenProgram {
             case .steam: self = .steam
             case .steamCombi: self = .steamCombi
             case .defrost: self = .defrost
+            case .assisted: self = .assisted
             }
         case .unknown:
             self = .conventional
@@ -41,6 +42,7 @@ extension OvenProgram {
         case .steam: .case(.steam)
         case .steamCombi: .case(.steamCombi)
         case .defrost: .case(.defrost)
+        case .assisted: .case(.assisted)
         }
     }
 }
