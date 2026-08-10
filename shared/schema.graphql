@@ -1358,13 +1358,14 @@ type Query {
   """
   The connected oven, or `null` when this account has none — which is how the app knows to show no oven controls at all. `null` is deliberately not an error: an account without an oven is not a failed request, it is a smaller app.
   
-  Ask before offering to start a cooking: `reachable` tells you the appliance answered, `remoteControlEnabled` that it is willing to be driven, `running` what it is already doing.
+  Ask before offering to start a cooking: `reachable` tells you the appliance answered, `remoteControlEnabled` that it is willing to be driven, `settings` what its dials are set to — the values a recipe can copy off it — and `running` whether a cooking is already under way.
   
   ```graphql
   oven {
     reachable
     remoteControlEnabled
-    running { program remaining }
+    settings { program temperature duration core }
+    running { remaining }
   }
   ```
   """
