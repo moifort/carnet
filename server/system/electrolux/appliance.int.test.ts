@@ -315,6 +315,28 @@ describe('startCooking', () => {
     })
   })
 
+  // The appliance can refuse a command it accepted the state check for, and the two
+  // ways it does are told apart by the status alone — the body is logged, never
+  // parsed, because nothing in it is a contract.
+  const refusedWith = (status: number, body: string) =>
+    respondWith({
+      '/token/refresh': refreshed,
+      '/state': { properties: { reported: { remoteControl: 'ENABLED', upperOven: {} } } },
+      '/command': new Response(body, { status }),
+    })
+
+  test('a command the oven itself refuses reads as remote control off', async () => {
+    refusedWith(406, '{"message":"Not acceptable"}')
+
+    expect(await startCooking('oven-1', quiche)).toBe('remote-control-disabled')
+  })
+
+  test('any other refusal reads as an oven that cannot be reached', async () => {
+    refusedWith(500, 'boom')
+
+    expect(await startCooking('oven-1', quiche)).toBe('oven-offline')
+  })
+
   test('a probe cook carries its core target and no duration', async () => {
     const sent: string[] = []
     globalThis.fetch = mock(async (url: string | URL, init?: RequestInit) => {

@@ -145,9 +145,19 @@ export const startCooking = async (
     body: JSON.stringify(commandFor(profile, program)),
   })
   if (response === 'unavailable') return 'oven-offline'
+  if (response.ok) return 'started'
+
+  // The appliance says WHY it refuses, in the body, and this integration used to
+  // drop it — which is how a 406 reaches the cook as "remote control is off"
+  // without anyone ever having read one. Logged verbatim, with the programme that
+  // drew it: the token rides in the headers, the body carries the complaint alone.
+  console.error(
+    `Electrolux refused the command (${program}): ${response.status} ${await response
+      .text()
+      .catch(() => '')}`,
+  )
   // The documented validation failure: disconnected, or remote control off. The
   // oven can be switched off between the two calls above, so this is reachable.
   if (response.status === 406) return 'remote-control-disabled'
-  if (!response.ok) return 'oven-offline'
-  return 'started'
+  return 'oven-offline'
 }
