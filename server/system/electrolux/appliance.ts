@@ -69,6 +69,18 @@ const minutesFrom = (seconds: unknown): number | undefined =>
     ? Math.round(seconds / 60)
     : undefined
 
+// The timer as SET — what a recipe copies. This oven keeps it in two places
+// depending on who set it: `targetDuration` holds what the API commanded, while a
+// duration dialled in on the appliance's own panel shows up in `timeToEnd` with
+// `targetDuration` left at 0. Reading only the first copies the temperature and
+// silently drops the timer, which is what a cook notices first.
+//
+// While a cooking runs, `timeToEnd` is what is LEFT of the timer rather than what
+// was set, so it is never read as the duration then — copying a countdown would
+// write a shrinking number into the recipe.
+const selectedDuration = (cavity: Record<string, unknown>, busy: boolean) =>
+  minutesFrom(cavity.targetDuration) ?? (busy ? undefined : minutesFrom(cavity.timeToEnd))
+
 export const applianceState = async (applianceId: string): Promise<ApplianceState> => {
   const response = await call(`/appliances/${applianceId}/state`)
   if (response === 'unavailable' || !response.ok) return UNREACHABLE
@@ -78,21 +90,21 @@ export const applianceState = async (applianceId: string): Promise<ApplianceStat
   const cavity = (reported[CAVITY] ?? {}) as Record<string, unknown>
   const program = typeof cavity.program === 'string' ? ovenProgram(cavity.program) : undefined
 
+  const busy = cavity.applianceState === 'RUNNING' || cavity.applianceState === 'DELAYED_START'
+
   return {
     reachable: true,
     // The appliance answers ENABLED, NOT_SAFETY_RELEVANT_ENABLED, TEMPORARY_LOCKED
     // or DISABLED. Only the first lets a cooking start: lighting a heating element
     // IS safety relevant, and the other three all mean "not from here".
     remoteControlEnabled: reported.remoteControl === 'ENABLED',
-    busy: cavity.applianceState === 'RUNNING' || cavity.applianceState === 'DELAYED_START',
+    busy,
     ...(program ? { program } : {}),
     ...(typeof cavity.targetTemperatureC === 'number'
       ? { temperature: cavity.targetTemperatureC }
       : {}),
-    // The timer as SET, which is what a recipe copies — as opposed to `timeToEnd`,
-    // which is what is left of it.
-    ...(minutesFrom(cavity.targetDuration) !== undefined
-      ? { duration: minutesFrom(cavity.targetDuration) }
+    ...(selectedDuration(cavity, busy) !== undefined
+      ? { duration: selectedDuration(cavity, busy) }
       : {}),
     // Reported only once a probe is actually plugged in.
     ...(typeof cavity.targetFoodProbeTemperatureC === 'number'

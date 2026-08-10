@@ -169,6 +169,82 @@ describe('applianceState', () => {
   })
 })
 
+describe('the timer, and where the oven keeps it', () => {
+  test('reads a duration dialled in on the appliance panel, which lands in timeToEnd', async () => {
+    respondWith({
+      '/token/refresh': refreshed,
+      // What the oven answers when a cook sets 25 min on its own screen: the API's
+      // field stays at 0 and the panel's timer surfaces as timeToEnd.
+      '/state': {
+        properties: {
+          reported: {
+            remoteControl: 'ENABLED',
+            upperOven: {
+              applianceState: 'READY_TO_START',
+              program: 'TRUE_FAN',
+              targetTemperatureC: 170,
+              targetDuration: 0,
+              timeToEnd: 1500,
+            },
+          },
+        },
+      },
+    })
+
+    expect(await applianceState('oven-1')).toMatchObject({
+      temperature: 170,
+      duration: 25,
+      busy: false,
+    })
+  })
+
+  test('never copies a countdown: a running oven reports what is LEFT, not what was set', async () => {
+    respondWith({
+      '/token/refresh': refreshed,
+      '/state': {
+        properties: {
+          reported: {
+            remoteControl: 'ENABLED',
+            upperOven: {
+              applianceState: 'RUNNING',
+              program: 'TRUE_FAN',
+              targetTemperatureC: 170,
+              targetDuration: 0,
+              timeToEnd: 480,
+            },
+          },
+        },
+      },
+    })
+
+    const state = await applianceState('oven-1')
+
+    // 8 minutes left of a cooking whose real duration nobody told us.
+    expect(state.duration).toBeUndefined()
+    expect(state.remaining).toBe(8)
+  })
+
+  test('prefers the commanded duration when the API set one', async () => {
+    respondWith({
+      '/token/refresh': refreshed,
+      '/state': {
+        properties: {
+          reported: {
+            remoteControl: 'ENABLED',
+            upperOven: {
+              applianceState: 'RUNNING',
+              targetDuration: 1800,
+              timeToEnd: 480,
+            },
+          },
+        },
+      },
+    })
+
+    expect((await applianceState('oven-1')).duration).toBe(30)
+  })
+})
+
 describe('startCooking', () => {
   const quiche = { program: 'convection', temperature: 180, duration: 30 } as never
 

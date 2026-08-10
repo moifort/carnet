@@ -237,6 +237,11 @@ wrong or leave out. They were read off an AEG KOBAS3XH; re-check them against an
    accepted with a 200 and does nothing.
 4. **Time fields spell "unset" as `-2147483648`.** An idle oven reports that for `timeToEnd`,
    not `0` and not `null`.
+5. **The timer lives in two fields depending on who set it.** `targetDuration` holds what the API
+   commanded; a duration dialled in on the appliance's own panel surfaces in `timeToEnd` with
+   `targetDuration` left at `0`. Reading only the first copies the temperature and silently drops
+   the timer. While a cooking runs, `timeToEnd` is what is LEFT of it, so it is never read as the
+   duration then.
 
 The heating functions this model exposes are a subset of the notebook's vocabulary (no top-only,
 bottom-only, pizza or defrost) and a superset in other ways (cleaning cycles, air fry). Hence
