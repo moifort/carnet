@@ -215,9 +215,15 @@ struct RecipeDetailView: View {
         // knows is drawn at once — a version picked in a sheet opens on it instead of
         // on a spinner — and this only corrects it.
         .task { await store.load(recipeId) }
-        // The appliance is asked once, alongside the recipe. No oven simply means
-        // no CTA — never an error on a screen where nothing went wrong.
-        .task { await oven.load() }
+        // The appliance is asked alongside the recipe, then kept asked while the
+        // sheet is open — it announces nothing on its own, so a cooking that has
+        // just started, or one dialled in on the oven itself, only ever arrives on
+        // the next read. No oven simply means no CTA — never an error on a screen
+        // where nothing went wrong.
+        .task {
+            await oven.load()
+            await oven.watch()
+        }
         .errorAlert(oven.error)
     }
 

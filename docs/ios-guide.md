@@ -541,6 +541,19 @@ The refusals are turned into sentences in `APIError.errorDescription`, next to `
 not in the view model. `REMOTE_CONTROL_DISABLED` is the one a cook meets most often and the only
 one they can act on, so it names the path: *Réglages → Connexions*.
 
+**The state is polled, because nothing pushes it.** The appliance answers a cloud API and takes a
+few seconds to admit it is RUNNING, so the state the `startOven` mutation hands back still reads
+"idle" — and a cooking dialled in on the oven's own panel never reaches the sheet at all otherwise.
+`OvenViewModel.watch()` runs alongside the initial load, in the same `.task`, and dies with it: no
+screen anyone left polls a rate-limited API.
+
+Two paces, one rule — **read often only while something is about to change**: every 3 s for the 30 s
+following a successful start, every 30 s otherwise (a running cooking counts whole minutes down,
+so there is nothing finer to see). The loop ticks every second and decides against `lastRead`
+rather than sleeping the whole interval: a sleep already under way would not hear about the start
+that just shortened it, which is the cook watching an unchanged button for half a minute. A read
+that fails leaves the last state on screen — the network blinked, the oven did not vanish.
+
 ## Error reporting — Sentry
 
 `ShuhariApp.init()` calls `SentrySDK.start` (right after `FirebaseApp.configure()`) with a
