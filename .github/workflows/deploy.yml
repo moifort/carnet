@@ -58,6 +58,9 @@ jobs:
           premium_user_ids       = "${{ vars.PREMIUM_USER_IDS }}"
           sentry_dsn             = "${{ secrets.SENTRY_DSN }}"
           admin_token            = "${{ secrets.ADMIN_TOKEN }}"
+          electrolux_api_key       = "${{ secrets.ELECTROLUX_API_KEY }}"
+          electrolux_refresh_token = "${{ secrets.ELECTROLUX_REFRESH_TOKEN }}"
+          electrolux_user_id       = "${{ vars.ELECTROLUX_USER_ID }}"
           EOF
 
       - name: Terraform init + apply

@@ -84,6 +84,26 @@ variable "premium_user_ids" {
   default     = ""
 }
 
+variable "electrolux_api_key" {
+  description = "Personal API key from developer.electrolux.one, for the connected oven. Exposed as NITRO_ELECTROLUX_API_KEY. Empty disables the oven entirely — the three electrolux_* variables are read together, so a half-configured oven is no oven."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "electrolux_refresh_token" {
+  description = "SEED refresh token for the Electrolux Group API, exposed as NITRO_ELECTROLUX_REFRESH_TOKEN. Only a seed: Electrolux rotates it on every use and the current one lives in the system/electrolux Firestore document, so this value goes stale the first time the function refreshes — which is expected, and why it is never read again once that document exists."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "electrolux_user_id" {
+  description = "The Firebase uid the connected oven belongs to. Exposed as NITRO_ELECTROLUX_USER_ID. Not a credential — an ownership statement, like premium_user_ids — but a personal identifier, so it is passed in rather than defaulted in this public repo. Without it nobody can drive the oven, which is the point: a key with no named owner would let any account start it."
+  type        = string
+  default     = ""
+}
+
 variable "sentry_dsn" {
   description = "Sentry DSN for error reporting (empty disables Sentry). Exposed to the function as NITRO_SENTRY_DSN, read via process.env.NITRO_SENTRY_DSN in the Nitro plugin."
   type        = string

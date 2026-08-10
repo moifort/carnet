@@ -89,6 +89,7 @@ resource "google_cloudfunctions2_function" "server" {
       NITRO_TRIAL_PHOTOS_BUCKET = google_storage_bucket.trial_photos.name
       NITRO_APPLE_APP_ID        = var.apple_app_id
       NITRO_PREMIUM_USER_IDS    = var.premium_user_ids
+      NITRO_ELECTROLUX_USER_ID  = var.electrolux_user_id
     }
 
     dynamic "secret_environment_variables" {
