@@ -35,28 +35,6 @@ struct OvenProfileDraft {
         )
     }
 
-    /// Copy an assisted-cooking profile off the oven. Everything it states is
-    /// taken; a dish it gives no time for keeps whatever timer was set, because a
-    /// blank timer would be a worse answer than a stale one.
-    mutating func copy(from assisted: AssistedProfile) {
-        enabled = true
-        program = assisted.program
-        temperature = assisted.temperature
-        if let duration = assisted.duration {
-            usesTimer = true
-            self.duration = duration
-        }
-    }
-}
-
-/// One entry of the oven's assisted-cooking catalogue, as the form offers it.
-struct AssistedProfile: Identifiable, Sendable, Hashable {
-    var label: String
-    var program: OvenProgram
-    var temperature: Int
-    var duration: Int?
-
-    var id: String { label }
 }
 
 /// The oven-settings form: whether the dish bakes at all, the heating function,
@@ -65,12 +43,6 @@ struct AssistedProfile: Identifiable, Sendable, Hashable {
 /// Composes as `Section`s inside a `Form`.
 struct OvenProfileForm: View {
     @Binding var draft: OvenProfileDraft
-    /// The oven's own catalogue, offered as a starting point. Empty hides the
-    /// picker entirely — a model that exposes no dishes offers no prefill, and the
-    /// form works exactly the same without it.
-    var assisted: [AssistedProfile] = []
-
-    @State private var showingAssisted = false
 
     var body: some View {
         Section {
@@ -80,17 +52,6 @@ struct OvenProfileForm: View {
         }
 
         if draft.enabled {
-            if !assisted.isEmpty {
-                Section {
-                    // The sheet rides on the button, not on the Section: a
-                    // presentation attached to a Section inside a Form never fires.
-                    Button("Partir d’un profil du four") { showingAssisted = true }
-                        .sheet(isPresented: $showingAssisted) { assistedSheet }
-                } footer: {
-                    Text("Recopie ses réglages ici. Tu peux ensuite les ajuster.")
-                }
-            }
-
             Section("Réglages") {
                 Picker("Mode", selection: $draft.program) {
                     ForEach(OvenProgram.allCases) { program in
@@ -126,44 +87,14 @@ struct OvenProfileForm: View {
         }
     }
 
-    private var assistedSheet: some View {
-        NavigationStack {
-            List(assisted) { profile in
-                Button {
-                    draft.copy(from: profile)
-                    showingAssisted = false
-                } label: {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(profile.label)
-                        Text(summary(of: profile))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .tint(.primary)
-            }
-            .navigationTitle("Profils du four")
-            .navigationBarTitleDisplayMode(.inline)
-        }
-    }
-
-    private func summary(of profile: AssistedProfile) -> String {
-        let parts = [
-            profile.program.label,
-            "\(profile.temperature) °C",
-            profile.duration.map { "\($0) min" },
-        ].compactMap { $0 }
-        return parts.joined(separator: " · ")
-    }
 }
 
 #if DEBUG
 private struct FormHost: View {
     @State var draft: OvenProfileDraft
-    var assisted: [AssistedProfile] = []
 
     var body: some View {
-        Form { OvenProfileForm(draft: $draft, assisted: assisted) }
+        Form { OvenProfileForm(draft: $draft) }
     }
 }
 
@@ -183,14 +114,4 @@ private struct FormHost: View {
     FormHost(draft: OvenProfileDraft(nil))
 }
 
-#Preview("Avec le catalogue du four") {
-    FormHost(
-        draft: OvenProfileDraft(nil),
-        assisted: [
-            AssistedProfile(label: "Quiche", program: .convection, temperature: 180, duration: 40),
-            AssistedProfile(label: "Pizza", program: .pizza, temperature: 250, duration: 12),
-            AssistedProfile(label: "Gigot", program: .conventional, temperature: 160, duration: nil),
-        ]
-    )
-}
 #endif

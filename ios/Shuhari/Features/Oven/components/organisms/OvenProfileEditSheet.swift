@@ -6,22 +6,14 @@ import SwiftUI
 /// answer: it says the dish never bakes, and clears the profile.
 struct OvenProfileEditSheet: View {
     let initial: OvenProfile?
-    /// The oven's own catalogue, offered as a starting point. Empty when no oven is
-    /// connected, or when the model exposes none.
-    var assisted: [AssistedProfile] = []
     let onSave: (OvenProfile?) async throws -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var draft: OvenProfileDraft
     @State private var error = ErrorPresenter()
 
-    init(
-        initial: OvenProfile?,
-        assisted: [AssistedProfile] = [],
-        onSave: @escaping (OvenProfile?) async throws -> Void
-    ) {
+    init(initial: OvenProfile?, onSave: @escaping (OvenProfile?) async throws -> Void) {
         self.initial = initial
-        self.assisted = assisted
         self.onSave = onSave
         _draft = State(initialValue: OvenProfileDraft(initial))
     }
@@ -29,7 +21,7 @@ struct OvenProfileEditSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                OvenProfileForm(draft: $draft, assisted: assisted)
+                OvenProfileForm(draft: $draft)
             }
             .navigationTitle("Four")
             .navigationBarTitleDisplayMode(.inline)
@@ -77,13 +69,4 @@ struct OvenProfileEditSheet: View {
         }
 }
 
-#Preview("Le catalogue du four") {
-    Text("Fond")
-        .sheet(isPresented: .constant(true)) {
-            OvenProfileEditSheet(
-                initial: nil,
-                assisted: Fixtures.assistedProfiles
-            ) { _ in }
-        }
-}
 #endif

@@ -34,9 +34,6 @@ const appliance = {
 mock.module('~/system/electrolux', () => ({
   findOven: async () => (appliance.found ? { id: 'oven-1' } : 'no-oven'),
   applianceState: async () => appliance.state,
-  assistedCatalogue: async () => [
-    { label: 'Quiche', program: 'convection', temperature: 180, duration: 40 },
-  ],
   startCooking: async (_id: string, profile: unknown) => {
     appliance.commanded.push(profile)
     return appliance.outcome
@@ -116,6 +113,12 @@ describe('OvenUseCase.start', () => {
     expect(await OvenUseCase.start(OWNER, QUICHE, V1)).toBe('oven-busy')
   })
 
+  test('a heating function this oven does not have is refused by name', async () => {
+    appliance.outcome = 'program-unsupported'
+
+    expect(await OvenUseCase.start(OWNER, QUICHE, V1)).toBe('program-unsupported')
+  })
+
   test('an unplugged oven is offline, not a crash', async () => {
     appliance.found = false
 
@@ -146,14 +149,10 @@ describe('OvenUseCase.state', () => {
     expect(await OvenUseCase.state(SOMEONE_ELSE)).toBe('oven-unavailable')
   })
 
-  test('carries the assisted catalogue, so the app can offer a prefill', async () => {
+  test('reports a reachable oven willing to be driven', async () => {
     const state = await OvenUseCase.state(OWNER)
 
-    expect(state).toMatchObject({
-      reachable: true,
-      remoteControlEnabled: true,
-      assisted: [{ label: 'Quiche', program: 'convection', temperature: 180, duration: 40 }],
-    })
+    expect(state).toMatchObject({ reachable: true, remoteControlEnabled: true })
   })
 
   test('an idle oven reports no cooking under way', async () => {

@@ -3,12 +3,12 @@ import { RecipeQuery } from '~/domain/recipe/query'
 import type { RecipeId, VersionNumber } from '~/domain/recipe/types'
 import type { UserId } from '~/domain/shared/types'
 import { config } from '~/system/config'
-import { applianceState, assistedCatalogue, findOven, startCooking } from '~/system/electrolux'
+import { applianceState, findOven, startCooking } from '~/system/electrolux'
 import type { OvenState, StartRefusal } from './types'
 
 // An oven this account cannot reach at all — what a configured owner sees when the
 // appliance is off, and the shape the sheet renders without a button.
-const OFFLINE: OvenState = { reachable: false, remoteControlEnabled: false, assisted: [] }
+const OFFLINE: OvenState = { reachable: false, remoteControlEnabled: false }
 
 // The oven belongs to exactly one account. Everybody else is told nothing exists,
 // rather than shown a button that would always refuse — and an unconfigured
@@ -27,10 +27,7 @@ export const OvenUseCase = {
     const oven = await findOven()
     if (oven === 'no-oven') return OFFLINE
 
-    const [state, assisted] = await Promise.all([
-      applianceState(oven.id),
-      assistedCatalogue(oven.id),
-    ])
+    const state = await applianceState(oven.id)
     return {
       reachable: state.reachable,
       remoteControlEnabled: state.remoteControlEnabled,
@@ -43,7 +40,6 @@ export const OvenUseCase = {
             },
           }
         : {}),
-      assisted,
     }
   },
 

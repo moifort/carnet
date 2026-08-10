@@ -25,10 +25,6 @@ struct RecipeDetailView: View {
     /// sheet opens, so the sheet is not what waits on the network.
     @State private var showCoffeeParameters = false
     @State private var showOvenProfile = false
-    /// The connected oven's own dish catalogue, offered as a prefill in the
-    /// profile editor. Stays empty when no oven is connected, which simply hides
-    /// the prefill — the editor works the same without it.
-    @State private var assistedProfiles: [AssistedProfile] = []
     /// The connected oven. Loaded once with the recipe; nil state means this
     /// account owns none, and no oven CTA is rendered at all.
     @State private var oven = OvenViewModel()
@@ -149,10 +145,7 @@ struct RecipeDetailView: View {
                 // off says the dish never bakes, which clears the profile.
                 .sheet(isPresented: $showOvenProfile) {
                     let version = displayedVersion(recipe)
-                    OvenProfileEditSheet(
-                        initial: version.content.oven,
-                        assisted: assistedProfiles
-                    ) { oven in
+                    OvenProfileEditSheet(initial: version.content.oven) { oven in
                         try await RecipeAPI.updateOvenProfile(
                             recipeId: recipeId,
                             versionNumber: version.number,
@@ -272,11 +265,10 @@ struct RecipeDetailView: View {
         return "Cuisson en cours · \(remaining) min"
     }
 
-    /// Open the oven-profile editor, fetching the appliance's own catalogue as it
-    /// opens. The fetch is fire-and-forget: no oven, or an oven that does not
-    /// answer, simply means no prefill — the editor never waits on the appliance.
+    /// Open the oven-profile editor. Nothing is fetched: the Electrolux API exposes
+    /// heating functions and dials, never the dishes the oven's own screen offers,
+    /// so there is no catalogue to prefill from.
     private func openOvenEditor() {
-        Task { assistedProfiles = (try? await OvenAPI.state())?.assisted ?? [] }
         showOvenProfile = true
     }
 

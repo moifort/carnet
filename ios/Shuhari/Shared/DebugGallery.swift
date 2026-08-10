@@ -68,14 +68,6 @@ struct DebugGallery: View {
                 .sheet(isPresented: .constant(true)) {
                     OvenProfileEditSheet(initial: nil) { _ in }
                 }
-        case "oven-assisted":
-            Color.clear
-                .sheet(isPresented: .constant(true)) {
-                    OvenProfileEditSheet(
-                        initial: OvenProfile(program: .convection, temperature: 180, duration: 30),
-                        assisted: Fixtures.assistedProfiles
-                    ) { _ in }
-                }
         case "oven-start":
             OvenSectionGalleryScreen(running: nil)
         case "oven-running":

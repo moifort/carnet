@@ -17,15 +17,17 @@ export type ApplianceState = {
   remaining?: number
 }
 
-// One entry of the oven's assisted-cooking catalogue, offered as a prefill and
-// nothing more: picking it copies these values into a version.
-export type AssistedEntry = {
-  label: string
-  program: OvenProgram
-  temperature: number
-  duration?: number
-}
+// The assisted-cooking catalogue is NOT exposed by the Electrolux Group API. The
+// appliance's own capabilities list heating functions and dials, never the dishes
+// its screen offers, so nothing here can prefill a profile from "Quiche". Left as
+// a note rather than a stub: the absence is a fact about the API, not a gap to
+// fill later without checking again.
 
 // Why the appliance would not cook. Outcomes of asking, not bugs in asking — hence
 // sentinels rather than exceptions.
-export type ApplianceRefusal = 'oven-offline' | 'remote-control-disabled' | 'oven-busy'
+export type ApplianceRefusal =
+  | 'oven-offline'
+  | 'remote-control-disabled'
+  | 'oven-busy'
+  // The heating function the version asks for is not on this model's menu.
+  | 'program-unsupported'

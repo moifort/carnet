@@ -89,6 +89,7 @@ export const OVEN_PROGRAM_VALUES = [
   'grill',
   'turbo-grill', // grill + fan
   'pizza', // bottom-biased, for a crisp base
+  'air-fry', // high fan, low fat
   'steam',
   'steam-combi', // steam + hot air
   'defrost',

@@ -82,9 +82,11 @@ describe('findOven', () => {
   test('picks the oven out of the account’s appliances', async () => {
     respondWith({
       '/token/refresh': refreshed,
+      // SO is what the real appliance answers — a steam oven. Filtering on the
+      // documentation's OV alone finds nothing in a kitchen that has one.
       '/appliances': [
         { applianceId: 'washer-1', applianceType: 'WM' },
-        { applianceId: 'oven-1', applianceType: 'OV' },
+        { applianceId: 'oven-1', applianceType: 'SO' },
       ],
     })
 
@@ -105,14 +107,19 @@ describe('applianceState', () => {
   test('reads the oven’s own words into the notebook’s', async () => {
     respondWith({
       '/token/refresh': refreshed,
+      // The real shape: remoteControl at the top, everything about the cooking
+      // nested under the cavity.
       '/state': {
         properties: {
           reported: {
             remoteControl: 'ENABLED',
-            applianceState: 'RUNNING',
-            program: 'TRUE_FAN_COOKING',
-            targetTemperature: 180,
-            timeToEnd: 900,
+            applianceState: 'OFF',
+            upperOven: {
+              applianceState: 'RUNNING',
+              program: 'TRUE_FAN',
+              targetTemperatureC: 180,
+              timeToEnd: 900,
+            },
           },
         },
       },
@@ -143,10 +150,18 @@ describe('applianceState', () => {
 describe('startCooking', () => {
   const quiche = { program: 'convection', temperature: 180, duration: 30 } as never
 
+  test('a heating function this oven does not have is refused by name', async () => {
+    respondWith({ '/token/refresh': refreshed })
+
+    expect(await startCooking('oven-1', { program: 'pizza', temperature: 250 } as never)).toBe(
+      'program-unsupported',
+    )
+  })
+
   test('refuses before commanding when remote operation is off', async () => {
     respondWith({
       '/token/refresh': refreshed,
-      '/state': { properties: { reported: { remoteControl: 'DISABLED' } } },
+      '/state': { properties: { reported: { remoteControl: 'DISABLED', upperOven: {} } } },
     })
 
     expect(await startCooking('oven-1', quiche)).toBe('remote-control-disabled')
@@ -156,7 +171,12 @@ describe('startCooking', () => {
     respondWith({
       '/token/refresh': refreshed,
       '/state': {
-        properties: { reported: { remoteControl: 'ENABLED', applianceState: 'RUNNING' } },
+        properties: {
+          reported: {
+            remoteControl: 'ENABLED',
+            upperOven: { applianceState: 'RUNNING' },
+          },
+        },
       },
     })
 
@@ -169,18 +189,23 @@ describe('startCooking', () => {
       const href = url.toString()
       if (href.includes('/token/refresh')) return Response.json(refreshed)
       if (href.includes('/state')) {
-        return Response.json({ properties: { reported: { remoteControl: 'ENABLED' } } })
+        return Response.json({
+          properties: { reported: { remoteControl: 'ENABLED', upperOven: {} } },
+        })
       }
       sent.push(String(init?.body))
       return Response.json({ status: 'ok' })
     }) as unknown as typeof fetch
 
     expect(await startCooking('oven-1', quiche)).toBe('started')
+    // Nested under the cavity: a flat command is silently not a command at all.
     expect(JSON.parse(sent[0])).toEqual({
-      program: 'TRUE_FAN_COOKING',
-      targetTemperature: 180,
-      targetDuration: 1800,
-      executeCommand: 'START',
+      upperOven: {
+        program: 'TRUE_FAN',
+        targetTemperatureC: 180,
+        targetDuration: 1800,
+        executeCommand: 'START',
+      },
     })
   })
 
@@ -190,7 +215,9 @@ describe('startCooking', () => {
       const href = url.toString()
       if (href.includes('/token/refresh')) return Response.json(refreshed)
       if (href.includes('/state')) {
-        return Response.json({ properties: { reported: { remoteControl: 'ENABLED' } } })
+        return Response.json({
+          properties: { reported: { remoteControl: 'ENABLED', upperOven: {} } },
+        })
       }
       sent.push(String(init?.body))
       return Response.json({ status: 'ok' })
@@ -198,8 +225,8 @@ describe('startCooking', () => {
 
     await startCooking('oven-1', { program: 'convection', temperature: 160, core: 63 } as never)
 
-    const command = JSON.parse(sent[0])
-    expect(command.targetCoreTemperature).toBe(63)
+    const command = JSON.parse(sent[0]).upperOven
+    expect(command.targetFoodProbeTemperatureC).toBe(63)
     expect('targetDuration' in command).toBe(false)
   })
 })

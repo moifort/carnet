@@ -223,6 +223,27 @@ there, the integration would authenticate once and die silently hours later — 
 that makes an appliance integration look haunted. Writing the rotated token back is what keeps
 it alive.
 
+**Four things the real appliance taught us**, each of which the documentation's examples get
+wrong or leave out. They were read off an AEG KOBAS3XH; re-check them against any new oven.
+
+1. **There is no `/capabilities` endpoint.** Capabilities come back from
+   `GET /appliances/{id}/info`, alongside the model and serial. The `/capabilities` path answers
+   403 with an AWS-signature complaint, which looks like an auth bug and is not one.
+2. **The oven's `applianceType` is `SO`, not `OV`.** Filtering on the documented `OV` finds no
+   oven in a kitchen that has one. `OVEN_TYPES` accepts both, plus their `DAM_` variants.
+3. **The state is not flat.** Everything about the cooking — programme, target temperature,
+   timers, probe — lives under a cavity key (`upperOven`); only `remoteControl` and the
+   appliance-wide settings sit at the top. A command must be nested the same way: a flat one is
+   accepted with a 200 and does nothing.
+4. **Time fields spell "unset" as `-2147483648`.** An idle oven reports that for `timeToEnd`,
+   not `0` and not `null`.
+
+The heating functions this model exposes are a subset of the notebook's vocabulary (no top-only,
+bottom-only, pizza or defrost) and a superset in other ways (cleaning cycles, air fry). Hence
+`PROGRAM_CODES` is **partial**: a function the oven lacks is refused by name
+(`program-unsupported`) rather than being removed from the vocabulary or silently swapped for a
+different heat.
+
 ## Cross-Domain Rules
 
 The five isolation rules — private repositories, validation at the boundary, no storage outside

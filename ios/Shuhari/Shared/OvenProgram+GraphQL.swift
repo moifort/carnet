@@ -17,6 +17,7 @@ extension OvenProgram {
             case .grill: self = .grill
             case .turboGrill: self = .turboGrill
             case .pizza: self = .pizza
+            case .airFry: self = .airFry
             case .steam: self = .steam
             case .steamCombi: self = .steamCombi
             case .defrost: self = .defrost
@@ -36,6 +37,7 @@ extension OvenProgram {
         case .grill: .case(.grill)
         case .turboGrill: .case(.turboGrill)
         case .pizza: .case(.pizza)
+        case .airFry: .case(.airFry)
         case .steam: .case(.steam)
         case .steamCombi: .case(.steamCombi)
         case .defrost: .case(.defrost)

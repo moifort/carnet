@@ -13,14 +13,13 @@ builder.queryField('oven', (t) =>
       '',
       'Ask before offering to start a cooking: `reachable` tells you the appliance answered, ' +
         '`remoteControlEnabled` that it is willing to be driven, `running` what it is already ' +
-        'doing, and `assistedProfiles` what a profile can be prefilled from.',
+        'doing.',
       '',
       '```graphql',
       'oven {',
       '  reachable',
       '  remoteControlEnabled',
       '  running { program remaining }',
-      '  assistedProfiles { label program temperature duration }',
       '}',
       '```',
     ].join('\n'),

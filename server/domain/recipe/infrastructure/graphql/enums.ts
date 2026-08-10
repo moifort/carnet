@@ -69,7 +69,8 @@ export const OvenProgramEnum = builder.enumType('OvenProgram', {
   description:
     'An oven heating function — what the dial selects, e.g. `CONVECTION`. Model-independent: a ' +
     'connected oven’s own codes are mapped behind the scenes, so a recipe survives a change of ' +
-    'oven.',
+    'oven. Wider than any one model: a function your oven does not have can still be written ' +
+    'down, and starting it answers `PROGRAM_UNSUPPORTED` rather than quietly cooking otherwise.',
   values: {
     CONVENTIONAL: {
       value: 'conventional',
@@ -88,6 +89,10 @@ export const OvenProgramEnum = builder.enumType('OvenProgram', {
       description: 'Grill plus fan, e.g. for a roast chicken',
     },
     PIZZA: { value: 'pizza', description: 'Bottom-biased heat, for a crisp base' },
+    AIR_FRY: {
+      value: 'air-fry',
+      description: 'High fan and little fat, e.g. for chips or wings',
+    },
     STEAM: { value: 'steam', description: 'Steam only, e.g. for vegetables' },
     STEAM_COMBI: { value: 'steam-combi', description: 'Steam plus hot air, e.g. for bread' },
     DEFROST: { value: 'defrost', description: 'Fan without heat' },

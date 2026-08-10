@@ -9,8 +9,6 @@ struct OvenState: Sendable, Equatable {
     var remoteControlEnabled: Bool
     /// The cooking under way, or nil when the oven is idle.
     var running: OvenRun?
-    /// The oven's own assisted-cooking catalogue, offered as a prefill.
-    var assisted: [AssistedProfile]
 }
 
 /// A cooking under way, as the oven reports it. Plain numbers: these are the
@@ -41,14 +39,6 @@ enum OvenAPI {
                     temperature: $0.temperature,
                     remaining: $0.remaining
                 )
-            },
-            assisted: oven.assistedProfiles.map {
-                AssistedProfile(
-                    label: $0.label,
-                    program: OvenProgram(graphql: $0.program),
-                    temperature: $0.temperature,
-                    duration: $0.duration
-                )
             }
         )
     }
@@ -70,14 +60,6 @@ enum OvenAPI {
                     program: $0.program.map { OvenProgram(graphql: $0) },
                     temperature: $0.temperature,
                     remaining: $0.remaining
-                )
-            },
-            assisted: oven.assistedProfiles.map {
-                AssistedProfile(
-                    label: $0.label,
-                    program: OvenProgram(graphql: $0.program),
-                    temperature: $0.temperature,
-                    duration: $0.duration
                 )
             }
         )

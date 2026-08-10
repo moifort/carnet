@@ -266,14 +266,6 @@ enum Fixtures {
         versionToOpen: gigotV1
     )
 
-    /// The oven's own dish catalogue, as the profile editor offers it.
-    static let assistedProfiles = [
-        AssistedProfile(label: "Quiche", program: .convection, temperature: 180, duration: 40),
-        AssistedProfile(label: "Pizza", program: .pizza, temperature: 250, duration: 12),
-        AssistedProfile(label: "Gigot", program: .conventional, temperature: 160, duration: nil),
-        AssistedProfile(label: "Pain", program: .steamCombi, temperature: 230, duration: 35),
-    ]
-
     // MARK: - Risotto (thermomix, per-step machine settings)
 
     static let risottoV2 = RecipeVersion(

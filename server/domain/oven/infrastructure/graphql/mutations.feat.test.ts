@@ -33,7 +33,6 @@ const appliance = {
 mock.module('~/system/electrolux', () => ({
   findOven: async () => (appliance.found ? { id: 'oven-1' } : 'no-oven'),
   applianceState: async () => appliance.state,
-  assistedCatalogue: async () => [],
   startCooking: async () => appliance.outcome,
 }))
 
@@ -169,6 +168,14 @@ describe('Mutation.startOven', () => {
     const result = await execute(startOven)
 
     expect(result.errors?.[0]?.extensions?.code).toBe('NO_OVEN_PROFILE')
+  })
+
+  test('answers PROGRAM_UNSUPPORTED when this oven has no such heating function', async () => {
+    appliance.outcome = 'program-unsupported'
+
+    const result = await execute(startOven)
+
+    expect(result.errors?.[0]?.extensions?.code).toBe('PROGRAM_UNSUPPORTED')
   })
 
   test('answers OVEN_UNAVAILABLE for an account that owns no oven', async () => {

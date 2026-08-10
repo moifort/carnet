@@ -242,6 +242,9 @@ enum APIError: LocalizedError {
             if codes.contains("OVEN_BUSY") {
                 return "Le four est déjà en cuisson. Arrête-la avant d’en lancer une autre."
             }
+            if codes.contains("PROGRAM_UNSUPPORTED") {
+                return "Ton four n’a pas ce mode de cuisson. Choisis-en un autre dans les réglages du four."
+            }
             if codes.contains("NO_OVEN_PROFILE") {
                 return "Cette version n’a pas de réglages de four. Renseigne-les avant de lancer la cuisson."
             }

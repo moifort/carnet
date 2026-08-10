@@ -7,12 +7,6 @@ query Oven {
       temperature
       remaining
     }
-    assistedProfiles {
-      label
-      program
-      temperature
-      duration
-    }
   }
 }
 
@@ -24,12 +18,6 @@ mutation StartOven($recipeId: RecipeId!, $version: VersionNumber!) {
       program
       temperature
       remaining
-    }
-    assistedProfiles {
-      label
-      program
-      temperature
-      duration
     }
   }
 }

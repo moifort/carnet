@@ -12,25 +12,6 @@ type AcceptProposalResult {
 }
 
 """
-One dish from the oven’s own assisted-cooking catalogue, offered as a starting point. Picking it COPIES these values onto the version — nothing keeps a reference to the manufacturer’s catalogue, so a recipe survives the oven renaming or dropping a dish.
-"""
-type AssistedProfile {
-  """
-  Its cooking time in minutes, e.g. `40`. `null` when the oven names none.
-  """
-  duration: Int
-
-  """What the oven itself calls it, e.g. `"Quiche"`"""
-  label: String!
-
-  """The heating function it uses, e.g. `CONVECTION`"""
-  program: OvenProgram!
-
-  """Its temperature in °C, e.g. `180`"""
-  temperature: Int!
-}
-
-"""
 How a coffee is brewed. Detected once at import, shared by every version, and the axis the coffee tab groups and sorts on — the counterpart of `DishCategory` for cooking. Present on a `COFFEE` recipe and on no other.
 """
 enum BrewMethod {
@@ -927,7 +908,7 @@ type Mutation {
   """
   Start this version’s cooking on the connected oven. What is sent is the oven profile the VERSION carries — never one passed in here: correcting a setting before cooking means editing the version, so what the oven does and what the notebook says can never disagree.
   
-  Answers `OVEN_UNAVAILABLE` when the account has no oven, `NO_OVEN_PROFILE` when the version never bakes, `OVEN_OFFLINE` when the appliance does not answer, `REMOTE_CONTROL_DISABLED` until "remote operation" is switched on from the oven’s own screen, and `OVEN_BUSY` when it is already cooking.
+  Answers `OVEN_UNAVAILABLE` when the account has no oven, `NO_OVEN_PROFILE` when the version never bakes, `OVEN_OFFLINE` when the appliance does not answer, `REMOTE_CONTROL_DISABLED` until "remote operation" is switched on from the oven’s own screen, `OVEN_BUSY` when it is already cooking, and `PROGRAM_UNSUPPORTED` when this oven has no such heating function.
   
   ```graphql
   startOven(recipeId: "…", version: 2) {
@@ -1089,14 +1070,9 @@ type Mutation {
 }
 
 """
-The connected oven. Everything the recipe sheet needs before offering to start a cooking: whether the appliance answers, whether it is willing to be driven remotely, what it is already doing, and what it can prefill a profile with.
+The connected oven. Everything the recipe sheet needs before offering to start a cooking: whether the appliance answers, whether it is willing to be driven remotely, and what it is already doing.
 """
 type Oven {
-  """
-  The oven’s assisted-cooking catalogue, e.g. `"Quiche"`. Empty when the model exposes none — the prefill disappears, nothing else does.
-  """
-  assistedProfiles: [AssistedProfile!]!
-
   """Whether the oven answered at all, e.g. `false` when it is unplugged"""
   reachable: Boolean!
 
@@ -1158,9 +1134,12 @@ input OvenProfileInput {
 }
 
 """
-An oven heating function — what the dial selects, e.g. `CONVECTION`. Model-independent: a connected oven’s own codes are mapped behind the scenes, so a recipe survives a change of oven.
+An oven heating function — what the dial selects, e.g. `CONVECTION`. Model-independent: a connected oven’s own codes are mapped behind the scenes, so a recipe survives a change of oven. Wider than any one model: a function your oven does not have can still be written down, and starting it answers `PROGRAM_UNSUPPORTED` rather than quietly cooking otherwise.
 """
 enum OvenProgram {
+  """High fan and little fat, e.g. for chips or wings"""
+  AIR_FRY
+
   """Bottom element only, e.g. to dry a base"""
   BOTTOM_HEAT
 
@@ -1357,14 +1336,13 @@ type Query {
   """
   The connected oven, or `null` when this account has none — which is how the app knows to show no oven controls at all. `null` is deliberately not an error: an account without an oven is not a failed request, it is a smaller app.
   
-  Ask before offering to start a cooking: `reachable` tells you the appliance answered, `remoteControlEnabled` that it is willing to be driven, `running` what it is already doing, and `assistedProfiles` what a profile can be prefilled from.
+  Ask before offering to start a cooking: `reachable` tells you the appliance answered, `remoteControlEnabled` that it is willing to be driven, `running` what it is already doing.
   
   ```graphql
   oven {
     reachable
     remoteControlEnabled
     running { program remaining }
-    assistedProfiles { label program temperature duration }
   }
   ```
   """

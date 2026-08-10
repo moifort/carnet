@@ -478,11 +478,14 @@ saves `nil`, which clears the profile. That is why the editor is also reachable 
 and not only from the section's "Modifier" — a dish that bakes for the first time has no section
 to edit from yet.
 
-"Partir d'un profil du four" lists the appliance's own catalogue and **copies** the entry's
-values into the form. Nothing keeps a reference to it. The catalogue is fetched fire-and-forget as
-the sheet opens: no oven, or an oven that does not answer, simply means no prefill button — the
-editor never waits on an appliance. **Attach that `.sheet` to the button, not to the enclosing
-`Section`**: inside a `Form`, a presentation modifier on a `Section` never fires.
+**There is no prefill from the oven's own dishes.** The Electrolux API exposes heating functions
+and dials, never the "Quiche" the appliance's screen offers, so the profile is always set by hand.
+The editor fetches nothing and never waits on an appliance.
+
+The picker lists every function the notebook knows, including ones a given oven lacks — writing
+down "Pizza 250 °C" is legitimate even on an oven that cannot run it. Starting it then answers
+`PROGRAM_UNSUPPORTED`, which says so; the alternative, hiding the function, would make the
+notebook lie about the recipe.
 
 ### Starting the cooking
 
