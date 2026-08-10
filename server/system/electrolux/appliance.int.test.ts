@@ -95,6 +95,43 @@ describe('an oven that cannot even be asked', () => {
   })
 })
 
+describe('recovering a dead token chain', () => {
+  test('falls back to the configured seed when the stored token is spent', async () => {
+    // What a burnt chain looks like: the document holds a token Electrolux no
+    // longer knows, because it was consumed without its successor being written.
+    fake.seed('system', 'electrolux', { refreshToken: 'refresh-burnt' })
+    const spent: string[] = []
+    globalThis.fetch = mock(async (url: string | URL, init?: RequestInit) => {
+      const href = url.toString()
+      if (href.includes('/token/refresh')) {
+        const token = JSON.parse(String(init?.body)).refreshToken
+        spent.push(token)
+        if (token === 'refresh-burnt')
+          return Response.json({ detail: 'Invalid grant' }, { status: 401 })
+        return Response.json(refreshed)
+      }
+      return Response.json([{ applianceId: 'oven-1', applianceType: 'SO' }])
+    }) as unknown as typeof fetch
+
+    expect(await findOven()).toEqual({ id: 'oven-1' })
+    // The stored one first, then the seed — and the survivor is what gets stored,
+    // so the very next call is back on a healthy chain.
+    expect(spent).toEqual(['refresh-burnt', 'seed-refresh'])
+    expect(fake.snapshot('system').get('electrolux')?.refreshToken).toBe('refresh-2')
+  })
+
+  test('an oven whose every token is spent is unreachable, not a crash', async () => {
+    fake.seed('system', 'electrolux', { refreshToken: 'refresh-burnt' })
+    globalThis.fetch = mock(async (url: string | URL) =>
+      url.toString().includes('/token/refresh')
+        ? Response.json({ detail: 'Invalid grant' }, { status: 401 })
+        : Response.json([]),
+    ) as unknown as typeof fetch
+
+    expect(await findOven()).toBe('no-oven')
+  })
+})
+
 describe('findOven', () => {
   test('picks the oven out of the account’s appliances', async () => {
     respondWith({

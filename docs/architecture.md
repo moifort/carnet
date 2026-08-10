@@ -217,7 +217,12 @@ three secrets (`NITRO_ELECTROLUX_API_KEY`, `NITRO_ELECTROLUX_REFRESH_TOKEN`,
 without a named owner would let any account drive the oven.
 
 It persists exactly one document, `system/electrolux`, through its own `repository.ts` (the
-same licence `ai/repository.ts` holds). **Why a stored token rather than a secret:** Electrolux
+same licence `ai/repository.ts` holds). **Rotation is consume-then-persist, so it can lose the
+chain**: a failed write, or two instances spending the same token, burns it without a successor
+being stored. The cure is built in rather than operational — the configured secret is tried as a
+fallback when the stored token is rejected, so re-provisioning it and redeploying heals the next
+call. Without that fallback the stored document keeps priority forever and the only fix is
+deleting a Firestore document by hand, which is not a fix anyone finds at the moment they need it. **Why a stored token rather than a secret:** Electrolux
 rotates the refresh token on every use, so the value in Secret Manager is only a seed. Pinned
 there, the integration would authenticate once and die silently hours later — the failure mode
 that makes an appliance integration look haunted. Writing the rotated token back is what keeps
