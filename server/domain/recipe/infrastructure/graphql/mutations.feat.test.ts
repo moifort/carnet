@@ -593,7 +593,8 @@ describe('updateOvenProfile mutation', () => {
     expect(result.errors).toBeUndefined()
     expect(result.data?.updateOvenProfile).toMatchObject({ content: { oven: null } })
     const stored = fake.snapshot('recipe-versions').get(`${id}_1`)
-    expect('oven' in (stored?.content as object)).toBe(false)
+    // Cleared means gone from the document, not stored as an empty profile.
+    expect(stored?.content).not.toHaveProperty('oven')
   })
 
   test('answers NOT_A_COOKED_RECIPE on a coffee, which has no oven', async () => {
