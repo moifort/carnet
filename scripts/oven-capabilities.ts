@@ -67,10 +67,25 @@ process.stdout.write(`${Object.keys(cavity).join(', ')}\n`)
 const state = (await get(`/appliances/${oven.applianceId}/state`)) as {
   properties?: { reported?: Record<string, unknown> }
 }
+// The whole envelope, not just `reported`: a list the appliance keeps (its
+// favourites) need not live where its dials do, and a dump that assumes it does
+// would report an absence it never looked for.
+process.stdout.write('\n--- the state envelope, minus reported ---\n')
+const { properties, ...envelope } = state as Record<string, unknown> & typeof state
+const { reported: _reported, ...otherProperties } = properties ?? {}
+process.stdout.write(`${JSON.stringify({ ...envelope, properties: otherProperties }, null, 2)}\n`)
+
 const reported = state.properties?.reported ?? {}
 process.stdout.write('\n--- what the oven is doing right now ---\n')
 process.stdout.write(`remoteControl: ${String(reported.remoteControl)}\n`)
 process.stdout.write(`${JSON.stringify(reported[CAVITY], null, 2)}\n`)
+
+// Everything OUTSIDE the cavity too: the question a refused assisted cooking asks
+// is whether the appliance says anything more about it anywhere, and a dump that
+// stops at the cavity cannot answer that.
+process.stdout.write('\n--- everything else the appliance reports ---\n')
+const { [CAVITY]: _cavity, ...rest } = reported
+process.stdout.write(`${JSON.stringify(rest, null, 2)}\n`)
 
 process.stdout.write('\n--- the favorite capability, verbatim ---\n')
 process.stdout.write(`${JSON.stringify(cavity.favorite, null, 2)}\n`)
