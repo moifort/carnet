@@ -84,9 +84,8 @@ export const ThermomixSettingsType = builder
 export const OvenProfileType = builder.objectRef<OvenProfile>('OvenProfile').implement({
   description:
     'The oven settings a version bakes at: the heating function, the dial temperature, and how ' +
-    'the cooking ends — a timer, a probe target, or both. Copied out of the oven’s own ' +
-    'assisted-cooking catalogue or set by hand, then owned by the version, so it stays ' +
-    'reproducible whatever the oven does with its own profiles afterwards.',
+    'the cooking ends — a timer, a probe target, or both. Set by hand and owned by the ' +
+    'version: plain values, never a reference to anything the oven might rename.',
   fields: (t) => ({
     program: t.field({
       type: OvenProgramEnum,
@@ -485,8 +484,8 @@ export const VersionType = builder.objectRef<RecipeVersion>('Version').implement
     toTest: t.boolean({
       description:
         'Whether this version is on your to-cook list, e.g. `true` for the version you just got ' +
-        'out of requestImprovement. Only an improvement puts a version there; cooking it (a ' +
-        'rating, a photo, remarks) takes it off.',
+        'out of acceptProposal. Every accepted proposal puts a version there — it has not been ' +
+        'made yet, whatever asked for it; cooking it (a rating, a photo, remarks) takes it off.',
       resolve: (v) => v.toTest === true,
     }),
     rating: t.field({
@@ -600,7 +599,7 @@ RecipeType.implement({
     toTestCount: t.int({
       description:
         'How many of its versions are waiting to be cooked, e.g. `1` after accepting one ' +
-        'improvement. `0` when the recipe owes no cook (see the `toTest` field on Version).',
+        'proposal. `0` when the recipe owes no cook (see the `toTest` field on Version).',
       resolve: async (r, _a, { loaders }) => {
         const versions = (await loaders.versionsByRecipe.load(r.id)) ?? []
         return toTestCount(versions)

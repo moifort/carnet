@@ -51,11 +51,12 @@ the digest; this doc is the spec. The mechanics of building a domain live in
   only recipe values something is computed on: they leave as an appliance command. Their ranges
   live in `OVEN_RANGE` (`limits.ts`), the single source both the branded constructors and the AI
   parse layer answer to.
-- **A profile is flat, and copied.** The connected oven proposes its own assisted-cooking profiles
-  ("Quiche"); picking one **copies its parameters** into the version and keeps no reference to the
-  manufacturer's catalogue. A version therefore stays reproducible after the oven renames or drops
-  a dish, and the deviation the cook applied ("the oven's profile, minus ten minutes") is written
-  down as plain values rather than as a diff against something that may move.
+- **A profile is flat, and owned by the version.** Plain values, never a reference to one of the
+  oven's own assisted-cooking dishes — which is just as well, since the Electrolux API exposes
+  heating functions and dials and **never the dishes the appliance's screen offers**. A version
+  therefore stays reproducible after the oven renames or drops anything, and the deviation the
+  cook applied ("the oven's profile, minus ten minutes") is written down as values rather than as
+  a diff against something that may move.
 
 ## Two import flows
 
@@ -89,16 +90,18 @@ launched it from — never guessed from the source.
   `steps`) and lineage (`origin`/`change`/`basedOn`) are immutable; its outcome **and its `tips`**
   are overwritable. An attempt is not an entity. A version with no outcome yet is a *planned*
   attempt: no `executedAt`, no `rating` (the fields are **absent**, never `null`).
-- **An attempt lands on the version it produces**, and only a remark-less cook lands on the
-  version cooked:
+- **An attempt lands on the version cooked**, always — a rating is a verdict on the plate that was
+  made, and the version an iteration creates has not been made yet:
   - **rating (and photo) without remarks** — nothing new is created,
     `RecipeCommand.recordAttempt` writes `rating` (1..5), `executedAt`, `photoPath` onto the
     version cooked and rewrites them in place on a re-cook (dropping the previous photo *and*
     remarks). `remarks` is optional here: a bare rating ends the flow.
-  - **with remarks** — the cook asks for the next version, so its `rating`/`remarks`/`photoPath`
-    are recorded on the version that answers it, via `RecipeCommand.addVersion`'s `attempt`.
-    **The version iterated on is never touched.** Nothing at all is persisted until the proposal
-    is accepted: refusing it loses the rating, by design.
+  - **with remarks** — the cook asks for the next version, and their `rating`/`remarks`/`photoPath`
+    are recorded on the version they cooked (`basedOn`) when the proposal is accepted, through
+    `RecipeCommand.addVersion`'s `attempt` — the same write as a bare cook, which is why both go
+    through one `cooked(version, attempt, now)`. **The version created carries no outcome**: it is
+    one to test. Nothing at all is persisted until the proposal is accepted: refusing it loses the
+    rating, by design.
 - **The note alone is correctable**, through `RecipeCommand.updateRating` — the verdict mistyped,
   or the cook logged after the fact. It rewrites `rating` and nothing else: the photo and the
   remarks of the attempt stay (unlike `recordAttempt`, which replaces the whole outcome). Rating a
@@ -107,8 +110,8 @@ launched it from — never guessed from the source.
 - **A version is dated by its last edit** (`RecipeVersion.updatedAt`, equal to `createdAt` until
   something is changed on it): the app shows it on the recipe sheet and files the version under
   its month in the history and the to-cook list. Only the cook's own rewrites move it —
-  `recordAttempt`, `updateRating`, `updateTips`, `updateCoffeeParameters`. The bookkeeping writes (a child
-  re-based by a deletion, a `toTest` flag dropped when the version that answers it is cooked)
+  `recordAttempt`, `updateRating`, `updateTips`, `updateCoffeeParameters`, and the cook `addVersion`
+  writes on the version it iterates on. The bookkeeping writes (a child re-based by a deletion)
   leave it alone: they change nothing the cook wrote, and moving a version to another month
   behind their back is a lie.
 
@@ -136,13 +139,14 @@ Everything is derived (`recipe/business-rules.ts`), nothing is promoted:
   what they want changed and
   `ProposalUseCase.fromImprovement(userId, recipeId, versionNumber, improvement)` feeds it to the
   AI in place of the attempts (same ephemeral `Proposal`). Accepting it appends `n+1` **without**
-  an attempt, which is the **sole** way a version gets `toTest: true`. The app asks for it with
+  an attempt: nothing is written on the version it iterates on. The app asks for it with
   the same remark field as an attempt, left unrated: what makes it an improvement is the absence
   of a note, not a screen of its own.
 - **`toTest`** (`RecipeVersion.toTest?: true`, absent = not on the list): the versions waiting to
-  be cooked, listed by the recipe sheet's flask CTA. Only an improvement raises it; it drops the
-  moment the version is cooked — `recordAttempt` rewrites it away, and accepting an attempt-born
-  proposal clears it on the version it answers (`basedOn`).
+  be cooked, listed by the recipe sheet's flask CTA. **Every accepted proposal raises it** — an
+  iteration is by definition a version nobody has made yet, whether a cook or an improvement asked
+  for it. It drops the moment the version is cooked: `recordAttempt` rewrites it away, and so does
+  the cook an attempt-born proposal writes on the version it iterates on (`basedOn`).
 
 ## Tips
 
@@ -167,8 +171,8 @@ for the life of a version.
 version cooked and feeds both to the AI (→ `Proposal`, ephemeral, never stored); accepting it
 (`ProposalUseCase.accept`) appends version `n+1` via `RecipeCommand.addVersion` with
 `origin.kind = 'ai-proposal'`, threading `basedOn = the version cooked` and stamping that attempt
-as the new version's outcome. The app only asks for a proposal when remarks were written — a bare
-rating ends the flow. Import confirmation persists a fresh recipe + v1 (`origin.kind = 'import'`)
+as **that** version's outcome — the new one is born owing a try. The app only asks for a proposal
+when remarks were written — a bare rating ends the flow. Import confirmation persists a fresh recipe + v1 (`origin.kind = 'import'`)
 via `RecipeCommand.create` (the `createRecipe` mutation).
 
 ## AI wording rules

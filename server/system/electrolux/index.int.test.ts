@@ -78,6 +78,19 @@ describe('the rotating refresh token', () => {
   })
 })
 
+describe('an oven that cannot even be asked', () => {
+  test('a refused token refresh is an unreachable oven, never a thrown error', async () => {
+    globalThis.fetch = mock(async () => new Response('nope', { status: 500 })) as never
+
+    expect(await findOven()).toBe('no-oven')
+    expect(await applianceState('oven-1')).toEqual({
+      reachable: false,
+      remoteControlEnabled: false,
+      busy: false,
+    })
+  })
+})
+
 describe('findOven', () => {
   test('picks the oven out of the account’s appliances', async () => {
     respondWith({

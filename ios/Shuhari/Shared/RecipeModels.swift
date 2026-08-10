@@ -140,10 +140,8 @@ struct CoffeeVocabulary: Sendable, Hashable {
     static let empty = CoffeeVocabulary()
 }
 
-/// The oven settings a version bakes at. Copied out of one of the oven's own
-/// assisted-cooking profiles or set by hand, then owned by the version — nothing
-/// points back to the manufacturer's catalogue, so a recipe survives the oven
-/// renaming or dropping a dish.
+/// The oven settings a version bakes at: plain values owned by the version, never
+/// a reference to anything the oven might rename or drop.
 struct OvenProfile: Sendable, Hashable {
     var program: OvenProgram
     /// What the dial is set to, in °C.

@@ -31,7 +31,12 @@ const call = async (
 ): Promise<Response | 'unavailable'> => {
   const settings = config().electrolux
   if (!settings) return 'unavailable'
-  const token = await accessToken()
+
+  // Getting a token reads Firestore and calls Electrolux; either can fail. Both
+  // failures mean the same thing to a cook — the oven cannot be reached — and
+  // NEITHER may reach the recipe sheet as an error: an oven that is down must
+  // never be an app that is down.
+  const token = await accessToken().catch(() => 'not-configured' as const)
   if (token === 'not-configured') return 'unavailable'
 
   const response = await fetch(`${BASE}${path}`, {

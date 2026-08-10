@@ -5,12 +5,11 @@ import type {
   OvenTemperature,
 } from '~/domain/recipe/types'
 
-// The oven settings one version bakes at. Copied out of one of the oven's own
-// assisted-cooking profiles or set by hand, then owned by the version: nothing
-// points back to the manufacturer's catalogue, so a version stays reproducible
-// after the oven renames or drops a dish. Versioned rather than aggregate-level,
-// like the coffee gear: dropping the temperature by ten degrees is an iteration,
-// and the lineage is where that shows.
+// The oven settings one version bakes at: plain values owned by the version, never
+// a reference to anything the oven might rename or drop — the API exposes no dish
+// catalogue to reference anyway, only heating functions and dials. Versioned rather
+// than aggregate-level, like the coffee gear: dropping the temperature by ten
+// degrees is an iteration, and the lineage is where that shows.
 export type OvenProfile = {
   program: OvenProgram
   temperature: OvenTemperature

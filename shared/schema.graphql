@@ -663,7 +663,7 @@ scalar IngredientQuantity
 
 type Mutation {
   """
-  Accept an AI suggestion (optionally after editing it). It becomes the next version in the chain, ready to cook. Coming from a cook (requestProposal), it carries that attempt — the rating, remarks and photo you just gave — and the version it iterates on is left exactly as it was. Coming from an improvement (requestImprovement), it carries no attempt and lands on your to-cook list instead.
+  Accept an AI suggestion (optionally after editing it). It becomes the next version in the chain and lands on your to-cook list: it has never been made, whatever asked for it. Coming from a cook (requestProposal), the attempt you just gave — the rating, the remarks and the photo — is recorded on the version you cooked (`basedOn`), which stops owing a try. Coming from an improvement (requestImprovement), nothing is recorded.
   
   ```graphql
   acceptProposal(recipeId: "9f1c-a3b2", proposal: {
@@ -846,7 +846,7 @@ type Mutation {
   ): Proposal!
 
   """
-  Ask the AI for a suggested next version. It looks at the version you just cooked and at how the cook went — the rating and remarks you send here — and proposes one improvement. Nothing is saved yet, not even your rating: it is recorded on the new version when you accept the proposal (see acceptProposal). Spends one iteration of your monthly AI allowance (see quota) — `QUOTA_EXHAUSTED` once it is used up.
+  Ask the AI for a suggested next version. It looks at the version you just cooked and at how the cook went — the rating and remarks you send here — and proposes one improvement. Nothing is saved yet, not even your rating: it is recorded on the version you cooked when you accept the proposal (see acceptProposal). Spends one iteration of your monthly AI allowance (see quota) — `QUOTA_EXHAUSTED` once it is used up.
   
   ```graphql
   requestProposal(
@@ -1096,7 +1096,7 @@ A cooking time in whole minutes, from `1` to `720` (12 h), e.g. `25`. Absent on 
 scalar OvenDuration
 
 """
-The oven settings a version bakes at: the heating function, the dial temperature, and how the cooking ends — a timer, a probe target, or both. Copied out of the oven’s own assisted-cooking catalogue or set by hand, then owned by the version, so it stays reproducible whatever the oven does with its own profiles afterwards.
+The oven settings a version bakes at: the heating function, the dial temperature, and how the cooking ends — a timer, a probe target, or both. Set by hand and owned by the version: plain values, never a reference to anything the oven might rename.
 """
 type OvenProfile {
   """
@@ -1267,7 +1267,7 @@ input ProposalInput {
   photo: String
 
   """
-  How the cook that asked for this version turned out, `1` to `5`, e.g. `3` (leave out when the proposal came from requestImprovement)
+  How the cook that asked for this version turned out, `1` to `5`, e.g. `3`. Recorded on the version you cooked (`basedOn`), which is what it is a verdict on (leave out when the proposal came from requestImprovement)
   """
   rating: Rating
 
@@ -1503,7 +1503,7 @@ type Recipe {
   title: RecipeTitle!
 
   """
-  How many of its versions are waiting to be cooked, e.g. `1` after accepting one improvement. `0` when the recipe owes no cook (see the `toTest` field on Version).
+  How many of its versions are waiting to be cooked, e.g. `1` after accepting one proposal. `0` when the recipe owes no cook (see the `toTest` field on Version).
   """
   toTestCount: Int!
 
@@ -1878,7 +1878,7 @@ type Version {
   tips: [Tip!]!
 
   """
-  Whether this version is on your to-cook list, e.g. `true` for the version you just got out of requestImprovement. Only an improvement puts a version there; cooking it (a rating, a photo, remarks) takes it off.
+  Whether this version is on your to-cook list, e.g. `true` for the version you just got out of acceptProposal. Every accepted proposal puts a version there — it has not been made yet, whatever asked for it; cooking it (a rating, a photo, remarks) takes it off.
   """
   toTest: Boolean!
 
