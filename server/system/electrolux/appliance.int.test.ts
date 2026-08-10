@@ -206,38 +206,11 @@ describe('applianceState', () => {
   })
 })
 
-describe('the timer, and where the oven keeps it', () => {
-  test('reads a duration dialled in on the appliance panel, which lands in timeToEnd', async () => {
+describe('the timer', () => {
+  test('reads the duration as SET, which the appliance fills for its own panel too', async () => {
     respondWith({
       '/token/refresh': refreshed,
-      // What the oven answers when a cook sets 25 min on its own screen: the API's
-      // field stays at 0 and the panel's timer surfaces as timeToEnd.
-      '/state': {
-        properties: {
-          reported: {
-            remoteControl: 'ENABLED',
-            upperOven: {
-              applianceState: 'READY_TO_START',
-              program: 'TRUE_FAN',
-              targetTemperatureC: 170,
-              targetDuration: 0,
-              timeToEnd: 1500,
-            },
-          },
-        },
-      },
-    })
-
-    expect(await applianceState('oven-1')).toMatchObject({
-      temperature: 170,
-      duration: 25,
-      busy: false,
-    })
-  })
-
-  test('never copies a countdown: a running oven reports what is LEFT, not what was set', async () => {
-    respondWith({
-      '/token/refresh': refreshed,
+      // A cooking dialled in on the oven's screen, mid-run: 52 min set, 36 left.
       '/state': {
         properties: {
           reported: {
@@ -246,8 +219,8 @@ describe('the timer, and where the oven keeps it', () => {
               applianceState: 'RUNNING',
               program: 'TRUE_FAN',
               targetTemperatureC: 170,
-              targetDuration: 0,
-              timeToEnd: 480,
+              targetDuration: 3120,
+              timeToEnd: 2160,
             },
           },
         },
@@ -256,29 +229,27 @@ describe('the timer, and where the oven keeps it', () => {
 
     const state = await applianceState('oven-1')
 
-    // 8 minutes left of a cooking whose real duration nobody told us.
-    expect(state.duration).toBeUndefined()
-    expect(state.remaining).toBe(8)
+    // What a recipe copies is the 52, never the 36.
+    expect(state.duration).toBe(52)
+    expect(state.remaining).toBe(36)
   })
 
-  test('prefers the commanded duration when the API set one', async () => {
+  test('an idle oven with no timer set reports none, whatever timeToEnd carries', async () => {
     respondWith({
       '/token/refresh': refreshed,
+      // The leftover this oven shows when nothing is set — mistaking it for a
+      // duration would copy a phantom two minutes into the recipe.
       '/state': {
         properties: {
           reported: {
             remoteControl: 'ENABLED',
-            upperOven: {
-              applianceState: 'RUNNING',
-              targetDuration: 1800,
-              timeToEnd: 480,
-            },
+            upperOven: { applianceState: 'READY_TO_START', targetDuration: 0, timeToEnd: 120 },
           },
         },
       },
     })
 
-    expect((await applianceState('oven-1')).duration).toBe(30)
+    expect((await applianceState('oven-1')).duration).toBeUndefined()
   })
 })
 

@@ -69,18 +69,6 @@ const minutesFrom = (seconds: unknown): number | undefined =>
     ? Math.round(seconds / 60)
     : undefined
 
-// The timer as SET — what a recipe copies. This oven keeps it in two places
-// depending on who set it: `targetDuration` holds what the API commanded, while a
-// duration dialled in on the appliance's own panel shows up in `timeToEnd` with
-// `targetDuration` left at 0. Reading only the first copies the temperature and
-// silently drops the timer, which is what a cook notices first.
-//
-// While a cooking runs, `timeToEnd` is what is LEFT of the timer rather than what
-// was set, so it is never read as the duration then — copying a countdown would
-// write a shrinking number into the recipe.
-const selectedDuration = (cavity: Record<string, unknown>, busy: boolean) =>
-  minutesFrom(cavity.targetDuration) ?? (busy ? undefined : minutesFrom(cavity.timeToEnd))
-
 export const applianceState = async (applianceId: string): Promise<ApplianceState> => {
   const response = await call(`/appliances/${applianceId}/state`)
   if (response === 'unavailable' || !response.ok) return UNREACHABLE
@@ -103,8 +91,12 @@ export const applianceState = async (applianceId: string): Promise<ApplianceStat
     ...(typeof cavity.targetTemperatureC === 'number'
       ? { temperature: cavity.targetTemperatureC }
       : {}),
-    ...(selectedDuration(cavity, busy) !== undefined
-      ? { duration: selectedDuration(cavity, busy) }
+    // `targetDuration` is the timer as SET, whoever set it — the appliance fills it
+    // for a cooking dialled in on its own panel too. Never `timeToEnd`, which is
+    // what is LEFT of it: copying a countdown would write a shrinking number into
+    // the recipe, and on an idle oven it carries a leftover from the cooking before.
+    ...(minutesFrom(cavity.targetDuration) !== undefined
+      ? { duration: minutesFrom(cavity.targetDuration) }
       : {}),
     // Reported only once a probe is actually plugged in.
     ...(typeof cavity.targetFoodProbeTemperatureC === 'number'
