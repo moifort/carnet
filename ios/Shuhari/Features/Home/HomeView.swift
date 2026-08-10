@@ -2,7 +2,7 @@ import SwiftUI
 
 /// The notebook content tab (cooking — dishes & Thermomix). Owns the
 /// NavigationStack, the settings sheet and the recipe flow (recipe sheet → history →
-/// attempt → proposal + execution cover), and a `LibraryStore` for the paginated,
+/// version → proposal + execution cover), and a `LibraryStore` for the paginated,
 /// server-sorted recipe library that fills the screen.
 struct HomeView: View {
     @Binding var importedRecipe: ImportedRecipe?

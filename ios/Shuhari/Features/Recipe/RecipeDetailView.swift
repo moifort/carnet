@@ -34,9 +34,11 @@ struct RecipeDetailView: View {
     @State private var showToTest = false
     @State private var recordRequest: ExecutionRequest?
     @State private var showDeleteConfirm = false
-    /// The version picked in the history / to-cook sheet, opened once that sheet has
-    /// finished closing (see `openPickedVersion`).
-    @State private var pickedVersion: Int?
+    /// The version the sheet shows — picked in the history or the to-cook list, which
+    /// hand back a number and nothing else. Nil opens on the recipe's own
+    /// `versionToOpen`. Picking swaps what this one screen displays instead of pushing
+    /// another: browsing a lineage is reading one recipe, not walking into ten of them.
+    @State private var selectedVersion: Int?
     @State private var favoriteError = ErrorPresenter()
 
     init(
@@ -55,6 +57,7 @@ struct RecipeDetailView: View {
         self.onReload = onReload
         self.onDelete = onDelete
         self.onDeleteVersion = onDeleteVersion
+        self._selectedVersion = State(initialValue: focusVersionNumber)
     }
 
     /// Preview/gallery initializer: renders the full coordinator — action bar and
@@ -78,6 +81,7 @@ struct RecipeDetailView: View {
         self.onDelete = onDelete
         self.onDeleteVersion = onDeleteVersion
         self._showDeleteConfirm = State(initialValue: startOnDeleteConfirm)
+        self._selectedVersion = State(initialValue: focusVersionNumber)
     }
 
     var body: some View {
@@ -96,19 +100,19 @@ struct RecipeDetailView: View {
                         Task { await store.load(recipeId) }
                     }
                 }
-                // Picking a version closes the history and opens that version's
-                // recipe sheet in this stack — the sheet never pushes it itself.
-                .sheet(isPresented: $showHistory, onDismiss: openPickedVersion) {
+                // Picking a version hands back its number: the sheet closes and this
+                // screen redraws on that version, already loaded with the recipe.
+                .sheet(isPresented: $showHistory) {
                     HistorySheet(recipe: recipe) { versionNumber in
-                        pickedVersion = versionNumber
+                        selectedVersion = versionNumber
                         showHistory = false
                     }
                 }
-                // The to-cook list: picking a version closes it and opens that
-                // version's recipe sheet, exactly like the history does.
-                .sheet(isPresented: $showToTest, onDismiss: openPickedVersion) {
+                // The to-cook list: picking a version shows it, exactly like the
+                // history does.
+                .sheet(isPresented: $showToTest) {
                     ToTestSheet(versions: recipe.versionsToTest) { versionNumber in
-                        pickedVersion = versionNumber
+                        selectedVersion = versionNumber
                         showToTest = false
                     }
                 }
@@ -145,11 +149,14 @@ struct RecipeDetailView: View {
                 // off says the dish never bakes, which clears the profile.
                 .sheet(isPresented: $showOvenProfile) {
                     let version = displayedVersion(recipe)
-                    OvenProfileEditSheet(initial: version.content.oven) { oven in
+                    OvenProfileEditSheet(
+                        initial: version.content.oven,
+                        applianceSettings: oven.state?.settings
+                    ) { profile in
                         try await RecipeAPI.updateOvenProfile(
                             recipeId: recipeId,
                             versionNumber: version.number,
-                            oven: oven
+                            oven: profile
                         )
                         await store.load(recipeId)
                         onReload()
@@ -214,12 +221,12 @@ struct RecipeDetailView: View {
         .errorAlert(oven.error)
     }
 
-    /// The recipe sheet, focused on a version when `focusVersionNumber` is set (attempt
-    /// view: orange banner + per-row change dots vs the previous version), or the
-    /// plain best-rated recipe sheet otherwise.
+    /// The recipe sheet, focused on the selected version (attempt view: orange banner +
+    /// per-row change dots vs the version it iterates on), or the plain best-rated
+    /// recipe sheet when none was picked.
     @ViewBuilder
     private func detailPage(recipe: Recipe) -> some View {
-        if let number = focusVersionNumber, let focus = recipe.version(number) {
+        if let number = selectedVersion, let focus = recipe.version(number) {
             // The attempt-diff base is the version this one was built on (`basedOn`),
             // not simply the previous number — a version can iterate on any ancestor.
             let previous = focus.basedOn.flatMap { recipe.version($0) }
@@ -400,10 +407,11 @@ struct RecipeDetailView: View {
         }
     }
 
-    /// The version the recipe sheet presents (and the record CTA targets): the focused
-    /// attempt version when set, otherwise the recipe's `versionToOpen`.
+    /// The version the recipe sheet presents (and the record CTA targets): the one
+    /// picked in a sheet, otherwise the recipe's `versionToOpen`. A number that no
+    /// longer matches a version — the displayed one just deleted — falls back to it too.
     private func displayedVersion(_ recipe: Recipe) -> RecipeVersion {
-        focusVersionNumber.flatMap { recipe.version($0) } ?? recipe.versionToOpen
+        selectedVersion.flatMap { recipe.version($0) } ?? recipe.versionToOpen
     }
 
     /// The gear of the closest earlier version that carried any — what pre-fills
@@ -434,9 +442,9 @@ struct RecipeDetailView: View {
         if !path.isEmpty { path.removeLast() }
     }
 
-    /// Delete the displayed version and close the whole recipe flow — the screens
-    /// underneath were built on data this deletion just rewrote. The library carries
-    /// the call, same one-way pattern as the recipe.
+    /// Delete the displayed version and close the recipe — what is on screen was built
+    /// on a lineage this deletion just rewrote. The library carries the call, same
+    /// one-way pattern as the recipe.
     private func deleteDisplayedVersion(_ recipe: Recipe) {
         // The sole version has no separate fate: deleting it is deleting the recipe.
         guard recipe.versions.count > 1 else {
@@ -445,17 +453,7 @@ struct RecipeDetailView: View {
         }
         onDeleteVersion(recipeId, displayedVersion(recipe).number)
         store.forget(recipeId)
-        if !path.isEmpty { path.removeLast(path.count) }
-    }
-
-    /// Open the version picked in a sheet, once that sheet is fully dismissed.
-    /// Pushing while it is still closing loses the entry underneath: the version
-    /// opens, but the back button then jumps straight back to the library instead of
-    /// returning to the recipe it was picked from.
-    private func openPickedVersion() {
-        guard let number = pickedVersion else { return }
-        pickedVersion = nil
-        path.append(RecipeRoute.attempt(recipeId: recipeId, versionNumber: number))
+        if !path.isEmpty { path.removeLast() }
     }
 
     /// Flip the favourite and reload — the sheet redraws its heart, and the library

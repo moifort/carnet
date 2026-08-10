@@ -24,18 +24,6 @@ struct RecipeRouteView: View {
                 onDelete: onDelete,
                 onDeleteVersion: onDeleteVersion
             )
-        case .attempt(let recipeId, let versionNumber):
-            // The attempt reuses the recipe sheet, focused on the version: same
-            // title, sections and CTAs, plus an orange banner and change dots.
-            RecipeDetailView(
-                recipeId: recipeId,
-                focusVersionNumber: versionNumber,
-                store: store,
-                path: $path,
-                onReload: onReload,
-                onDelete: onDelete,
-                onDeleteVersion: onDeleteVersion
-            )
         }
     }
 }

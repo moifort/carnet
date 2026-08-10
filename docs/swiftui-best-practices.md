@@ -131,6 +131,28 @@ every appearance (`.task { await store.load(id) }`, no `if state == nil` guard) 
 at once and the fetch behind it only ever corrects it. What is deleted is dropped from the state
 explicitly, so a re-entry cannot draw what has just gone.
 
+## Browsing siblings is a state change, not a push
+
+Picking another item of the same object — another version, another photo of the roll, another
+day of the week — is **not** a new destination. Pushing one screen per pick stacks screens the
+user never asked to keep, and each of them stays alive: it re-runs its `.task` on every
+appearance, holds its own network calls, and — when the flow shares one observable state — is
+re-rendered by every load any of the others triggers. Ten picks are then a hundred body
+evaluations and twenty requests, and the screen the user is looking at is the one that pays for
+it. What they report is not "my stack is deep", it is **"the app freezes"**.
+
+Push a *destination*; hold a *selection* in `@State`:
+
+```swift
+@State private var selectedVersion: Int?          // what the one screen shows
+…
+VersionSheet(…) { number in selectedVersion = number }   // hands back an id, nothing else
+```
+
+The list hands back an identifier, the screen renders that item from data it already has, and the
+back button keeps meaning "leave", not "undo nine picks". A route enum that ends up with one case
+is the right outcome, not a smell.
+
 ## A row-wide button needs a shape, or its middle is dead
 
 A `Button` whose label spreads content across a row — a title, a `Spacer`, a badge — is only

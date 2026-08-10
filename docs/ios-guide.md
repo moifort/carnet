@@ -191,13 +191,17 @@ history sheet and the to-cook sheet. They share **one**
 (`HomeView`, `CoffeeView`) beside its `LibraryStore` and handed down through
 `.recipeFlow(store:path:…)` — see [one state per flow](swiftui-best-practices.md#one-state-per-flow-never-one-per-screen).
 
-- `store.recipe(id)` is what the screens render; `store.load(id)` is called by every screen's
-  `.task` (unguarded) and after every mutation, so one read updates the whole stack.
-- A picked version therefore opens on the recipe already read, with no round trip — and the flask
-  CTA, its sheet and the version list can no longer disagree on what is left to test.
+- `store.recipe(id)` is what the screen renders; `store.load(id)` is called by its `.task`
+  (unguarded) and after every mutation, so one read updates the screen and its sheets at once.
+- **Which version is shown is `@State` on the screen, not a route.** The history and to-cook
+  sheets hand back a number, `selectedVersion` takes it, and the same screen redraws on a version
+  the recipe already carries — no round trip, and the stack stays one deep however long the cook
+  browses (see [browsing is a state change](swiftui-best-practices.md#browsing-siblings-is-a-state-change-not-a-push)).
+  `RecipeRoute` therefore has a single case: a recipe.
+- The flask CTA, its sheet and the version list can no longer disagree on what is left to test.
 - `store.forget(id)` is called on the two delete paths, whose call runs in the background.
 - `RecipeStore(previewRecipe:)` seeds a fixture and **never** calls the server: it is what makes
-  the whole flow — sheets and pushes included — reviewable offline in `DebugGallery`.
+  the whole flow — sheets included — reviewable offline in `DebugGallery`.
 
 The one screen still holding a copy of its own is `ExecuteFlowView`, which fetches the recipe when
 the play CTA opens it.
