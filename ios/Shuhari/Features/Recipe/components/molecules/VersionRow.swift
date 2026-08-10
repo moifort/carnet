@@ -32,6 +32,10 @@ struct VersionRow: View {
             }
             Chip(text: "v\(number)", compact: true, highlighted: isFocus)
         }
+        // The row is the tap target of a button, and its middle is empty space: without
+        // a shape of its own, only the drawn text and chips answer a tap and every tap
+        // between them falls through — the version list looks like it ignores the pick.
+        .contentShape(.rect)
         .accessibilityElement(children: .combine)
     }
 }

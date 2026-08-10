@@ -103,3 +103,29 @@ HStack {
 The control is still the native one — typing and stepping are both possible. A stepper over free
 text also has to say what it does with text it cannot parse: move the leading number and keep the
 rest as typed, and never silently do nothing.
+
+## A row-wide button needs a shape, or its middle is dead
+
+A `Button` whose label spreads content across a row — a title, a `Spacer`, a badge — is only
+tappable **where something is drawn**. `.buttonStyle(.plain)` draws no background of its own, so
+the gap the `Spacer` opens answers nothing: a tap between the title and the badge falls through to
+the list, which does nothing. The row reads as tappable, and does nothing about half the time.
+
+```swift
+Button { select() } label: {
+    HStack {
+        Text(title)
+        Spacer()
+        Chip(text: badge)
+    }
+    // Without it, only the text and the chip take the tap.
+    .contentShape(.rect)
+}
+.buttonStyle(.plain)
+```
+
+Give the shape to the row component itself rather than to each call site, so a third list built on
+it cannot forget it. The same hole is closed by anything that fills the row — a `.background`, a
+zero-opacity `NavigationLink` behind it — but a content shape says it in one line and costs nothing
+to draw. Any hit-target rule is verified by tapping the row's **empty middle**, never its label:
+that is the only tap the bug swallows.

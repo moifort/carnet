@@ -391,6 +391,18 @@ private struct RecipeDetailGalleryScreen: View {
                 focusVersionNumber: focusVersionNumber,
                 startOnDeleteConfirm: startOnDeleteConfirm
             )
+            // The gallery is offline, so the push destination re-renders the same
+            // fixture: picking a version in the history / to-cook sheet opens its
+            // screen for real, which is what makes those two sheets reviewable.
+            .navigationDestination(for: RecipeRoute.self) { route in
+                if case .attempt(_, let number) = route {
+                    RecipeDetailView(
+                        previewRecipe: recipe,
+                        path: $path,
+                        focusVersionNumber: number
+                    )
+                }
+            }
         }
     }
 }
