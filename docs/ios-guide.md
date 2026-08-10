@@ -492,15 +492,9 @@ says too little to make a profile (a heating function and a temperature are the 
 The copy is total: dials the oven does not report are **cleared**, not kept, so what you end up
 with is what the oven says rather than a mixture of two sources.
 
-The same copy sits **on the oven section of the recipe sheet**, where it is the repeated gesture:
-you tweak the oven mid-cook and capture it in one tap, without opening anything. It writes the
-version in place, so a `confirmationDialog` names both sides — "Chaleur tournante · 180 °C · 30 min
-deviendrait Vapeur combinée · 180 °C · 25 min" — because correcting a profile **rewrites** it and
-the old values are kept nowhere. Both summaries use the same separator on purpose: a before and an
-after have to be comparable at a glance.
-
-The section's copy needs a profile to already exist (no profile, no section); the sheet's is what
-creates the first one. That is why it lives in both places rather than one.
+**The copy lives in the editor and nowhere else.** The recipe sheet's oven section carries the
+settings, "Modifier" and the start CTA — writing a profile is what the editor is for, and a second
+entry point on the sheet only made the same gesture reachable twice.
 
 `assisted` is never offered by the picker (`OvenProgram.selectable` drops it): it is not a dial
 anyone turns, it only ever arrives by copying what the oven is set to. Picking it by hand would

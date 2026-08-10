@@ -22,9 +22,6 @@ struct RecipeDetailPage: View {
     /// The connected oven's CTA. nil when this account owns no oven, and the
     /// section then shows the settings alone.
     var ovenStart: OvenProfileSection.Start? = nil
-    /// Taking the oven's current dials onto this version. nil when there is no oven,
-    /// or when it says too little to copy.
-    var ovenCopy: OvenProfileSection.Copy? = nil
 
     /// Ephemeral quantity scaling of the ingredient list — lives only while the
     /// sheet is open, the stored version is never rewritten. Only the plain sheet
@@ -112,7 +109,6 @@ struct RecipeDetailPage: View {
                     core: oven.core.map { "\($0) °C" }
                 ),
                 onEdit: onEditOven,
-                copy: ovenCopy,
                 start: ovenStart
             )
         }

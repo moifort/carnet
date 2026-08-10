@@ -83,8 +83,6 @@ struct DebugGallery: View {
                 }
         case "oven-start":
             OvenSectionGalleryScreen(running: nil)
-        case "oven-copy-section":
-            OvenSectionGalleryScreen(running: nil, copyable: true)
         case "oven-running":
             OvenSectionGalleryScreen(running: "Cuisson en cours · 12 min")
         case "oven-starting":
@@ -361,9 +359,6 @@ private struct QuotaGalleryScreen: View {
 private struct OvenSectionGalleryScreen: View {
     var running: String?
     var isStarting = false
-    /// The oven is set to something other than what the version says — the case the
-    /// copy CTA exists for.
-    var copyable = false
 
     var body: some View {
         NavigationStack {
@@ -376,13 +371,6 @@ private struct OvenSectionGalleryScreen: View {
                         duration: "30 min"
                     ),
                     onEdit: {},
-                    copy: copyable
-                        ? .init(
-                            summary: "Vapeur combinée · 180 °C · 25 min",
-                            isCopying: false,
-                            onCopy: {}
-                        )
-                        : nil,
                     start: .init(running: running, isStarting: isStarting, onStart: {})
                 )
             }
