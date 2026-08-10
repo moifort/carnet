@@ -25,10 +25,24 @@ struct OvenProfileSection: View {
     /// Shown as the section's trailing action when the sheet can edit the profile —
     /// left out in the read-only execution mode.
     var onEdit: (() -> Void)?
-    /// The connected oven's CTA. nil when this account owns no oven, and the
-    /// section then shows the settings alone — which is all it ever showed before
-    /// an oven was connected.
+    /// Taking what the oven is set to right now onto this version — the gesture for
+    /// "I just dialled this in on the appliance, remember it". nil when no oven is
+    /// connected, or when it says too little to copy.
+    var copy: Copy?
+    /// The connected oven's CTA. nil when this account owns no oven, and the section
+    /// then shows the settings alone — which is all it ever showed before an oven
+    /// was connected.
     var start: Start?
+
+    @State private var confirmingCopy = false
+
+    /// What it takes to copy the oven's dials from here.
+    struct Copy {
+        /// What would be copied, written out ("Vapeur combinée · 180 °C · 25 min").
+        var summary: String
+        var isCopying: Bool
+        var onCopy: () -> Void
+    }
 
     /// What it takes to start the cooking from here.
     struct Start {
@@ -55,6 +69,10 @@ struct OvenProfileSection: View {
             // what ends the cooking, not as one more number.
             if let core = item.core { row("Sonde", core) }
 
+            if let copy {
+                copyRow(copy)
+            }
+
             if let start {
                 OvenStartButton(
                     summary: summary,
@@ -76,13 +94,40 @@ struct OvenProfileSection: View {
         }
     }
 
+    /// Replacing what is written down is not a tap away: the dialog names what is
+    /// there now and what would take its place, because the old values are not kept
+    /// anywhere — correcting a profile rewrites it, it does not version it.
+    @ViewBuilder
+    private func copyRow(_ copy: Copy) -> some View {
+        Button { confirmingCopy = true } label: {
+            HStack {
+                ActionIcon(systemImage: "arrow.down.doc", isRunning: copy.isCopying)
+                Text("Copier les réglages du four")
+            }
+        }
+        .disabled(copy.isCopying)
+        .accessibilityIdentifier("copy-oven-settings-button")
+        .confirmationDialog(
+            "Remplacer les réglages ?",
+            isPresented: $confirmingCopy,
+            titleVisibility: .visible
+        ) {
+            Button("Copier", action: copy.onCopy)
+            Button("Annuler", role: .cancel) {}
+        } message: {
+            Text("\(summary) deviendrait \(copy.summary).")
+        }
+    }
+
     private var valueFont: Font { big ? .title3 : .body }
 
-    /// The profile in one line, for the confirmation dialog.
+    /// The profile in one line, for both confirmation dialogs. Same separator as
+    /// the copy summary they are read against — the "before" and the "after" of a
+    /// replacement have to be comparable at a glance.
     private var summary: String {
         [item.program, item.temperature, item.duration, item.core.map { "sonde \($0)" }]
             .compactMap { $0 }
-            .joined(separator: " ")
+            .joined(separator: " · ")
     }
 
     private func row(_ label: String, _ value: String) -> some View {
@@ -135,6 +180,26 @@ struct OvenProfileSection: View {
                 duration: "30 min"
             ),
             onEdit: {},
+            start: .init(running: nil, isStarting: false, onStart: {})
+        )
+    }
+}
+
+#Preview("Le four propose autre chose") {
+    List {
+        OvenProfileSection(
+            item: .init(
+                program: "Chaleur tournante",
+                programIcon: "fan",
+                temperature: "180 °C",
+                duration: "30 min"
+            ),
+            onEdit: {},
+            copy: .init(
+                summary: "Vapeur combinée · 180 °C · 25 min",
+                isCopying: false,
+                onCopy: {}
+            ),
             start: .init(running: nil, isStarting: false, onStart: {})
         )
     }

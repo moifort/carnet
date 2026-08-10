@@ -40,6 +40,7 @@ struct RecipeDetailView: View {
     /// another: browsing a lineage is reading one recipe, not walking into ten of them.
     @State private var selectedVersion: Int?
     @State private var favoriteError = ErrorPresenter()
+    @State private var copyingOven = false
 
     init(
         recipeId: String,
@@ -238,13 +239,15 @@ struct RecipeDetailView: View {
                 change: focus.change,
                 why: focus.why ?? focus.originDetail,
                 onEditOven: openOvenEditor,
-                ovenStart: ovenStart(recipe)
+                ovenStart: ovenStart(recipe),
+                ovenCopy: ovenCopy(recipe)
             )
         } else {
             RecipeDetailPage(
                 recipe: recipe,
                 onEditOven: openOvenEditor,
-                ovenStart: ovenStart(recipe)
+                ovenStart: ovenStart(recipe),
+                ovenCopy: ovenCopy(recipe)
             )
         }
     }
@@ -262,6 +265,45 @@ struct RecipeDetailView: View {
                 Task { await oven.start(recipeId: recipeId, version: version.number) }
             }
         )
+    }
+
+    /// Taking the oven's current dials onto the displayed version — in place, no
+    /// version created, exactly like correcting them by hand. nil when the oven
+    /// says too little to make a profile, so the row never offers an empty gesture.
+    private func ovenCopy(_ recipe: Recipe) -> OvenProfileSection.Copy? {
+        guard let settings = oven.state?.settings, let profile = settings.profile else { return nil }
+        let version = displayedVersion(recipe)
+        return OvenProfileSection.Copy(
+            summary: ovenSummary(profile),
+            isCopying: copyingOven,
+            onCopy: {
+                Task {
+                    copyingOven = true
+                    defer { copyingOven = false }
+                    await favoriteError.run {
+                        try await RecipeAPI.updateOvenProfile(
+                            recipeId: recipeId,
+                            versionNumber: version.number,
+                            oven: profile
+                        )
+                        await store.load(recipeId)
+                        onReload()
+                    }
+                }
+            }
+        )
+    }
+
+    /// An oven profile in one line, the way both the section and its dialogs read it.
+    private func ovenSummary(_ profile: OvenProfile) -> String {
+        [
+            profile.program.label,
+            "\(profile.temperature) °C",
+            profile.duration.map { "\($0) min" },
+            profile.core.map { "sonde \($0) °C" },
+        ]
+        .compactMap { $0 }
+        .joined(separator: " · ")
     }
 
     /// What the oven is already doing, written out. The remaining minutes ride

@@ -492,6 +492,16 @@ says too little to make a profile (a heating function and a temperature are the 
 The copy is total: dials the oven does not report are **cleared**, not kept, so what you end up
 with is what the oven says rather than a mixture of two sources.
 
+The same copy sits **on the oven section of the recipe sheet**, where it is the repeated gesture:
+you tweak the oven mid-cook and capture it in one tap, without opening anything. It writes the
+version in place, so a `confirmationDialog` names both sides — "Chaleur tournante · 180 °C · 30 min
+deviendrait Vapeur combinée · 180 °C · 25 min" — because correcting a profile **rewrites** it and
+the old values are kept nowhere. Both summaries use the same separator on purpose: a before and an
+after have to be comparable at a glance.
+
+The section's copy needs a profile to already exist (no profile, no section); the sheet's is what
+creates the first one. That is why it lives in both places rather than one.
+
 The picker lists every function the notebook knows, including ones a given oven lacks — writing
 down "Pizza 250 °C" is legitimate even on an oven that cannot run it. Starting it then answers
 `PROGRAM_UNSUPPORTED`, which says so; the alternative, hiding the function, would make the
