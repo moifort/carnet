@@ -4,6 +4,10 @@ import SwiftUI
 /// the recipe flow (notebook and Importer), so navigation behaves identically.
 struct RecipeRouteView: View {
     let route: RecipeRoute
+    /// The flow's one recipe state, owned by the tab: a version pushed here reads
+    /// what the screen behind already read, so it opens on the recipe rather than on
+    /// a spinner.
+    let store: RecipeStore
     @Binding var path: NavigationPath
     let onReload: () -> Void
     let onDelete: (String) -> Void
@@ -14,6 +18,7 @@ struct RecipeRouteView: View {
         case .recipe(let id):
             RecipeDetailView(
                 recipeId: id,
+                store: store,
                 path: $path,
                 onReload: onReload,
                 onDelete: onDelete,
@@ -25,6 +30,7 @@ struct RecipeRouteView: View {
             RecipeDetailView(
                 recipeId: recipeId,
                 focusVersionNumber: versionNumber,
+                store: store,
                 path: $path,
                 onReload: onReload,
                 onDelete: onDelete,
@@ -36,6 +42,7 @@ struct RecipeRouteView: View {
 
 /// Installs the recipe push destinations.
 struct RecipeFlowModifier: ViewModifier {
+    let store: RecipeStore
     @Binding var path: NavigationPath
     let onReload: () -> Void
     let onDelete: (String) -> Void
@@ -46,6 +53,7 @@ struct RecipeFlowModifier: ViewModifier {
             .navigationDestination(for: RecipeRoute.self) { route in
                 RecipeRouteView(
                     route: route,
+                    store: store,
                     path: $path,
                     onReload: onReload,
                     onDelete: onDelete,
@@ -57,12 +65,14 @@ struct RecipeFlowModifier: ViewModifier {
 
 extension View {
     func recipeFlow(
+        store: RecipeStore,
         path: Binding<NavigationPath>,
         onReload: @escaping () -> Void,
         onDelete: @escaping (String) -> Void,
         onDeleteVersion: @escaping (String, Int) -> Void
     ) -> some View {
         modifier(RecipeFlowModifier(
+            store: store,
             path: path,
             onReload: onReload,
             onDelete: onDelete,

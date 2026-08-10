@@ -8,6 +8,8 @@ struct HomeView: View {
     @Binding var importedRecipe: ImportedRecipe?
 
     @State private var library = LibraryStore()
+    /// The recipe flow's one state, for every screen the stack pushes.
+    @State private var recipes = RecipeStore()
     @State private var path = NavigationPath()
     @State private var showSettings = false
     /// The notebook opens on the whole library — every type, no facet.
@@ -47,6 +49,7 @@ struct HomeView: View {
                 }
             }
             .recipeFlow(
+                store: recipes,
                 path: $path,
                 onReload: { Task { await reloadAll() } },
                 onDelete: { library.delete(recipeId: $0) },

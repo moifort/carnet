@@ -104,6 +104,33 @@ The control is still the native one — typing and stepping are both possible. A
 text also has to say what it does with text it cannot parse: move the leading number and keep the
 rest as typed, and never silently do nothing.
 
+## One state per flow, never one per screen
+
+Screens of the same flow show the same object: a detail, the sheet listing its parts, the child
+pushed from that sheet. Giving each its own view model means each fetches that object again, and
+that is two bugs at once:
+
+- **latency the user reads as a freeze** — a push that already has everything it needs on screen
+  still opens on a spinner, so picking a row feels like nothing happened;
+- **screens that contradict each other** — two copies read at two moments, so a badge says nothing
+  is pending while the list right under it shows something is. Whichever is right, the user is
+  looking at a bug, and no reload of one copy can fix the other.
+
+Own **one observable state for the whole flow**, at the level that outlives its screens (the tab,
+the flow's root), and hand it down. Each screen reads what it needs from it; a mutation reloads it
+**once** and every screen redraws from the same answer.
+
+```swift
+@State private var recipes = RecipeStore()          // the tab owns it
+…
+.recipeFlow(store: recipes, path: $path, …)         // every pushed screen reads it
+```
+
+Reading it makes freshness a policy, not an accident: draw what is known immediately and refresh on
+every appearance (`.task { await store.load(id) }`, no `if state == nil` guard) — the screen opens
+at once and the fetch behind it only ever corrects it. What is deleted is dropped from the state
+explicitly, so a re-entry cannot draw what has just gone.
+
 ## A row-wide button needs a shape, or its middle is dead
 
 A `Button` whose label spreads content across a row — a title, a `Spacer`, a badge — is only

@@ -100,7 +100,7 @@ struct DebugGallery: View {
         case "history":
             Color.clear
                 .sheet(isPresented: .constant(true)) {
-                    HistorySheet(previewRecipe: Fixtures.bourguignon)
+                    HistorySheet(recipe: Fixtures.bourguignon, onSelect: { _ in })
                 }
         case "attempt":
             RecipeDetailGalleryScreen(recipe: Fixtures.bourguignon, focusVersionNumber: 3)
@@ -378,31 +378,31 @@ private struct OvenSectionGalleryScreen: View {
 private struct RecipeDetailGalleryScreen: View {
     let recipe: Recipe
     /// When set, focuses that version (the attempt view: orange banner + change dots).
-    var focusVersionNumber: Int? = nil
+    let focusVersionNumber: Int?
     /// Opens straight on the delete dialog (version vs whole recipe).
-    var startOnDeleteConfirm = false
+    let startOnDeleteConfirm: Bool
     @State private var path = NavigationPath()
+    /// The flow's state, seeded with the fixture: offline, and shared with the
+    /// version screens the sheets push, exactly as a tab shares it.
+    @State private var store: RecipeStore
+
+    init(recipe: Recipe, focusVersionNumber: Int? = nil, startOnDeleteConfirm: Bool = false) {
+        self.recipe = recipe
+        self.focusVersionNumber = focusVersionNumber
+        self.startOnDeleteConfirm = startOnDeleteConfirm
+        self._store = State(initialValue: RecipeStore(previewRecipe: recipe))
+    }
 
     var body: some View {
         NavigationStack(path: $path) {
             RecipeDetailView(
                 previewRecipe: recipe,
+                store: store,
                 path: $path,
                 focusVersionNumber: focusVersionNumber,
                 startOnDeleteConfirm: startOnDeleteConfirm
             )
-            // The gallery is offline, so the push destination re-renders the same
-            // fixture: picking a version in the history / to-cook sheet opens its
-            // screen for real, which is what makes those two sheets reviewable.
-            .navigationDestination(for: RecipeRoute.self) { route in
-                if case .attempt(_, let number) = route {
-                    RecipeDetailView(
-                        previewRecipe: recipe,
-                        path: $path,
-                        focusVersionNumber: number
-                    )
-                }
-            }
+            .recipeFlow(store: store, path: $path, onReload: {}, onDelete: { _ in }, onDeleteVersion: { _, _ in })
         }
     }
 }

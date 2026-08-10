@@ -183,6 +183,25 @@ final class LibraryStore {
 }
 ```
 
+### `RecipeStore` — the recipe flow's one state
+
+The recipe flow spans several screens over the same recipe: the recipe sheet, the version screens
+it pushes (`RecipeRoute.attempt`), the history sheet and the to-cook sheet. They share **one**
+`RecipeStore` (`Features/Recipe/RecipeStore.swift`), owned by the tab that hosts the flow
+(`HomeView`, `CoffeeView`) beside its `LibraryStore` and handed down through
+`.recipeFlow(store:path:…)` — see [one state per flow](swiftui-best-practices.md#one-state-per-flow-never-one-per-screen).
+
+- `store.recipe(id)` is what the screens render; `store.load(id)` is called by every screen's
+  `.task` (unguarded) and after every mutation, so one read updates the whole stack.
+- A picked version therefore opens on the recipe already read, with no round trip — and the flask
+  CTA, its sheet and the version list can no longer disagree on what is left to test.
+- `store.forget(id)` is called on the two delete paths, whose call runs in the background.
+- `RecipeStore(previewRecipe:)` seeds a fixture and **never** calls the server: it is what makes
+  the whole flow — sheets and pushes included — reviewable offline in `DebugGallery`.
+
+The one screen still holding a copy of its own is `ExecuteFlowView`, which fetches the recipe when
+the play CTA opens it.
+
 ### Coordinator (`*View.swift`) vs. Page (`*Page.swift`)
 
 The **coordinator** owns the `NavigationStack`, sheets, `.task`/`.refreshable`, and reads the

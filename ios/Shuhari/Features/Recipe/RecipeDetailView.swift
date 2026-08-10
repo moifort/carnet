@@ -7,6 +7,10 @@ struct RecipeDetailView: View {
     /// When set, the recipe sheet focuses this version (the attempt view): orange banner +
     /// per-row change dots. Nil renders the plain recipe sheet.
     let focusVersionNumber: Int?
+    /// The flow's one recipe state — shared with the screens this one pushes and with
+    /// the two sheets it opens, so a version picked here opens on what is already read
+    /// and a reload after a mutation reaches every one of them.
+    let store: RecipeStore
     @Binding var path: NavigationPath
     let onReload: () -> Void
     /// Hands the deletion to the library, which drops the row and runs the call in the
@@ -16,7 +20,6 @@ struct RecipeDetailView: View {
     /// reports its failure) while the recipe flow closes without waiting.
     let onDeleteVersion: (String, Int) -> Void
 
-    @State private var viewModel: RecipeViewModel
     @State private var showEdit = false
     /// The coffee-parameters form, and the suggestions it offers — loaded when the
     /// sheet opens, so the sheet is not what waits on the network.
@@ -43,6 +46,7 @@ struct RecipeDetailView: View {
     init(
         recipeId: String,
         focusVersionNumber: Int? = nil,
+        store: RecipeStore,
         path: Binding<NavigationPath>,
         onReload: @escaping () -> Void,
         onDelete: @escaping (String) -> Void,
@@ -50,17 +54,19 @@ struct RecipeDetailView: View {
     ) {
         self.recipeId = recipeId
         self.focusVersionNumber = focusVersionNumber
+        self.store = store
         self._path = path
         self.onReload = onReload
         self.onDelete = onDelete
         self.onDeleteVersion = onDeleteVersion
-        self._viewModel = State(initialValue: RecipeViewModel(recipeId: recipeId))
     }
 
     /// Preview/gallery initializer: renders the full coordinator — action bar and
-    /// sheets included — from a fixture recipe, with no network.
+    /// sheets included — from a fixture recipe, with no network. The store is the
+    /// gallery's own, seeded with that fixture.
     init(
         previewRecipe: Recipe,
+        store: RecipeStore,
         path: Binding<NavigationPath>,
         onReload: @escaping () -> Void = {},
         onDelete: @escaping (String) -> Void = { _ in },
@@ -70,17 +76,17 @@ struct RecipeDetailView: View {
     ) {
         self.recipeId = previewRecipe.id
         self.focusVersionNumber = focusVersionNumber
+        self.store = store
         self._path = path
         self.onReload = onReload
         self.onDelete = onDelete
         self.onDeleteVersion = onDeleteVersion
-        self._viewModel = State(initialValue: RecipeViewModel(previewRecipe: previewRecipe))
         self._showDeleteConfirm = State(initialValue: startOnDeleteConfirm)
     }
 
     var body: some View {
         Group {
-            if let recipe = viewModel.recipe {
+            if let recipe = store.recipe(recipeId) {
                 detailPage(recipe: recipe)
                 .toolbar { toolbar(recipe: recipe) }
                 // The recipe sheet is a focused, Photos-style detail: hide the tab bar so the
@@ -91,13 +97,13 @@ struct RecipeDetailView: View {
                 .sheet(item: $recordRequest) { request in
                     ExecuteFlowView(request: request) {
                         onReload()
-                        Task { await viewModel.load() }
+                        Task { await store.load(recipeId) }
                     }
                 }
                 // Picking a version closes the history and opens that version's
                 // recipe sheet in this stack — the sheet never pushes it itself.
                 .sheet(isPresented: $showHistory, onDismiss: openPickedVersion) {
-                    HistorySheet(recipeId: recipeId) { versionNumber in
+                    HistorySheet(recipe: recipe) { versionNumber in
                         pickedVersion = versionNumber
                         showHistory = false
                     }
@@ -116,7 +122,7 @@ struct RecipeDetailView: View {
                 .sheet(isPresented: $showWarnings) {
                     WarningsEditSheet(initialWarnings: recipe.warnings) { warnings in
                         try await RecipeAPI.updateWarnings(id: recipeId, warnings: warnings)
-                        await viewModel.load()
+                        await store.load(recipeId)
                         onReload()
                     }
                 }
@@ -134,7 +140,7 @@ struct RecipeDetailView: View {
                             versionNumber: version.number,
                             parameters: parameters
                         )
-                        await viewModel.load()
+                        await store.load(recipeId)
                         onReload()
                     }
                 }
@@ -152,7 +158,7 @@ struct RecipeDetailView: View {
                             versionNumber: version.number,
                             oven: oven
                         )
-                        await viewModel.load()
+                        await store.load(recipeId)
                         onReload()
                     }
                 }
@@ -180,7 +186,7 @@ struct RecipeDetailView: View {
                                 rating: rating
                             )
                         }
-                        await viewModel.load()
+                        await store.load(recipeId)
                         // The library behind carries the new name and re-files the row
                         // under its new course.
                         onReload()
@@ -198,14 +204,17 @@ struct RecipeDetailView: View {
                     .accessibilityIdentifier("confirm-delete-recipe")
                     Button("Annuler", role: .cancel) {}
                 }
-            } else if let error = viewModel.error {
+            } else if let error = store.error(recipeId) {
                 ContentUnavailableView("Erreur", systemImage: "exclamationmark.triangle", description: Text(error))
             } else {
                 ProgressView()
             }
         }
         .errorAlert(favoriteError)
-        .task { if viewModel.recipe == nil { await viewModel.load() } }
+        // Read on every appearance, never only on the first: what the flow already
+        // knows is drawn at once — a version picked in a sheet opens on it instead of
+        // on a spinner — and this only corrects it.
+        .task { await store.load(recipeId) }
         // The appliance is asked once, alongside the recipe. No oven simply means
         // no CTA — never an error on a screen where nothing went wrong.
         .task { await oven.load() }
@@ -426,6 +435,10 @@ struct RecipeDetailView: View {
     /// call — nothing to wait for here.
     private func deleteRecipe() {
         onDelete(recipeId)
+        // What the flow knew of it goes with it: the deletion is carried in the
+        // background, and a recipe re-opened before it lands must not be drawn from
+        // the copy that still holds it.
+        store.forget(recipeId)
         if !path.isEmpty { path.removeLast() }
     }
 
@@ -439,6 +452,7 @@ struct RecipeDetailView: View {
             return
         }
         onDeleteVersion(recipeId, displayedVersion(recipe).number)
+        store.forget(recipeId)
         if !path.isEmpty { path.removeLast(path.count) }
     }
 
@@ -459,7 +473,7 @@ struct RecipeDetailView: View {
             try await RecipeAPI.updateRecipe(id: recipeId, favorite: !recipe.favorite)
             // Reloading inside the run keeps the spinner up until the heart can
             // actually redraw in its new state.
-            await viewModel.load()
+            await store.load(recipeId)
         } onSuccess: {
             onReload()
         }

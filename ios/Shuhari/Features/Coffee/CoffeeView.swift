@@ -12,6 +12,8 @@ struct CoffeeView: View {
     @Binding var importedRecipe: ImportedRecipe?
 
     @State private var library = LibraryStore(types: [.coffee])
+    /// The recipe flow's one state, for every screen the stack pushes.
+    @State private var recipes = RecipeStore()
     @State private var path = NavigationPath()
     @State private var showSettings = false
 
@@ -50,6 +52,7 @@ struct CoffeeView: View {
                 }
             }
             .recipeFlow(
+                store: recipes,
                 path: $path,
                 onReload: { Task { await reloadAll() } },
                 onDelete: { library.delete(recipeId: $0) },
