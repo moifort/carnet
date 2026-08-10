@@ -139,7 +139,8 @@ describe('OvenUseCase.start', () => {
 
     expect(result).toMatchObject({
       reachable: true,
-      running: { program: 'convection', temperature: 180, remaining: 30 },
+      settings: { program: 'convection', temperature: 180 },
+      running: { remaining: 30 },
     })
   })
 })
@@ -149,10 +150,25 @@ describe('OvenUseCase.state', () => {
     expect(await OvenUseCase.state(SOMEONE_ELSE)).toBe('oven-unavailable')
   })
 
-  test('reports a reachable oven willing to be driven', async () => {
+  test('reports the dials of an idle oven, which is what a recipe copies', async () => {
+    appliance.state = {
+      reachable: true,
+      remoteControlEnabled: true,
+      busy: false,
+      program: 'steam-combi',
+      temperature: 180,
+      duration: 25,
+      core: 63,
+    }
+
     const state = await OvenUseCase.state(OWNER)
 
-    expect(state).toMatchObject({ reachable: true, remoteControlEnabled: true })
+    expect(state).toMatchObject({
+      reachable: true,
+      // Nothing is cooking, and the dials are still worth reading.
+      settings: { program: 'steam-combi', temperature: 180, duration: 25, core: 63 },
+    })
+    expect(state === 'oven-unavailable' ? {} : state).not.toHaveProperty('running')
   })
 
   test('an idle oven reports no cooking under way', async () => {

@@ -11,9 +11,14 @@ export type ApplianceState = {
   reachable: boolean
   remoteControlEnabled: boolean
   busy: boolean
+  // What the dials are set to right now — readable whether the oven is cooking or
+  // merely selected, which is what makes them copyable into a recipe.
   program?: OvenProgram
   temperature?: number
   // Minutes, converted from the seconds the appliance counts in.
+  duration?: number
+  core?: number
+  // Minutes left on the running cooking, absent when nothing is under way.
   remaining?: number
 }
 

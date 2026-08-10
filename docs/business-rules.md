@@ -57,6 +57,12 @@ the digest; this doc is the spec. The mechanics of building a domain live in
   therefore stays reproducible after the oven renames or drops anything, and the deviation the
   cook applied ("the oven's profile, minus ten minutes") is written down as values rather than as
   a diff against something that may move.
+- **The oven's own dials are copyable into a version** (`Oven.settings`, read whether the oven is
+  cooking or merely selected). That is what replaces the catalogue the API does not offer: the
+  cook sets a cooking up on the appliance — using its assisted programmes if they like — and the
+  notebook captures the result. It is the same *shu → ha* move as before, sourced from the
+  appliance rather than from a list: the oven proposes, the version records, the next iteration
+  deviates.
 
 ## Two import flows
 

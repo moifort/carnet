@@ -6,14 +6,21 @@ import SwiftUI
 /// answer: it says the dish never bakes, and clears the profile.
 struct OvenProfileEditSheet: View {
     let initial: OvenProfile?
+    /// What the connected oven is set to right now, offered as a one-tap copy.
+    var applianceSettings: OvenSettings?
     let onSave: (OvenProfile?) async throws -> Void
 
     @Environment(\.dismiss) private var dismiss
     @State private var draft: OvenProfileDraft
     @State private var error = ErrorPresenter()
 
-    init(initial: OvenProfile?, onSave: @escaping (OvenProfile?) async throws -> Void) {
+    init(
+        initial: OvenProfile?,
+        applianceSettings: OvenSettings? = nil,
+        onSave: @escaping (OvenProfile?) async throws -> Void
+    ) {
         self.initial = initial
+        self.applianceSettings = applianceSettings
         self.onSave = onSave
         _draft = State(initialValue: OvenProfileDraft(initial))
     }
@@ -21,7 +28,7 @@ struct OvenProfileEditSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                OvenProfileForm(draft: $draft)
+                OvenProfileForm(draft: $draft, applianceSettings: applianceSettings)
             }
             .navigationTitle("Four")
             .navigationBarTitleDisplayMode(.inline)
@@ -58,6 +65,21 @@ struct OvenProfileEditSheet: View {
         .sheet(isPresented: .constant(true)) {
             OvenProfileEditSheet(
                 initial: OvenProfile(program: .convection, temperature: 180, duration: 30)
+            ) { _ in }
+        }
+}
+
+#Preview("Le four est réglé") {
+    Text("Fond")
+        .sheet(isPresented: .constant(true)) {
+            OvenProfileEditSheet(
+                initial: nil,
+                applianceSettings: OvenSettings(
+                    program: .steamCombi,
+                    temperature: 180,
+                    duration: 25,
+                    core: nil
+                )
             ) { _ in }
         }
 }

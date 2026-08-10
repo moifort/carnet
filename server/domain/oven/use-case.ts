@@ -8,7 +8,7 @@ import type { OvenState, StartRefusal } from './types'
 
 // An oven this account cannot reach at all — what a configured owner sees when the
 // appliance is off, and the shape the sheet renders without a button.
-const OFFLINE: OvenState = { reachable: false, remoteControlEnabled: false }
+const OFFLINE: OvenState = { reachable: false, remoteControlEnabled: false, settings: {} }
 
 // The oven belongs to exactly one account. Everybody else is told nothing exists,
 // rather than shown a button that would always refuse — and an unconfigured
@@ -31,14 +31,14 @@ export const OvenUseCase = {
     return {
       reachable: state.reachable,
       remoteControlEnabled: state.remoteControlEnabled,
+      settings: {
+        ...(state.program ? { program: state.program } : {}),
+        ...(state.temperature !== undefined ? { temperature: state.temperature } : {}),
+        ...(state.duration !== undefined ? { duration: state.duration } : {}),
+        ...(state.core !== undefined ? { core: state.core } : {}),
+      },
       ...(state.busy
-        ? {
-            running: {
-              ...(state.program ? { program: state.program } : {}),
-              ...(state.temperature !== undefined ? { temperature: state.temperature } : {}),
-              ...(state.remaining !== undefined ? { remaining: state.remaining } : {}),
-            },
-          }
+        ? { running: { ...(state.remaining !== undefined ? { remaining: state.remaining } : {}) } }
         : {}),
     }
   },

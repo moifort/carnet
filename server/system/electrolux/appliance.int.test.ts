@@ -135,6 +135,8 @@ describe('applianceState', () => {
               applianceState: 'RUNNING',
               program: 'TRUE_FAN',
               targetTemperatureC: 180,
+              targetDuration: 1800,
+              targetFoodProbeTemperatureC: 63,
               timeToEnd: 900,
             },
           },
@@ -148,7 +150,10 @@ describe('applianceState', () => {
       busy: true,
       program: 'convection',
       temperature: 180,
-      // 900 seconds the appliance counts, 15 minutes the cook reads.
+      // The timer as set (30 min) is what a recipe copies; `remaining` is what is
+      // left of it. Both are seconds on the wire, minutes in the notebook.
+      duration: 30,
+      core: 63,
       remaining: 15,
     })
   })

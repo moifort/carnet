@@ -185,8 +185,8 @@ final class LibraryStore {
 
 ### `RecipeStore` — the recipe flow's one state
 
-The recipe flow spans several screens over the same recipe: the recipe sheet, the version screens
-it pushes (`RecipeRoute.attempt`), the history sheet and the to-cook sheet. They share **one**
+The recipe flow spans one screen and its sheets over the same recipe: the recipe sheet, the
+history sheet and the to-cook sheet. They share **one**
 `RecipeStore` (`Features/Recipe/RecipeStore.swift`), owned by the tab that hosts the flow
 (`HomeView`, `CoffeeView`) beside its `LibraryStore` and handed down through
 `.recipeFlow(store:path:…)` — see [one state per flow](swiftui-best-practices.md#one-state-per-flow-never-one-per-screen).
@@ -478,9 +478,15 @@ saves `nil`, which clears the profile. That is why the editor is also reachable 
 and not only from the section's "Modifier" — a dish that bakes for the first time has no section
 to edit from yet.
 
-**There is no prefill from the oven's own dishes.** The Electrolux API exposes heating functions
-and dials, never the "Quiche" the appliance's screen offers, so the profile is always set by hand.
-The editor fetches nothing and never waits on an appliance.
+**"Copier les réglages du four" is how a profile gets filled in fast.** The API exposes no dish
+catalogue — heating functions and dials only, never the "Quiche" the appliance's screen offers —
+so the prefill comes from the appliance's *current dials* instead: you set the cooking up on the
+oven itself, its own assisted programmes included, and one tap has the recipe remember it. The
+button's footer names what it will copy before it copies it, and the row disappears when the oven
+says too little to make a profile (a heating function and a temperature are the minimum).
+
+The copy is total: dials the oven does not report are **cleared**, not kept, so what you end up
+with is what the oven says rather than a mixture of two sources.
 
 The picker lists every function the notebook knows, including ones a given oven lacks — writing
 down "Pizza 250 °C" is legitimate even on an oven that cannot run it. Starting it then answers

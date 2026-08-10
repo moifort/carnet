@@ -2,9 +2,13 @@ query Oven {
   oven {
     reachable
     remoteControlEnabled
-    running {
+    settings {
       program
       temperature
+      duration
+      core
+    }
+    running {
       remaining
     }
   }
@@ -14,9 +18,13 @@ mutation StartOven($recipeId: RecipeId!, $version: VersionNumber!) {
   startOven(recipeId: $recipeId, version: $version) {
     reachable
     remoteControlEnabled
-    running {
+    settings {
       program
       temperature
+      duration
+      core
+    }
+    running {
       remaining
     }
   }

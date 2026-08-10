@@ -12,14 +12,16 @@ builder.queryField('oven', (t) =>
         'an oven is not a failed request, it is a smaller app.',
       '',
       'Ask before offering to start a cooking: `reachable` tells you the appliance answered, ' +
-        '`remoteControlEnabled` that it is willing to be driven, `running` what it is already ' +
-        'doing.',
+        '`remoteControlEnabled` that it is willing to be driven, `settings` what its dials are ' +
+        'set to — the values a recipe can copy off it — and `running` whether a cooking is ' +
+        'already under way.',
       '',
       '```graphql',
       'oven {',
       '  reachable',
       '  remoteControlEnabled',
-      '  running { program remaining }',
+      '  settings { program temperature duration core }',
+      '  running { remaining }',
       '}',
       '```',
     ].join('\n'),

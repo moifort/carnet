@@ -77,7 +77,8 @@ const startOven = `
     startOven(recipeId: "${QUICHE}", version: 1) {
       reachable
       remoteControlEnabled
-      running { program temperature remaining }
+      settings { program temperature }
+      running { remaining }
     }
   }
 `
@@ -108,12 +109,15 @@ describe('Query.oven', () => {
       remaining: 12,
     }
 
-    const result = await execute('{ oven { reachable running { program remaining } } }')
+    const result = await execute(
+      '{ oven { reachable settings { program temperature } running { remaining } } }',
+    )
 
     expect(result.errors).toBeUndefined()
     expect(result.data?.oven).toMatchObject({
       reachable: true,
-      running: { program: 'CONVECTION', remaining: 12 },
+      settings: { program: 'CONVECTION', temperature: 180 },
+      running: { remaining: 12 },
     })
   })
 })
@@ -133,7 +137,8 @@ describe('Mutation.startOven', () => {
 
     expect(result.errors).toBeUndefined()
     expect(result.data?.startOven).toMatchObject({
-      running: { program: 'CONVECTION', temperature: 180, remaining: 30 },
+      settings: { program: 'CONVECTION', temperature: 180 },
+      running: { remaining: 30 },
     })
   })
 

@@ -89,6 +89,15 @@ export const applianceState = async (applianceId: string): Promise<ApplianceStat
     ...(typeof cavity.targetTemperatureC === 'number'
       ? { temperature: cavity.targetTemperatureC }
       : {}),
+    // The timer as SET, which is what a recipe copies — as opposed to `timeToEnd`,
+    // which is what is left of it.
+    ...(minutesFrom(cavity.targetDuration) !== undefined
+      ? { duration: minutesFrom(cavity.targetDuration) }
+      : {}),
+    // Reported only once a probe is actually plugged in.
+    ...(typeof cavity.targetFoodProbeTemperatureC === 'number'
+      ? { core: cavity.targetFoodProbeTemperatureC }
+      : {}),
     ...(minutesFrom(cavity.timeToEnd) !== undefined
       ? { remaining: minutesFrom(cavity.timeToEnd) }
       : {}),

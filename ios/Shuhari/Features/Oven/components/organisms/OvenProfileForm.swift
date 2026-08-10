@@ -23,6 +23,21 @@ struct OvenProfileDraft {
         core = base.core ?? 63
     }
 
+    /// Take everything the oven is currently set to. The gesture this serves: you
+    /// dialled a cooking in on the appliance itself — its own assisted programmes
+    /// included — and you want the recipe to remember it. Absent dials are cleared,
+    /// not kept: the point is to end up with what the oven says, not a mixture.
+    mutating func copy(from settings: OvenSettings) {
+        guard let program = settings.program, let temperature = settings.temperature else { return }
+        enabled = true
+        self.program = program
+        self.temperature = temperature
+        usesTimer = settings.duration != nil
+        if let duration = settings.duration { self.duration = duration }
+        usesProbe = settings.core != nil
+        if let core = settings.core { self.core = core }
+    }
+
     /// The profile to save, or nil when the dish never bakes. A profile with
     /// neither a timer nor a probe is legal: the cook watches it themselves.
     var profile: OvenProfile? {
@@ -43,12 +58,26 @@ struct OvenProfileDraft {
 /// Composes as `Section`s inside a `Form`.
 struct OvenProfileForm: View {
     @Binding var draft: OvenProfileDraft
+    /// What the connected oven is set to right now, offered as a one-tap copy. nil
+    /// when no oven is connected, or when it says too little to make a profile —
+    /// the row then disappears rather than offering an empty gesture.
+    var applianceSettings: OvenSettings?
 
     var body: some View {
         Section {
             Toggle("Cuisson au four", isOn: $draft.enabled.animation())
         } footer: {
             Text("Désactive-le si le plat ne passe jamais au four.")
+        }
+
+        if let applianceSettings, applianceSettings.profile != nil {
+            Section {
+                Button("Copier les réglages du four") {
+                    withAnimation { draft.copy(from: applianceSettings) }
+                }
+            } footer: {
+                Text(summary(of: applianceSettings))
+            }
         }
 
         if draft.enabled {
@@ -87,14 +116,28 @@ struct OvenProfileForm: View {
         }
     }
 
+
+    /// What the oven is set to, in one line — so the button says what it will do
+    /// before it does it.
+    private func summary(of settings: OvenSettings) -> String {
+        [
+            settings.program?.label,
+            settings.temperature.map { "\($0) °C" },
+            settings.duration.map { "\($0) min" },
+            settings.core.map { "sonde \($0) °C" },
+        ]
+        .compactMap { $0 }
+        .joined(separator: " · ")
+    }
 }
 
 #if DEBUG
 private struct FormHost: View {
     @State var draft: OvenProfileDraft
+    var applianceSettings: OvenSettings?
 
     var body: some View {
-        Form { OvenProfileForm(draft: $draft) }
+        Form { OvenProfileForm(draft: $draft, applianceSettings: applianceSettings) }
     }
 }
 
@@ -112,6 +155,18 @@ private struct FormHost: View {
 
 #Preview("Pas de four") {
     FormHost(draft: OvenProfileDraft(nil))
+}
+
+#Preview("Le four est réglé") {
+    FormHost(
+        draft: OvenProfileDraft(nil),
+        applianceSettings: OvenSettings(
+            program: .steamCombi,
+            temperature: 180,
+            duration: 25,
+            core: nil
+        )
+    )
 }
 
 #endif

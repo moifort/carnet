@@ -63,6 +63,19 @@ struct DebugGallery: View {
                         initial: OvenProfile(program: .convection, temperature: 180, duration: 30)
                     ) { _ in }
                 }
+        case "oven-copy":
+            Color.clear
+                .sheet(isPresented: .constant(true)) {
+                    OvenProfileEditSheet(
+                        initial: nil,
+                        applianceSettings: OvenSettings(
+                            program: .steamCombi,
+                            temperature: 180,
+                            duration: 25,
+                            core: nil
+                        )
+                    ) { _ in }
+                }
         case "oven-edit-empty":
             Color.clear
                 .sheet(isPresented: .constant(true)) {

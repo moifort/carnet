@@ -1,4 +1,5 @@
 import Apollo
+import ApolloAPI
 import Foundation
 
 /// What the app knows about the connected oven. `nil` from `OvenAPI.state()` is
@@ -7,15 +8,32 @@ import Foundation
 struct OvenState: Sendable, Equatable {
     var reachable: Bool
     var remoteControlEnabled: Bool
+    /// What the dials are set to right now — what "copy the oven's settings" copies.
+    var settings: OvenSettings
     /// The cooking under way, or nil when the oven is idle.
     var running: OvenRun?
 }
 
-/// A cooking under way, as the oven reports it. Plain numbers: these are the
-/// appliance's readings, not what the cook wrote down.
-struct OvenRun: Sendable, Equatable {
+/// What the oven's dials are set to right now, whoever turned them — including the
+/// cook standing in front of it. Plain numbers: the appliance's readings, not what
+/// anyone wrote down.
+struct OvenSettings: Sendable, Equatable {
     var program: OvenProgram?
     var temperature: Int?
+    var duration: Int?
+    var core: Int?
+
+    /// The profile these dials amount to, or nil when the oven says too little to
+    /// make one — a heating function and a temperature are the minimum a version
+    /// needs to be startable.
+    var profile: OvenProfile? {
+        guard let program, let temperature else { return nil }
+        return OvenProfile(program: program, temperature: temperature, duration: duration, core: core)
+    }
+}
+
+/// A cooking under way. Only how long is left: WHAT is cooking is `settings`.
+struct OvenRun: Sendable, Equatable {
     /// Minutes left on the oven's own timer, nil on a probe cook.
     var remaining: Int?
 }
@@ -30,16 +48,14 @@ enum OvenAPI {
             query: ShuhariGraphQL.OvenQuery()
         )
         guard let oven = data.oven else { return nil }
-        return OvenState(
+        return mapOven(
             reachable: oven.reachable,
             remoteControlEnabled: oven.remoteControlEnabled,
-            running: oven.running.map {
-                OvenRun(
-                    program: $0.program.map { OvenProgram(graphql: $0) },
-                    temperature: $0.temperature,
-                    remaining: $0.remaining
-                )
-            }
+            program: oven.settings.program,
+            temperature: oven.settings.temperature,
+            duration: oven.settings.duration,
+            core: oven.settings.core,
+            remaining: oven.running.map(\.remaining)
         )
     }
 
@@ -52,16 +68,42 @@ enum OvenAPI {
             mutation: ShuhariGraphQL.StartOvenMutation(recipeId: recipeId, version: version)
         )
         let oven = data.startOven
-        return OvenState(
+        return mapOven(
             reachable: oven.reachable,
             remoteControlEnabled: oven.remoteControlEnabled,
-            running: oven.running.map {
-                OvenRun(
-                    program: $0.program.map { OvenProgram(graphql: $0) },
-                    temperature: $0.temperature,
-                    remaining: $0.remaining
-                )
-            }
+            program: oven.settings.program,
+            temperature: oven.settings.temperature,
+            duration: oven.settings.duration,
+            core: oven.settings.core,
+            remaining: oven.running.map(\.remaining)
+        )
+    }
+
+    /// The query and the mutation answer the same `Oven`, in two generated types
+    /// Apollo will not let us share. Taken apart into primitives here so the shape
+    /// is assembled once — the last version of this file mapped it twice, and
+    /// changing the model meant remembering to fix both.
+    private static func mapOven(
+        reachable: Bool,
+        remoteControlEnabled: Bool,
+        program: GraphQLEnum<ShuhariGraphQL.OvenProgram>?,
+        temperature: Int?,
+        duration: Int?,
+        core: Int?,
+        remaining: Int??
+    ) -> OvenState {
+        OvenState(
+            reachable: reachable,
+            remoteControlEnabled: remoteControlEnabled,
+            settings: OvenSettings(
+                program: program.map { OvenProgram(graphql: $0) },
+                temperature: temperature,
+                duration: duration,
+                core: core
+            ),
+            // A double optional: the outer says whether a cooking is under way, the
+            // inner whether that cooking counts down.
+            running: remaining.map { OvenRun(remaining: $0) }
         )
     }
 }
