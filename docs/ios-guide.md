@@ -515,10 +515,15 @@ back to "Cuisson assistée" — the cue to add the pair — rather than being gu
 dish.
 
 **The mode is a value, not a value plus a caption**: one line, like the temperature and the
-duration next to it. No second line under the name, and no icon in the picker's own list — a menu
-of thirteen heating functions reads as a list of names, and a symbol per row is noise the cook has
-to look past. The function's icon stays where it identifies the row at a glance: the mode line of
-`OvenProfileSection` on the recipe sheet.
+duration next to it — the name, and the function's SF Symbol against it.
+
+That symbol needs laying out by hand, because SwiftUI puts it in a column of its own. A `Label`
+used as a `LabeledContent` value pushes the icon half a row away from its title, and the closed row
+of a menu `Picker` renders it a size up and further still — and no modifier reaches inside that
+row. So both mode rows are built from an `HStack(spacing: Theme.Spacing.xs)` of `Image` + `Text`:
+the section's value directly, the form's as the label of a `Menu` wrapping an inline `Picker`,
+greyed with `Color.secondary` and closed by a `chevron.up.chevron.down` so it reads as the native
+picker it replaces. The list inside keeps the system's own `Label` rows, icons included.
 
 ### Starting the cooking
 

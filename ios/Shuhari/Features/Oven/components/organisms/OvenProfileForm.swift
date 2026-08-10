@@ -96,15 +96,37 @@ struct OvenProfileForm: View {
 
         if draft.enabled {
             Section("Réglages") {
-                Picker("Mode", selection: $draft.program) {
-                    ForEach(pickable) { program in
-                        // Text, not Label: a menu of thirteen heating functions reads
-                        // as a list of names, and an icon per row only adds noise.
-                        // The assisted row names the dish the copied code stands for —
-                        // the picker is where the cook checks they kept the right
-                        // programme, and "Cuisson assistée" tells them nothing.
-                        Text(program.label(assisted: draft.assisted))
-                            .tag(program)
+                // A menu around an inline picker, not a bare Picker: a menu picker
+                // lays the selected row out on its own — icon a size up and half a
+                // row away from its title — and no modifier reaches inside it. Split
+                // in two, the list keeps the system's rows and the closed row is ours
+                // to align with the values under it.
+                LabeledContent("Mode") {
+                    Menu {
+                        Picker("Mode", selection: $draft.program) {
+                            ForEach(pickable) { program in
+                                // The assisted row names the dish the copied code
+                                // stands for: the picker is where the cook checks they
+                                // kept the right programme, and "Cuisson assistée"
+                                // tells them nothing.
+                                Label(
+                                    program.label(assisted: draft.assisted),
+                                    systemImage: program.iconName
+                                )
+                                .tag(program)
+                            }
+                        }
+                        .pickerStyle(.inline)
+                    } label: {
+                        // Grey, not tinted: the row is a value the way "180 °C"
+                        // below it is one, and the chevron is what says it opens.
+                        HStack(spacing: Theme.Spacing.xs) {
+                            Image(systemName: draft.program.iconName)
+                            Text(draft.program.label(assisted: draft.assisted))
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.footnote)
+                        }
+                        .foregroundStyle(Color.secondary)
                     }
                 }
                 Stepper(value: $draft.temperature, in: 30...300, step: 5) {

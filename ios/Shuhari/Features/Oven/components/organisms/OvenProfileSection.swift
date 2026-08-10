@@ -43,11 +43,16 @@ struct OvenProfileSection: View {
 
     var body: some View {
         Section {
+            // An HStack, not a Label: as a LabeledContent's value, a Label lays its
+            // icon out in a column of its own — half a row away from the title it
+            // belongs to. Here the symbol sits against its name and follows its size.
             LabeledContent("Mode") {
-                Label(item.program, systemImage: item.programIcon)
-                    .labelStyle(.titleAndIcon)
-                    .font(valueFont)
-                    .multilineTextAlignment(.trailing)
+                HStack(spacing: Theme.Spacing.xs) {
+                    Image(systemName: item.programIcon)
+                    Text(item.program)
+                        .multilineTextAlignment(.trailing)
+                }
+                .font(valueFont)
             }
             .font(valueFont)
             .accessibilityElement(children: .combine)
