@@ -136,10 +136,21 @@ launched it from — never guessed from the source.
   from survives as the origin label alone (`{ kind: 'import', detail: "Grandma's lasagna v3" }`),
   the very field an import fills with the site it read. The recipe copied is not written at all,
   its date included: copying a version is not working on it.
-- **A version *is* an attempt**: its `content` (the `VersionContent` union — `ingredients` +
-  `steps`) and lineage (`origin`/`change`/`basedOn`) are immutable; its outcome **and its `tips`**
-  are overwritable. An attempt is not an entity. A version with no outcome yet is a *planned*
-  attempt: no `executedAt`, no `rating` (the fields are **absent**, never `null`).
+- **A version *is* an attempt: what describes it is correctable, what links it is not.** Its
+  `content` (the `VersionContent` union — `ingredients` + `steps`, the oven profile, a coffee's
+  parameters) and its `tips` are **overwritable in place**, like its outcome; its **lineage**
+  (`number`, `origin`, `change`, `why`, `basedOn`) is immutable — that is what makes the chain a
+  notebook. An attempt is not an entity. A version with no outcome yet is a *planned* attempt: no
+  `executedAt`, no `rating` (the fields are **absent**, never `null`).
+- **A correction keeps the rating, deliberately.** Correcting a quantity misread off a photo is
+  fixing what the recipe ALWAYS said, not iterating on it: no version is created and the verdict
+  stays valid, because it is a verdict on the same plate. Only the cook knows whether an edit
+  restores the transcription or changes the plate, and when it changes the plate they iterate —
+  `addVersion` is what that is for. The notebook belongs to the cook, not to the model. Same border
+  `updateCoffeeParameters` and `updateOvenProfile` already draw, now drawn around the ingredients
+  (`RecipeCommand.updateIngredients`) and the steps (`RecipeCommand.updateSteps`) too. Both are
+  full replacements of their own list — adding, deleting and reordering all come through them —
+  and both answer `'not-a-cooked-recipe'` on a coffee, which has neither.
 - **An attempt lands on the version cooked**, always — a rating is a verdict on the plate that was
   made, and the version an iteration creates has not been made yet:
   - **rating (and photo) without remarks** — nothing new is created,
@@ -160,8 +171,9 @@ launched it from — never guessed from the source.
 - **A version is dated by its last edit** (`RecipeVersion.updatedAt`, equal to `createdAt` until
   something is changed on it): the app shows it on the recipe sheet and files the version under
   its month in the history and the to-cook list. Only the cook's own rewrites move it —
-  `recordAttempt`, `updateRating`, `updateTips`, `updateCoffeeParameters`, and the cook `addVersion`
-  writes on the version it iterates on. The bookkeeping writes (a child re-based by a deletion)
+  `recordAttempt`, `updateRating`, `updateTips`, `updateIngredients`, `updateSteps`,
+  `updateCoffeeParameters`, `updateOvenProfile`, and the cook `addVersion` writes on the version it
+  iterates on. The bookkeeping writes (a child re-based by a deletion)
   leave it alone: they change nothing the cook wrote, and moving a version to another month
   behind their back is a lie.
 
