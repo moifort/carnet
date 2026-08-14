@@ -13,6 +13,7 @@ import { randomRecipeId, VersionNumber } from '~/domain/recipe/primitives'
 import type {
   BrewMethod,
   DishCategory,
+  Ingredient,
   Rating,
   Recipe,
   RecipeId,
@@ -372,6 +373,38 @@ export namespace RecipeCommand {
       await repository.saveVersion(updated, batch)
       await repository.save(updatedRecipe, batch)
       await teachVocabulary(userId, content, batch)
+      return updated
+    })
+  }
+
+  // Correct one cooked version's shopping list in place — a quantity misread off a
+  // photo, a line the import split in two. The counterpart of `updateOvenProfile` on
+  // the ingredients: no version is created, because fixing what the recipe ALWAYS
+  // said is not iterating on it, and the rating stays a verdict on the same plate.
+  // Deliberately full-replacement, which is what makes adding, deleting and
+  // reordering one operation instead of three.
+  export const updateIngredients = async (
+    userId: UserId,
+    recipeId: RecipeId,
+    versionNumber: VersionNumberT,
+    ingredients: Ingredient[],
+  ): Promise<RecipeVersion | 'not-found' | 'not-a-cooked-recipe'> => {
+    const recipe = await repository.findBy(userId, recipeId)
+    if (!recipe) return 'not-found' as const
+    const lineage = await repository.findVersionsOf(recipeId)
+    const version = lineage.find((candidate) => candidate.number === versionNumber)
+    if (!version) return 'not-found' as const
+    // A coffee has no shopping list — its dose, its water and its milk are parameters.
+    if (version.content.kind === 'coffee') return 'not-a-cooked-recipe' as const
+
+    // The links survive the rewrite, matched on the name they were set on: correcting
+    // a quantity must not unlink the dough. Same rule an iteration applies, same code.
+    const content = carriedComponents({ ...version.content, ingredients }, version.content)
+    const updated: RecipeVersion = { ...version, content, updatedAt: new Date() }
+    const updatedRecipe: Recipe = { ...recipe, updatedAt: lastWorkedOn(written(lineage, updated)) }
+    return atomically(async (batch) => {
+      await repository.saveVersion(updated, batch)
+      await repository.save(updatedRecipe, batch)
       return updated
     })
   }
