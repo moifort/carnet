@@ -7,9 +7,10 @@ import {
 } from '~/domain/recipe/business-rules'
 import type { CoffeeParameters } from '~/domain/recipe/content/coffee'
 import type { OvenProfile } from '~/domain/recipe/content/oven'
+import { thermomixSteps } from '~/domain/recipe/content/thermomix'
 import type { VersionContent } from '~/domain/recipe/content/types'
 import * as repository from '~/domain/recipe/infrastructure/repository'
-import { randomRecipeId, VersionNumber } from '~/domain/recipe/primitives'
+import { type LooseVersionStep, randomRecipeId, VersionNumber } from '~/domain/recipe/primitives'
 import type {
   BrewMethod,
   DishCategory,
@@ -400,6 +401,45 @@ export namespace RecipeCommand {
     // The links survive the rewrite, matched on the name they were set on: correcting
     // a quantity must not unlink the dough. Same rule an iteration applies, same code.
     const content = carriedComponents({ ...version.content, ingredients }, version.content)
+    const updated: RecipeVersion = { ...version, content, updatedAt: new Date() }
+    const updatedRecipe: Recipe = { ...recipe, updatedAt: lastWorkedOn(written(lineage, updated)) }
+    return atomically(async (batch) => {
+      await repository.saveVersion(updated, batch)
+      await repository.save(updatedRecipe, batch)
+      return updated
+    })
+  }
+
+  // Correct one cooked version's method in place — a step the import split in two,
+  // an instruction read wrong. The steps arrive in one shape, text plus machine
+  // settings, and the VERSION's kind decides what is kept: a dish is plain text and
+  // has no machine, a Thermomix version pairs each text with its settings through
+  // `thermomixSteps`, which stays the single home of that alignment rule.
+  export const updateSteps = async (
+    userId: UserId,
+    recipeId: RecipeId,
+    versionNumber: VersionNumberT,
+    steps: LooseVersionStep[],
+  ): Promise<RecipeVersion | 'not-found' | 'not-a-cooked-recipe'> => {
+    const recipe = await repository.findBy(userId, recipeId)
+    if (!recipe) return 'not-found' as const
+    const lineage = await repository.findVersionsOf(recipeId)
+    const version = lineage.find((candidate) => candidate.number === versionNumber)
+    if (!version) return 'not-found' as const
+    // A coffee has no method to write down — its dials say everything.
+    if (version.content.kind === 'coffee') return 'not-a-cooked-recipe' as const
+
+    const texts = steps.map(({ text }) => text)
+    const content: VersionContent =
+      version.content.kind === 'dish'
+        ? { ...version.content, steps: texts }
+        : {
+            ...version.content,
+            steps: thermomixSteps(
+              texts,
+              steps.map(({ settings }) => settings),
+            ),
+          }
     const updated: RecipeVersion = { ...version, content, updatedAt: new Date() }
     const updatedRecipe: Recipe = { ...recipe, updatedAt: lastWorkedOn(written(lineage, updated)) }
     return atomically(async (batch) => {

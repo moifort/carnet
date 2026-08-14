@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, mock, setSystemTime, test } from 'bun:test'
 import { type CoffeeContent, emptyCoffeeParameters } from '~/domain/recipe/content/coffee'
 import type { DishContent } from '~/domain/recipe/content/dish'
-import type { ThermomixContent } from '~/domain/recipe/content/thermomix'
+import type { LooseThermomixSettings, ThermomixContent } from '~/domain/recipe/content/thermomix'
 import type {
   CoffeeBeanName,
   CoffeeDose,
@@ -1543,5 +1543,111 @@ describe('RecipeCommand.updateIngredients', () => {
     expect(await RecipeCommand.updateIngredients(userId, recipe.id, 9 as VersionNumber, [])).toBe(
       'not-found',
     )
+  })
+})
+
+describe('RecipeCommand.updateSteps', () => {
+  const V1 = 1 as VersionNumber
+  const step = (text: string, settings: LooseThermomixSettings = {}) => ({
+    text: text as StepText,
+    settings,
+  })
+  const thermomixInput = () =>
+    newInput({
+      kind: 'thermomix',
+      ingredients: [],
+      steps: [{ text: 'Mixer' as StepText, settings: {} }],
+    })
+
+  test('replaces a dish’s steps in place, dropping settings it has no machine for', async () => {
+    const recipe = await RecipeCommand.create(userId, newInput())
+    if (typeof recipe === 'string') throw new Error(`expected a recipe, got ${recipe}`)
+
+    const updated = await RecipeCommand.updateSteps(userId, recipe.id, V1, [
+      step('Monter les couches'),
+      step('Enfourner à 180°C', { time: '40 min' as ThermomixTime }),
+    ])
+    if (typeof updated === 'string') throw new Error(`expected a version, got ${updated}`)
+
+    // A dish has no machine: its steps are plain text, settings and all.
+    expect(updated.content).toMatchObject({
+      kind: 'dish',
+      steps: ['Monter les couches', 'Enfourner à 180°C'],
+    })
+    expect(fake.snapshot('recipes').get(recipe.id as string)?.lastVersionNumber).toBe(1)
+  })
+
+  test('keeps a Thermomix step’s machine settings', async () => {
+    const recipe = await RecipeCommand.create(userId, thermomixInput())
+    if (typeof recipe === 'string') throw new Error(`expected a recipe, got ${recipe}`)
+
+    const updated = await RecipeCommand.updateSteps(userId, recipe.id, V1, [
+      step('Mixer les oignons', { time: '5 s' as ThermomixTime, speed: '5' as ThermomixSpeed }),
+      step('Laisser reposer'),
+    ])
+    if (typeof updated === 'string') throw new Error(`expected a version, got ${updated}`)
+
+    expect(updated.content).toMatchObject({
+      kind: 'thermomix',
+      steps: [
+        { text: 'Mixer les oignons', settings: { time: '5 s', speed: '5' } },
+        { text: 'Laisser reposer', settings: {} },
+      ],
+    })
+  })
+
+  test('leaves the ingredients and a rated outcome alone', async () => {
+    const flour = ingredient('Farine', '250 g')
+    const recipe = await RecipeCommand.create(
+      userId,
+      newInput(dishContent({ ingredients: [flour] })),
+    )
+    if (typeof recipe === 'string') throw new Error(`expected a recipe, got ${recipe}`)
+    await RecipeCommand.recordAttempt(userId, {
+      recipeId: recipe.id,
+      versionNumber: V1,
+      rating: 5 as Rating,
+    })
+
+    const updated = await RecipeCommand.updateSteps(userId, recipe.id, V1, [step('Enfourner')])
+    if (typeof updated === 'string') throw new Error(`expected a version, got ${updated}`)
+
+    expect(updated.rating).toBe(5 as Rating)
+    expect((updated.content as DishContent).ingredients).toEqual([flour])
+  })
+
+  test('restamps the version and the recipe, in one batch', async () => {
+    const recipe = await RecipeCommand.create(userId, newInput())
+    if (typeof recipe === 'string') throw new Error(`expected a recipe, got ${recipe}`)
+    const batchesBefore = fake.batches.length
+
+    const updated = await RecipeCommand.updateSteps(userId, recipe.id, V1, [step('Enfourner')])
+    if (typeof updated === 'string') throw new Error(`expected a version, got ${updated}`)
+
+    expect(fake.snapshot('recipes').get(recipe.id as string)?.updatedAt).toEqual(updated.updatedAt)
+    expect(fake.batches.length).toBe(batchesBefore + 1)
+    expect(fake.directWrites).toEqual([])
+  })
+
+  test('refuses a coffee, which has no steps', async () => {
+    const recipe = await RecipeCommand.create(userId, {
+      type: 'coffee' as const,
+      category: 'drink' as const,
+      method: 'espresso' as const,
+      title: 'Espresso du matin' as RecipeTitle,
+      content: coffeeContent(),
+      tips: [],
+    })
+    if (typeof recipe === 'string') throw new Error(`expected a recipe, got ${recipe}`)
+
+    expect(await RecipeCommand.updateSteps(userId, recipe.id, V1, [])).toBe('not-a-cooked-recipe')
+  })
+
+  test('returns not-found for an unknown recipe or another cook’s recipe', async () => {
+    expect(await RecipeCommand.updateSteps(userId, 'nope' as RecipeId, V1, [])).toBe('not-found')
+
+    const recipe = await RecipeCommand.create(userId, newInput())
+    if (typeof recipe === 'string') throw new Error(`expected a recipe, got ${recipe}`)
+    expect(await RecipeCommand.updateSteps('user-2' as UserId, recipe.id, V1, [])).toBe('not-found')
   })
 })
