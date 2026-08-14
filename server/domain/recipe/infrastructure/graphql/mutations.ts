@@ -2,7 +2,9 @@ import { match, P } from 'ts-pattern'
 import { RecipeCommand } from '~/domain/recipe/command'
 import {
   CoffeeParameters as brandCoffeeParameters,
+  Ingredients as brandIngredients,
   OvenProfile as brandOvenProfile,
+  VersionSteps as brandVersionSteps,
 } from '~/domain/recipe/primitives'
 import { RecipeUseCase } from '~/domain/recipe/use-case'
 import { builder } from '~/domain/shared/graphql/builder'
@@ -10,9 +12,11 @@ import { domainError } from '~/domain/shared/graphql/errors'
 import {
   CoffeeParametersInput,
   CreateRecipeInput,
+  IngredientInput,
   OvenProfileInput,
   RecordAttemptInput,
   UpdateRecipeInput,
+  VersionStepInput,
   versionContentInput,
 } from './inputs'
 import { RecipeType, VersionType } from './types'
@@ -346,6 +350,111 @@ builder.mutationField('updateCoffeeParameters', (t) =>
       return match(result)
         .with('not-found', domainError)
         .with('not-a-coffee', domainError)
+        .with(P.not(P.string), (version) => version)
+        .exhaustive()
+    },
+  }),
+)
+
+builder.mutationField('updateIngredients', (t) =>
+  t.field({
+    type: VersionType,
+    description: [
+      'Correct one cooked version’s shopping list — a quantity misread off a photo, a line the ' +
+        'import split in two. Full replacement, in place: no version is created, the steps, the ' +
+        'oven and the outcome are untouched, and the rating stays (correcting what the recipe ' +
+        'always said is not iterating on it — a changed plate is a new version). Adding, ' +
+        'deleting and reordering all go through this one list. A line that IS a recipe keeps its ' +
+        'link as long as its name does not change (see updateComponent). Returns the updated ' +
+        'version.',
+      '',
+      'Answers `NOT_A_COOKED_RECIPE` on a coffee, which has no shopping list — it has parameters.',
+      '',
+      '```graphql',
+      'updateIngredients(recipeId: "9f1c-a3b2", versionNumber: 1, ingredients: [',
+      '  { name: "Flour", quantity: "200 g" }',
+      ']) { number }',
+      '```',
+    ].join('\n'),
+    args: {
+      recipeId: t.arg({
+        type: 'RecipeId',
+        required: true,
+        description: 'Which recipe the version belongs to',
+      }),
+      versionNumber: t.arg({
+        type: 'VersionNumber',
+        required: true,
+        description: 'Which version to correct, e.g. `1`',
+      }),
+      ingredients: t.arg({
+        type: [IngredientInput],
+        required: true,
+        description: 'The complete new list, in order (send `[]` to clear it)',
+      }),
+    },
+    resolve: async (_root, { recipeId, versionNumber, ingredients }, { userId }) => {
+      const result = await RecipeCommand.updateIngredients(
+        userId,
+        recipeId,
+        versionNumber,
+        brandIngredients(ingredients),
+      )
+      return match(result)
+        .with('not-found', domainError)
+        .with('not-a-cooked-recipe', domainError)
+        .with(P.not(P.string), (version) => version)
+        .exhaustive()
+    },
+  }),
+)
+
+builder.mutationField('updateSteps', (t) =>
+  t.field({
+    type: VersionType,
+    description: [
+      'Correct one cooked version’s method — a step the import split in two, an instruction read ' +
+        'wrong. Full replacement, in place: no version is created, the ingredients, the oven and ' +
+        'the outcome are untouched, and the rating stays. Each step may carry its Thermomix ' +
+        'settings; they are read on a Thermomix version and ignored on a dish, which has no ' +
+        'machine. Returns the updated version.',
+      '',
+      'Answers `NOT_A_COOKED_RECIPE` on a coffee, which has no steps — its dials say everything.',
+      '',
+      '```graphql',
+      'updateSteps(recipeId: "9f1c-a3b2", versionNumber: 1, steps: [',
+      '  { text: "Mix the onions", settings: { time: "5 s", speed: "5" } }',
+      '  { text: "Let it rest" }',
+      ']) { number }',
+      '```',
+    ].join('\n'),
+    args: {
+      recipeId: t.arg({
+        type: 'RecipeId',
+        required: true,
+        description: 'Which recipe the version belongs to',
+      }),
+      versionNumber: t.arg({
+        type: 'VersionNumber',
+        required: true,
+        description: 'Which version to correct, e.g. `1`',
+      }),
+      steps: t.arg({
+        type: [VersionStepInput],
+        required: true,
+        description: 'The complete new method, in order (send `[]` to clear it)',
+      }),
+    },
+    resolve: async (_root, { recipeId, versionNumber, steps }, { userId }) => {
+      const result = await RecipeCommand.updateSteps(
+        userId,
+        recipeId,
+        versionNumber,
+        brandVersionSteps(steps),
+      )
+      return match(result)
+        .with('not-found', domainError)
+        .with('not-a-cooked-recipe', domainError)
         .with(P.not(P.string), (version) => version)
         .exhaustive()
     },

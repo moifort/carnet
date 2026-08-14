@@ -248,6 +248,25 @@ type ContentArm = { ingredients: unknown[]; steps: unknown[]; oven?: unknown }
 // The coffee arm carries parameter blocks and nothing else — no ingredient list,
 // no steps.
 type CoffeeArm = Record<string, unknown>
+export const VersionStepInput = builder.inputType('VersionStepInput', {
+  description:
+    'One step to write onto an existing version: its instruction, plus the machine settings that ' +
+    'go with it. `settings` is read on a Thermomix version and IGNORED on a dish, which has no ' +
+    'machine — one shape serves both, so a plain recipe never has to send an empty object.',
+  fields: (t) => ({
+    text: t.field({
+      type: 'StepText',
+      required: true,
+      description: 'The step instruction, e.g. `"Mix the onions"`',
+    }),
+    settings: t.field({
+      type: ThermomixSettingsInput,
+      description:
+        'Its Thermomix settings, e.g. `"10 min / 100°C / speed 2"` — omit it for a plain step',
+    }),
+  }),
+})
+
 export const versionContentInput = (input: {
   dish?: ContentArm | null
   thermomix?: ContentArm | null

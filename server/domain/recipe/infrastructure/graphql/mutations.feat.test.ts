@@ -796,3 +796,141 @@ describe('updateComponent mutation', () => {
     expect(result.errors?.[0]?.extensions?.code).toBe('NOT_A_COOKED_RECIPE')
   })
 })
+
+describe('updateIngredients mutation', () => {
+  const lasagnaId = async () => {
+    const result = await execute(createLasagna)
+    expect(result.errors).toBeUndefined()
+    return (result.data as { createRecipe: { id: string } }).createRecipe.id
+  }
+
+  test('replaces the list in place, creating no version and keeping the steps', async () => {
+    const id = await lasagnaId()
+
+    const result = await execute(`
+      mutation {
+        updateIngredients(recipeId: "${id}", versionNumber: 1, ingredients: [
+          { name: "Farine", quantity: "200 g" }
+          { name: "Beurre", quantity: "80 g" }
+        ]) {
+          number
+          content { ... on DishContent { ingredients { name quantity } steps } }
+        }
+      }
+    `)
+
+    expect(result.errors).toBeUndefined()
+    expect(result.data?.updateIngredients).toMatchObject({
+      number: 1,
+      content: {
+        ingredients: [
+          { name: 'Farine', quantity: '200 g' },
+          { name: 'Beurre', quantity: '80 g' },
+        ],
+        steps: ['Monter les couches', 'Enfourner à 200°C'],
+      },
+    })
+    expect(fake.snapshot('recipes').get(id)?.lastVersionNumber).toBe(1)
+  })
+
+  test('answers NOT_A_COOKED_RECIPE on a coffee, which has no shopping list', async () => {
+    const created = await execute(`
+      mutation {
+        createRecipe(input: {
+          type: COFFEE
+          category: DRINK
+          method: ESPRESSO
+          title: "Espresso"
+          content: { coffee: { extraction: { grind: "Niveau 12" } } }
+        }) { id }
+      }
+    `)
+    const id = (created.data as { createRecipe: { id: string } }).createRecipe.id
+
+    const result = await execute(`
+      mutation {
+        updateIngredients(recipeId: "${id}", versionNumber: 1, ingredients: []) { number }
+      }
+    `)
+
+    expect(result.errors?.[0]?.extensions?.code).toBe('NOT_A_COOKED_RECIPE')
+  })
+
+  test('answers NOT_FOUND on a version that is not there', async () => {
+    const id = await lasagnaId()
+
+    const result = await execute(`
+      mutation {
+        updateIngredients(recipeId: "${id}", versionNumber: 9, ingredients: []) { number }
+      }
+    `)
+
+    expect(result.errors?.[0]?.extensions?.code).toBe('NOT_FOUND')
+  })
+})
+
+describe('updateSteps mutation', () => {
+  test('replaces a dish’s steps, leaving its ingredients alone', async () => {
+    const created = await execute(createLasagna)
+    const id = (created.data as { createRecipe: { id: string } }).createRecipe.id
+
+    const result = await execute(`
+      mutation {
+        updateSteps(recipeId: "${id}", versionNumber: 1, steps: [
+          { text: "Monter les couches" }
+          { text: "Enfourner à 180°C" }
+        ]) {
+          number
+          content { ... on DishContent { steps ingredients { name } } }
+        }
+      }
+    `)
+
+    expect(result.errors).toBeUndefined()
+    expect(result.data?.updateSteps).toMatchObject({
+      number: 1,
+      content: {
+        steps: ['Monter les couches', 'Enfourner à 180°C'],
+        ingredients: [{ name: 'Farine' }],
+      },
+    })
+  })
+
+  test('keeps the machine settings on a Thermomix version', async () => {
+    const created = await execute(`
+      mutation {
+        createRecipe(input: {
+          type: THERMOMIX
+          category: MAIN
+          title: "Risotto"
+          content: { thermomix: {
+            ingredients: []
+            steps: [{ text: "Mixer", settings: {} }]
+          } }
+        }) { id }
+      }
+    `)
+    const id = (created.data as { createRecipe: { id: string } }).createRecipe.id
+
+    const result = await execute(`
+      mutation {
+        updateSteps(recipeId: "${id}", versionNumber: 1, steps: [
+          { text: "Mixer les oignons", settings: { time: "5 s", speed: "5" } }
+          { text: "Laisser reposer" }
+        ]) {
+          content { ... on ThermomixContent { steps { text settings { time speed } } } }
+        }
+      }
+    `)
+
+    expect(result.errors).toBeUndefined()
+    expect(result.data?.updateSteps).toMatchObject({
+      content: {
+        steps: [
+          { text: 'Mixer les oignons', settings: { time: '5 s', speed: '5' } },
+          { text: 'Laisser reposer', settings: { time: null, speed: null } },
+        ],
+      },
+    })
+  })
+})

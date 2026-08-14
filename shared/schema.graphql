@@ -1025,6 +1025,28 @@ type Mutation {
   ): Version!
 
   """
+  Correct one cooked version’s shopping list — a quantity misread off a photo, a line the import split in two. Full replacement, in place: no version is created, the steps, the oven and the outcome are untouched, and the rating stays (correcting what the recipe always said is not iterating on it — a changed plate is a new version). Adding, deleting and reordering all go through this one list. A line that IS a recipe keeps its link as long as its name does not change (see updateComponent). Returns the updated version.
+  
+  Answers `NOT_A_COOKED_RECIPE` on a coffee, which has no shopping list — it has parameters.
+  
+  ```graphql
+  updateIngredients(recipeId: "9f1c-a3b2", versionNumber: 1, ingredients: [
+    { name: "Flour", quantity: "200 g" }
+  ]) { number }
+  ```
+  """
+  updateIngredients(
+    """The complete new list, in order (send `[]` to clear it)"""
+    ingredients: [IngredientInput!]!
+
+    """Which recipe the version belongs to"""
+    recipeId: RecipeId!
+
+    """Which version to correct, e.g. `1`"""
+    versionNumber: VersionNumber!
+  ): Version!
+
+  """
   Correct one cooked version’s oven settings — the temperature you read wrong, the duration the source never stated. Full replacement, in place: no version is created, and the ingredients, steps and outcome are untouched (correcting what the recipe always said is not iterating on it). **Send `oven: null` to say the dish never bakes**, which clears the profile outright rather than leaving a hollow one. Returns the updated version.
   
   Answers `NOT_A_COOKED_RECIPE` on a coffee, which has no oven — it has dials.
@@ -1086,6 +1108,29 @@ type Mutation {
     """What to change (leave a field out to change nothing)"""
     input: UpdateRecipeInput!
   ): Recipe!
+
+  """
+  Correct one cooked version’s method — a step the import split in two, an instruction read wrong. Full replacement, in place: no version is created, the ingredients, the oven and the outcome are untouched, and the rating stays. Each step may carry its Thermomix settings; they are read on a Thermomix version and ignored on a dish, which has no machine. Returns the updated version.
+  
+  Answers `NOT_A_COOKED_RECIPE` on a coffee, which has no steps — its dials say everything.
+  
+  ```graphql
+  updateSteps(recipeId: "9f1c-a3b2", versionNumber: 1, steps: [
+    { text: "Mix the onions", settings: { time: "5 s", speed: "5" } }
+    { text: "Let it rest" }
+  ]) { number }
+  ```
+  """
+  updateSteps(
+    """Which recipe the version belongs to"""
+    recipeId: RecipeId!
+
+    """The complete new method, in order (send `[]` to clear it)"""
+    steps: [VersionStepInput!]!
+
+    """Which version to correct, e.g. `1`"""
+    versionNumber: VersionNumber!
+  ): Version!
 
   """
   Replace one version’s cooking tips with this complete list — typically the accepted requestTips proposal, after your edits. Rewrites the tips in place: no new version is created, the content and outcome are left untouched. Returns the updated version.
@@ -1974,7 +2019,7 @@ type Version {
   restDays: Int
 
   """
-  This version’s cooking tips — serving, storage or technique advice, e.g. `"Serve over rice"`. Empty list when it has none. Unlike the content, they are rewritable in place (see updateTips) — refining the advice never creates a version.
+  This version’s cooking tips — serving, storage or technique advice, e.g. `"Serve over rice"`. Empty list when it has none. Rewritable in place (see updateTips) — refining the advice never creates a version.
   """
   tips: [Tip!]!
 
@@ -2041,6 +2086,19 @@ enum VersionOriginKind {
   A version the cook wrote by hand, without the AI, e.g. `"Swapped in honey"`
   """
   MANUAL
+}
+
+"""
+One step to write onto an existing version: its instruction, plus the machine settings that go with it. `settings` is read on a Thermomix version and IGNORED on a dish, which has no machine — one shape serves both, so a plain recipe never has to send an empty object.
+"""
+input VersionStepInput {
+  """
+  Its Thermomix settings, e.g. `"10 min / 100°C / speed 2"` — omit it for a plain step
+  """
+  settings: ThermomixSettingsInput
+
+  """The step instruction, e.g. `"Mix the onions"`"""
+  text: StepText!
 }
 
 """
