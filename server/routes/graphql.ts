@@ -7,7 +7,7 @@ export default defineEventHandler(async (event) => {
   const userId = (event.context as { userId?: UserId }).userId
   if (!userId) throw createError({ statusCode: 401, statusMessage: 'Missing user context' })
   // One loader set per request: memoization and batching stay request-scoped.
-  const context = async () => ({ event, userId, loaders: recipeSatelliteLoaders() })
+  const context = async () => ({ event, userId, loaders: recipeSatelliteLoaders(userId) })
 
   const headerMap = new HeaderMap()
   for (const [key, value] of Object.entries(getHeaders(event))) {

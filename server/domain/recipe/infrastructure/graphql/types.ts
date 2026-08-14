@@ -43,6 +43,21 @@ export const IngredientType = builder.objectRef<Ingredient>('Ingredient').implem
       type: 'IngredientQuantity',
       description: 'How much of it, unit included, e.g. `"250 g"`, `"2 tbsp"`, `"1 pinch"`',
     }),
+    // Satellite: the linked recipe, through a batched loader — a sheet with ten linked
+    // lines costs one keyed read of exactly those ten, and their ratings share the
+    // single lineage scan `versionsByRecipe` already pays for.
+    component: t.field({
+      type: RecipeType,
+      nullable: true,
+      description:
+        'The recipe this line IS, when it is one of yours — the pasta dough of a ravioli, a page ' +
+        'of its own with its own versions and ratings. Read its `versionToOpen` to show the best ' +
+        'one: the link holds the recipe, never a version, so it follows the dough as it improves. ' +
+        '`null` on a plain ingredient line, and `null` once the recipe it pointed to is deleted — ' +
+        'the line stays readable on its own (`name` + `quantity`).',
+      resolve: async (i, _a, { loaders }) =>
+        i.component ? ((await loaders.recipesById.load(i.component)) ?? null) : null,
+    }),
   }),
 })
 

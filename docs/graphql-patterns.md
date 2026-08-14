@@ -187,6 +187,16 @@ rule earning its keep: `versions` used to resolve through a per-recipe query, wh
 parent on a page and, on a single recipe sheet, a second query duplicating the read `versionToOpen`
 already paid for.
 
+**A second loader, `recipesById`, resolves what an ingredient line IS.** `Ingredient.component`
+holds a `RecipeId` (see [business-rules](./business-rules.md#composition--an-ingredient-can-be-a-recipe)),
+and the field hands it to a loader built with the request's `userId` — which is why
+`recipeSatelliteLoaders(userId)` takes one — so a recipe that is not the cook's resolves to `null`
+like a deleted one, never to someone else's page. Ten linked lines cost one keyed read of exactly
+those ten documents (Firestore bills per document, so the batch buys the round trip, not the
+count), and the ratings they display go back through `versionsByRecipe`: **one lineage scan for
+every component on the sheet, never one per line.** The library asks for no component, so its
+budget is untouched — the feat tests assert both.
+
 **The batch is keyed on the page, never on the notebook.** `versionsOfMany` filters
 `recipeId in <the batch>` (Firestore caps `in` at 30 values, so a wider page fans out into
 parallel queries), which is what keeps the cost proportional to the page. It used to reuse the

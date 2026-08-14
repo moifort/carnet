@@ -57,7 +57,7 @@ const execute = (source: string) =>
   graphql({
     schema,
     source,
-    contextValue: { userId, event: undefined as never, loaders: recipeSatelliteLoaders() },
+    contextValue: { userId, event: undefined as never, loaders: recipeSatelliteLoaders(userId) },
   })
 
 const seedRecipeWithV1 = () => {

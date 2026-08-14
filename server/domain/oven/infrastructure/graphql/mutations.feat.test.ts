@@ -45,7 +45,7 @@ const execute = (source: string, userId: UserId = OWNER) =>
   graphql({
     schema,
     source,
-    contextValue: { userId, event: undefined as never, loaders: recipeSatelliteLoaders() },
+    contextValue: { userId, event: undefined as never, loaders: recipeSatelliteLoaders(userId) },
   })
 
 const QUICHE = '11111111-1111-4111-8111-111111111111'

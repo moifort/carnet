@@ -30,7 +30,7 @@ const execute = (source: string) =>
   graphql({
     schema,
     source,
-    contextValue: { userId, event: undefined as never, loaders: recipeSatelliteLoaders() },
+    contextValue: { userId, event: undefined as never, loaders: recipeSatelliteLoaders(userId) },
   })
 
 const seedRecipe = (id: string, fields: { category: DishCategory; updatedAt: number }) => {
@@ -242,6 +242,141 @@ describe('recipes query', () => {
     // Four times the recipes, same two reads — the proof that the budget is the
     // page's, not the recipe's.
     expect(fake.queryReads - before).toBe(2)
+  })
+})
+
+describe('an ingredient that is a recipe', () => {
+  // The ravioli, whose first line IS the dough recipe seeded beside it.
+  const seedComposed = (parentId: string, ...componentIds: string[]) => {
+    seedRecipe(parentId, { category: 'main', updatedAt: 1000 })
+    fake.seed('recipe-versions', `${parentId}_1`, {
+      userId,
+      recipeId: parentId as RecipeId,
+      number: 1 as VersionNumber,
+      createdAt: new Date(1000),
+      origin: { kind: 'import' },
+      content: {
+        kind: 'dish',
+        ingredients: [
+          ...componentIds.map((component, i) => ({
+            name: `Composant ${i}`,
+            quantity: '400 g',
+            component,
+          })),
+          { name: 'Champignons', quantity: '250 g' },
+        ],
+        steps: ['Garnir'],
+      },
+      tips: [],
+    })
+  }
+
+  const COMPOSED_SHEET = (id: string) => `
+    query {
+      recipe(id: "${id}") {
+        versionToOpen {
+          content {
+            ... on DishContent {
+              ingredients {
+                name
+                quantity
+                component { title bestRating versionToOpen { number } }
+              }
+            }
+          }
+        }
+      }
+    }
+  `
+
+  test('serves the linked recipe’s live title and best rating, and nothing on a plain line', async () => {
+    seedComposed(r1, r2)
+    seedRecipe(r2, { category: 'main', updatedAt: 2000 })
+    seedVersion(r2, 1, 3)
+    seedVersion(r2, 2, 5)
+
+    const result = await execute(COMPOSED_SHEET(r1))
+
+    expect(result.errors).toBeUndefined()
+    const { ingredients } = (
+      result.data as { recipe: { versionToOpen: { content: { ingredients: unknown[] } } } }
+    ).recipe.versionToOpen.content
+    expect(ingredients[0]).toEqual({
+      name: 'Composant 0',
+      quantity: '400 g',
+      // The title comes from the link, live; the version shown is derived, so the
+      // dough's best attempt is what the ravioli displays.
+      component: { title: `Recette ${r2}`, bestRating: 5, versionToOpen: { number: 2 } },
+    })
+    expect(ingredients[1]).toEqual({ name: 'Champignons', quantity: '250 g', component: null })
+  })
+
+  test('answers null once the linked recipe is gone, the line staying readable', async () => {
+    // The dough was thrown away on purpose: nothing to repair, nothing to clean up —
+    // the immutable content still names what goes in and how much of it.
+    seedComposed(r1, unknownId)
+
+    const result = await execute(COMPOSED_SHEET(r1))
+
+    expect(result.errors).toBeUndefined()
+    const { ingredients } = (
+      result.data as { recipe: { versionToOpen: { content: { ingredients: unknown[] } } } }
+    ).recipe.versionToOpen.content
+    expect(ingredients[0]).toEqual({ name: 'Composant 0', quantity: '400 g', component: null })
+  })
+
+  test('answers null for another cook’s recipe, never their title', async () => {
+    seedComposed(r1, foreign)
+    fake.seed('recipes', foreign, {
+      id: foreign,
+      userId: 'user-2' as UserId,
+      type: 'dish',
+      category: 'main',
+      categoryRank: categoryRank('main'),
+      title: 'La recette du voisin',
+      lastVersionNumber: 1,
+      createdAt: new Date(1000),
+      updatedAt: new Date(1000),
+    })
+
+    const result = await execute(COMPOSED_SHEET(r1))
+
+    expect(result.errors).toBeUndefined()
+    expect(JSON.stringify(result.data)).not.toContain('voisin')
+  })
+
+  test('costs one lineage scan for every component, never one per line', async () => {
+    seedComposed(r1, r2, r3)
+    seedRecipe(r2, { category: 'main', updatedAt: 2000 })
+    seedVersion(r2, 1, 3)
+    seedRecipe(r3, { category: 'main', updatedAt: 3000 })
+    seedVersion(r3, 1, 4)
+
+    const result = await execute(COMPOSED_SHEET(r1))
+
+    expect(result.errors).toBeUndefined()
+    // The parent by key, then its two components — a keyed read per document is
+    // Firestore's price for reading them, and the batch makes it one round trip.
+    expect(fake.docReads).toBe(3)
+    // What this locks: the parent's lineage, then ONE scan shared by both components.
+    // Never a scan per linked line.
+    expect(fake.queryReads).toBe(2)
+  })
+
+  test('leaves the library budget untouched — it asks for no component', async () => {
+    seedComposed(r1, r2)
+    seedRecipe(r2, { category: 'main', updatedAt: 2000 })
+    seedVersion(r2, 1, 3)
+    const before = fake.queryReads
+
+    const result = await execute(`
+      query { recipes(sort: UPDATED_AT, order: DESC, limit: 10) { items { id bestRating } } }
+    `)
+
+    expect(result.errors).toBeUndefined()
+    // The page and its lineages, exactly as before the feature existed.
+    expect(fake.queryReads - before).toBe(2)
+    expect(fake.docReads).toBe(0)
   })
 })
 

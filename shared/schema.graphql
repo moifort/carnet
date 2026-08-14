@@ -638,6 +638,11 @@ type ImportThermomixSettings {
 One line of the ingredient list: what it is and how much of it. The list keeps its order, e.g. `"Flour — 250 g"`, then `"Butter — 100 g"`, then `"Eggs — 3"`.
 """
 type Ingredient {
+  """
+  The recipe this line IS, when it is one of yours — the pasta dough of a ravioli, a page of its own with its own versions and ratings. Read its `versionToOpen` to show the best one: the link holds the recipe, never a version, so it follows the dough as it improves. `null` on a plain ingredient line, and `null` once the recipe it pointed to is deleted — the line stays readable on its own (`name` + `quantity`).
+  """
+  component: Recipe
+
   """What the ingredient is, e.g. `"Flour"` or `"Fine salt"`"""
   name: IngredientName!
 
@@ -989,6 +994,33 @@ type Mutation {
     recipeId: RecipeId!
 
     """Which version to correct, e.g. `1`"""
+    versionNumber: VersionNumber!
+  ): Version!
+
+  """
+  Say which recipe one ingredient line IS — the pasta dough of a ravioli, a page of its own with its own versions and ratings. A correction in place: naming the dough you already used changes nothing about the plate you cooked, so **no version is created** and its rating still stands. Changing dough is another matter — that is an attempt, and it goes through a new version. **Send `component: null` to unlink**, which leaves a plain ingredient line behind. Returns the updated version.
+  
+  The linked recipe must be one of yours: anything else answers `NOT_FOUND`. A recipe cannot be its own ingredient (`SELF_REFERENCE`), and a coffee has no ingredient list to link from (`NOT_A_COOKED_RECIPE`).
+  
+  ```graphql
+  updateComponent(
+    recipeId: "9f1c-a3b2", versionNumber: 1, ingredient: 0, component: "3b7e-91cd"
+  ) { number }
+  ```
+  """
+  updateComponent(
+    """The recipe this line is, or `null` to make it a plain ingredient again"""
+    component: RecipeId
+
+    """
+    Which line of the ingredient list, counting from `0` in the order it is shown
+    """
+    ingredient: Int!
+
+    """Which recipe the version belongs to"""
+    recipeId: RecipeId!
+
+    """Which version to annotate, e.g. `1`"""
     versionNumber: VersionNumber!
   ): Version!
 

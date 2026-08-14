@@ -403,6 +403,68 @@ builder.mutationField('updateOvenProfile', (t) =>
   }),
 )
 
+builder.mutationField('updateComponent', (t) =>
+  t.field({
+    type: VersionType,
+    description: [
+      'Say which recipe one ingredient line IS — the pasta dough of a ravioli, a page of its own ' +
+        'with its own versions and ratings. A correction in place: naming the dough you already ' +
+        'used changes nothing about the plate you cooked, so **no version is created** and its ' +
+        'rating still stands. Changing dough is another matter — that is an attempt, and it goes ' +
+        'through a new version. **Send `component: null` to unlink**, which leaves a plain ' +
+        'ingredient line behind. Returns the updated version.',
+      '',
+      'The linked recipe must be one of yours: anything else answers `NOT_FOUND`. A recipe cannot ' +
+        'be its own ingredient (`SELF_REFERENCE`), and a coffee has no ingredient list to link ' +
+        'from (`NOT_A_COOKED_RECIPE`).',
+      '',
+      '```graphql',
+      'updateComponent(',
+      '  recipeId: "9f1c-a3b2", versionNumber: 1, ingredient: 0, component: "3b7e-91cd"',
+      ') { number }',
+      '```',
+    ].join('\n'),
+    args: {
+      recipeId: t.arg({
+        type: 'RecipeId',
+        required: true,
+        description: 'Which recipe the version belongs to',
+      }),
+      versionNumber: t.arg({
+        type: 'VersionNumber',
+        required: true,
+        description: 'Which version to annotate, e.g. `1`',
+      }),
+      ingredient: t.arg.int({
+        required: true,
+        description:
+          'Which line of the ingredient list, counting from `0` in the order it is shown',
+      }),
+      component: t.arg({
+        type: 'RecipeId',
+        required: false,
+        description: 'The recipe this line is, or `null` to make it a plain ingredient again',
+      }),
+    },
+    resolve: async (_root, { recipeId, versionNumber, ingredient, component }, { userId }) => {
+      const result = await RecipeCommand.updateComponent(
+        userId,
+        recipeId,
+        versionNumber,
+        ingredient,
+        component ?? undefined,
+      )
+      return match(result)
+        .with('not-found', domainError)
+        .with('not-a-cooked-recipe', domainError)
+        .with('ingredient-not-found', domainError)
+        .with('self-reference', domainError)
+        .with(P.not(P.string), (version) => version)
+        .exhaustive()
+    },
+  }),
+)
+
 builder.mutationField('updateWarnings', (t) =>
   t.field({
     type: RecipeType,

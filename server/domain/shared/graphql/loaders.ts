@@ -1,5 +1,6 @@
 import { RecipeQuery } from '~/domain/recipe/query'
-import type { RecipeId, RecipeVersion } from '~/domain/recipe/types'
+import type { Recipe, RecipeId, RecipeVersion } from '~/domain/recipe/types'
+import type { UserId } from '~/domain/shared/types'
 
 // Per-request loaders for the satellite fields of RecipeType. One loader set
 // lives on each GraphQL context (built per request in routes/graphql.ts), so
@@ -42,9 +43,10 @@ const batchedBy = <T, A>(
 
 export type RecipeSatelliteLoaders = {
   versionsByRecipe: Loader<RecipeVersion[], RecipeId>
+  recipesById: Loader<Recipe, RecipeId>
 }
 
-export const recipeSatelliteLoaders = (): RecipeSatelliteLoaders => ({
+export const recipeSatelliteLoaders = (userId: UserId): RecipeSatelliteLoaders => ({
   // The full lineage of each recipe, batched into a single keyed read of exactly the
   // recipes in the batch — backs every field derived from the whole lineage (the best
   // rating, the version to open, the counts) and the lineage itself, which all share
@@ -58,6 +60,19 @@ export const recipeSatelliteLoaders = (): RecipeSatelliteLoaders => ({
       for (const version of versions) grouped.get(version.recipeId)?.push(version)
       for (const lineage of grouped.values()) lineage.sort((a, b) => a.number - b.number)
       return grouped
+    },
+  ),
+  // The recipes an ingredient line IS — the ravioli's pasta dough. Batched into a
+  // single keyed read of exactly the lines the sheet holds, and scoped to the cook, so
+  // an id that is not theirs (or a recipe they deleted) simply resolves to nothing
+  // rather than answering with someone else's page. The lineage each linked recipe
+  // needs for its rating goes through `versionsByRecipe`, which batches them all into
+  // the same scan: a sheet never pays a scan per linked line.
+  recipesById: batchedBy(
+    (recipeId) => recipeId,
+    async (recipeIds) => {
+      const recipes = await RecipeQuery.byIds(userId, recipeIds)
+      return new Map(recipes.map((recipe) => [recipe.id as string, recipe]))
     },
   ),
 })

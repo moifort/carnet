@@ -20,7 +20,7 @@ const execute = (source: string) =>
   graphql({
     schema,
     source,
-    contextValue: { userId, event: undefined as never, loaders: recipeSatelliteLoaders() },
+    contextValue: { userId, event: undefined as never, loaders: recipeSatelliteLoaders(userId) },
   })
 
 const createLasagna = `
@@ -673,6 +673,125 @@ describe('updateOvenProfile mutation', () => {
         }) { number }
       }
     `)
+
+    expect(result.errors?.[0]?.extensions?.code).toBe('NOT_A_COOKED_RECIPE')
+  })
+})
+
+describe('updateComponent mutation', () => {
+  const ravioli = `
+    mutation {
+      createRecipe(input: {
+        type: DISH
+        category: MAIN
+        title: "Ravioles aux champignons"
+        content: { dish: {
+          ingredients: [
+            { name: "Pâte à ravioles", quantity: "400 g" }
+            { name: "Champignons", quantity: "250 g" }
+          ]
+          steps: ["Garnir"]
+        } }
+      }) { id }
+    }
+  `
+
+  const raviolId = async () => {
+    const result = await execute(ravioli)
+    expect(result.errors).toBeUndefined()
+    return (result.data as { createRecipe: { id: string } }).createRecipe.id
+  }
+
+  const link = (recipeId: string, ingredient: number, component: string | null) => `
+    mutation {
+      updateComponent(
+        recipeId: "${recipeId}"
+        versionNumber: 1
+        ingredient: ${ingredient}
+        component: ${component === null ? 'null' : `"${component}"`}
+      ) {
+        number
+        content { ... on DishContent { ingredients { name quantity component { title } } } }
+      }
+    }
+  `
+
+  test('says which recipe a line is, creating no version', async () => {
+    const parent = await raviolId()
+    const dough = await createdId()
+
+    const result = await execute(link(parent, 0, dough))
+
+    expect(result.errors).toBeUndefined()
+    expect(result.data?.updateComponent).toMatchObject({
+      number: 1,
+      content: {
+        ingredients: [
+          // The line keeps its own name — the role the dough plays here — and gains
+          // the live title of the recipe it is.
+          { name: 'Pâte à ravioles', quantity: '400 g', component: { title: 'Lasagnes de mamie' } },
+          { name: 'Champignons', quantity: '250 g', component: null },
+        ],
+      },
+    })
+    // Naming the dough that was already used is a correction, not an attempt.
+    expect(fake.snapshot('recipes').get(parent)?.lastVersionNumber).toBe(1)
+  })
+
+  test('a null component unlinks the line, which stays a plain ingredient', async () => {
+    const parent = await raviolId()
+    const dough = await createdId()
+    await execute(link(parent, 0, dough))
+
+    const result = await execute(link(parent, 0, null))
+
+    expect(result.errors).toBeUndefined()
+    expect(result.data?.updateComponent).toMatchObject({
+      content: { ingredients: [{ name: 'Pâte à ravioles', component: null }, { component: null }] },
+    })
+  })
+
+  test('answers INGREDIENT_NOT_FOUND past the end of the list', async () => {
+    const parent = await raviolId()
+    const dough = await createdId()
+
+    const result = await execute(link(parent, 7, dough))
+
+    expect(result.errors?.[0]?.extensions?.code).toBe('INGREDIENT_NOT_FOUND')
+  })
+
+  test('answers SELF_REFERENCE on a recipe that is its own ingredient', async () => {
+    const parent = await raviolId()
+
+    const result = await execute(link(parent, 0, parent))
+
+    expect(result.errors?.[0]?.extensions?.code).toBe('SELF_REFERENCE')
+  })
+
+  test('answers NOT_FOUND on an unknown linked recipe — never that it exists', async () => {
+    const parent = await raviolId()
+
+    const result = await execute(link(parent, 0, '11111111-1111-4111-8111-111111111111'))
+
+    expect(result.errors?.[0]?.extensions?.code).toBe('NOT_FOUND')
+  })
+
+  test('answers NOT_A_COOKED_RECIPE on a coffee, which has no ingredients', async () => {
+    const created = await execute(`
+      mutation {
+        createRecipe(input: {
+          type: COFFEE
+          category: DRINK
+          method: ESPRESSO
+          title: "Espresso"
+          content: { coffee: { extraction: { grind: "Niveau 12" } } }
+        }) { id }
+      }
+    `)
+    const id = (created.data as { createRecipe: { id: string } }).createRecipe.id
+    const dough = await createdId()
+
+    const result = await execute(link(id, 0, dough))
 
     expect(result.errors?.[0]?.extensions?.code).toBe('NOT_A_COOKED_RECIPE')
   })
