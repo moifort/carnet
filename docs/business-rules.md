@@ -192,6 +192,9 @@ A ravioli is two recipes: the dough and the ravioli. **An ingredient line can BE
 - **A coffee cannot carry one**, by construction rather than by rule: `Ingredient` exists only in
   `DishContent` and `ThermomixContent`. `updateComponent` answers `'not-a-cooked-recipe'` on one,
   the same code `updateOvenProfile` uses.
+- **A copied version keeps its components**, because `copyVersion` copies the content verbatim and
+  the link is part of it: the copy is the same plate, and its dough is the same dough. Nothing
+  contradicts the rule that the copy holds nothing of the *lineage* — a component is not lineage.
 - **Only `updateComponent` sets a component.** `IngredientInput` deliberately does not accept one,
   so no content-carrying payload can slip a link in sideways; the command is where the linked
   recipe is checked to be the cook's own (a stranger's answers `'not-found'`, never a code that
