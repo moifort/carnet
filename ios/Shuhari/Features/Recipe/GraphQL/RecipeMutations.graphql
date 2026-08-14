@@ -56,3 +56,19 @@ mutation UpdateOvenProfile(
     number
   }
 }
+
+mutation UpdateComponent(
+  $recipeId: RecipeId!
+  $versionNumber: VersionNumber!
+  $ingredient: Int!
+  $component: RecipeId
+) {
+  updateComponent(
+    recipeId: $recipeId
+    versionNumber: $versionNumber
+    ingredient: $ingredient
+    component: $component
+  ) {
+    ...VersionFields
+  }
+}

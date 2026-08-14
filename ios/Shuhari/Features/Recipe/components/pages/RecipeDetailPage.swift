@@ -22,6 +22,9 @@ struct RecipeDetailPage: View {
     /// The connected oven's CTA. nil when this account owns no oven, and the
     /// section then shows the settings alone.
     var ovenStart: OvenProfileSection.Start? = nil
+    /// Opens the picker that says which recipe an ingredient line IS, by its index in
+    /// the displayed version's list. nil (the default) leaves the list read-only.
+    var onLinkComponent: ((Int) -> Void)? = nil
 
     /// Ephemeral quantity scaling of the ingredient list — lives only while the
     /// sheet is open, the stored version is never rewritten. Only the plain sheet
@@ -53,7 +56,8 @@ struct RecipeDetailPage: View {
                     ingredients: displayedVersion.ingredients,
                     modified: modifiedIngredients,
                     compactHeader: focusVersion == nil,
-                    scale: focusVersion == nil ? $scaleFactor : nil
+                    scale: focusVersion == nil ? $scaleFactor : nil,
+                    onLink: onLinkComponent
                 )
             }
             // An espresso is wholly described by its parameters: no empty "steps"

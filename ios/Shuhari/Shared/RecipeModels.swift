@@ -12,7 +12,24 @@ import Foundation
 struct Ingredient: Identifiable, Sendable, Hashable {
     let name: String
     let quantity: String
+    /// The recipe this line IS, when it is one — the ravioli's pasta dough. Nil on a
+    /// plain ingredient, and nil once the linked recipe is deleted: the line still
+    /// says what goes in and how much, so it stays readable on its own.
+    var component: RecipeComponent? = nil
     var id: String { name }
+}
+
+/// The recipe an ingredient line is, as the parent sheet shows it: its live title,
+/// the best rating it ever earned, and what its best version holds — so the line
+/// unfolds without leaving the sheet. Flattened at the boundary, one level deep: the
+/// ingredients here never carry a component of their own.
+struct RecipeComponent: Identifiable, Sendable, Hashable {
+    let id: String
+    let title: String
+    /// The best rating it ever earned, nil when it was never cooked.
+    let rating: Int?
+    let ingredients: [Ingredient]
+    let steps: [String]
 }
 
 // MARK: - Thermomix

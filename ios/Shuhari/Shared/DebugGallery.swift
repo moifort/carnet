@@ -52,6 +52,17 @@ struct DebugGallery: View {
             }
         case "recipe":
             RecipeDetailGalleryScreen(recipe: Fixtures.bourguignon)
+        case "recipe-component":
+            RecipeDetailGalleryScreen(recipe: Fixtures.ravioli)
+        case "component-picker":
+            Color.clear
+                .sheet(isPresented: .constant(true)) {
+                    ComponentPickerSheet(
+                        ingredientName: "Pâte à ravioles",
+                        linkedId: Fixtures.doughComponent.id,
+                        excludedId: Fixtures.ravioli.id
+                    ) { _ in }
+                }
         case "recipe-oven":
             RecipeDetailGalleryScreen(recipe: Fixtures.quiche)
         case "recipe-oven-probe":

@@ -148,6 +148,26 @@ enum RecipeAPI {
         )
     }
 
+    /// Say which recipe one ingredient line IS — in place, no version created: naming
+    /// the dough already used changes nothing about the plate that was cooked. Passing
+    /// nil unlinks the line, which goes back to being a plain ingredient.
+    static func updateComponent(
+        recipeId: String,
+        versionNumber: Int,
+        ingredient: Int,
+        component: String?
+    ) async throws {
+        _ = try await GraphQLHelpers.perform(
+            GraphQLClient.shared.apollo,
+            mutation: ShuhariGraphQL.UpdateComponentMutation(
+                recipeId: recipeId,
+                versionNumber: versionNumber,
+                ingredient: ingredient,
+                component: component == nil ? .null : .some(component!)
+            )
+        )
+    }
+
     /// What each free-text coffee field suggests: the values this cook has already
     /// typed, most recent first. One keyed document read, whatever the library size.
     static func coffeeVocabulary() async throws -> CoffeeVocabulary {
@@ -239,20 +259,57 @@ func mapOvenProfile(_ oven: ShuhariGraphQL.OvenProfileFields?) -> OvenProfile? {
     )
 }
 
+/// The recipe an ingredient line IS → the flat `RecipeComponent` the sheet unfolds.
+/// Reads the linked recipe's `versionToOpen`, which is derived server-side: the parent
+/// always shows the dough's best attempt, never a version it pinned down.
+func mapComponent(_ component: ShuhariGraphQL.ComponentFields?) -> RecipeComponent? {
+    guard let component else { return nil }
+    let content = component.versionToOpen.content
+    let ingredients =
+        content.asDishContent?.ingredients.map { Ingredient(name: $0.name, quantity: $0.quantity) }
+        ?? content.asThermomixContent?.ingredients.map {
+            Ingredient(name: $0.name, quantity: $0.quantity)
+        }
+        ?? []
+    let steps =
+        content.asDishContent?.dishSteps
+        ?? content.asThermomixContent?.thermomixSteps.map(\.text)
+        ?? []
+    return RecipeComponent(
+        id: component.id,
+        title: component.title,
+        rating: component.bestRating,
+        ingredients: ingredients,
+        steps: steps
+    )
+}
+
 /// The version-body union → the Swift `VersionContent`. An unknown `__typename`
 /// (a content type the app doesn't know yet) maps to an empty dish, matching the
 /// lenient unknown-enum style in `RecipeType+GraphQL.swift`.
 func mapVersionContent(_ c: ShuhariGraphQL.VersionContentFields) -> VersionContent {
     if let dish = c.asDishContent {
         return .dish(
-            ingredients: dish.ingredients.map { Ingredient(name: $0.name, quantity: $0.quantity) },
+            ingredients: dish.ingredients.map {
+                Ingredient(
+                    name: $0.name,
+                    quantity: $0.quantity,
+                    component: mapComponent($0.component?.fragments.componentFields)
+                )
+            },
             steps: dish.dishSteps,
             oven: mapOvenProfile(dish.oven?.fragments.ovenProfileFields)
         )
     }
     if let thermomix = c.asThermomixContent {
         return .thermomix(
-            ingredients: thermomix.ingredients.map { Ingredient(name: $0.name, quantity: $0.quantity) },
+            ingredients: thermomix.ingredients.map {
+                Ingredient(
+                    name: $0.name,
+                    quantity: $0.quantity,
+                    component: mapComponent($0.component?.fragments.componentFields)
+                )
+            },
             steps: thermomix.thermomixSteps.map { step in
                 ThermomixStep(
                     text: step.text,

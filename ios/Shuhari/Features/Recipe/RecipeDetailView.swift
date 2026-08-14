@@ -45,6 +45,17 @@ struct RecipeDetailView: View {
     /// `versionToOpen`. Picking swaps what this one screen displays instead of pushing
     /// another: browsing a lineage is reading one recipe, not walking into ten of them.
     @State private var selectedVersion: Int?
+    /// The ingredient line whose picker is open — nil when none is.
+    @State private var linkRequest: LinkRequest?
+
+    /// Which line the component picker was opened on. Identified by its index: the
+    /// content of a version is immutable, so the list cannot shift under the sheet.
+    private struct LinkRequest: Identifiable {
+        let index: Int
+        let name: String
+        let componentId: String?
+        var id: Int { index }
+    }
     @State private var favoriteError = ErrorPresenter()
 
     init(
@@ -171,6 +182,25 @@ struct RecipeDetailView: View {
                         onReload()
                     }
                 }
+                // Saying which recipe an ingredient line IS: a correction in place on
+                // the displayed version — no version created, its rating untouched.
+                .sheet(item: $linkRequest) { request in
+                    let version = displayedVersion(recipe)
+                    ComponentPickerSheet(
+                        ingredientName: request.name,
+                        linkedId: request.componentId,
+                        excludedId: recipeId
+                    ) { picked in
+                        try await RecipeAPI.updateComponent(
+                            recipeId: recipeId,
+                            versionNumber: version.number,
+                            ingredient: request.index,
+                            component: picked
+                        )
+                        await store.load(recipeId)
+                        onReload()
+                    }
+                }
                 .sheet(isPresented: $showEdit) {
                     let version = displayedVersion(recipe)
                     RecipeEditSheet(
@@ -266,15 +296,29 @@ struct RecipeDetailView: View {
                 change: focus.change,
                 why: focus.why ?? focus.originDetail,
                 onEditOven: openOvenEditor,
-                ovenStart: ovenStart(recipe)
+                ovenStart: ovenStart(recipe),
+                onLinkComponent: { openLink(recipe, at: $0) }
             )
         } else {
             RecipeDetailPage(
                 recipe: recipe,
                 onEditOven: openOvenEditor,
-                ovenStart: ovenStart(recipe)
+                ovenStart: ovenStart(recipe),
+                onLinkComponent: { openLink(recipe, at: $0) }
             )
         }
+    }
+
+    /// Open the picker on one ingredient line of the displayed version — the version
+    /// the annotation lands on, in both modes.
+    private func openLink(_ recipe: Recipe, at index: Int) {
+        let ingredients = displayedVersion(recipe).ingredients
+        guard index < ingredients.count else { return }
+        linkRequest = LinkRequest(
+            index: index,
+            name: ingredients[index].name,
+            componentId: ingredients[index].component?.id
+        )
     }
 
     /// What the oven section offers, or nil when this account owns no oven — the

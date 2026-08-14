@@ -6,12 +6,45 @@ fragment OvenProfileFields on OvenProfile {
   core
 }
 
+# The recipe an ingredient line IS. Resolution stops here: this component's own
+# ingredients are read as plain lines, never unfolded one level further.
+fragment ComponentFields on Recipe {
+  id
+  title
+  bestRating
+  versionToOpen {
+    number
+    content {
+      __typename
+      ... on DishContent {
+        ingredients {
+          name
+          quantity
+        }
+        dishSteps: steps
+      }
+      ... on ThermomixContent {
+        ingredients {
+          name
+          quantity
+        }
+        thermomixSteps: steps {
+          text
+        }
+      }
+    }
+  }
+}
+
 fragment VersionContentFields on VersionContent {
   __typename
   ... on DishContent {
     ingredients {
       name
       quantity
+      component {
+        ...ComponentFields
+      }
     }
     dishSteps: steps
     oven {
@@ -22,6 +55,9 @@ fragment VersionContentFields on VersionContent {
     ingredients {
       name
       quantity
+      component {
+        ...ComponentFields
+      }
     }
     thermomixSteps: steps {
       text

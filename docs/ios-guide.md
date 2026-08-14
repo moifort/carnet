@@ -377,6 +377,30 @@ content — the cooking import preview (Ingrédients), recipe display (`CurrentV
 Hide, don't stub. A **form** is the exception: `CoffeeParametersForm` shows every field, filled or
 not, because there what is missing is exactly what the cook has to see.
 
+## An ingredient line that IS a recipe
+
+`Ingredient.component` carries the recipe a line is — the ravioli's pasta dough
+([business rule](business-rules.md#composition--an-ingredient-can-be-a-recipe)). On the sheet, that
+line becomes a `DisclosureGroup` inside `IngredientsGrid`: the stored name above (the **role** the
+dough plays here), a chip under it with the **live title** of the linked recipe and the best rating
+it ever earned, and the unfolded body showing what its best version holds. A line with no component
+renders exactly as it always has — the whole feature is invisible on a plain recipe.
+
+Three consequences worth knowing before touching that file:
+
+- **Keyed by name, like `modified`.** `IngredientsGrid.components` is a `[String: Component]` keyed
+  on the ingredient name, the row identity the grid already used for its change dots. The flattening
+  from `Ingredient` happens in `IngredientsSection`, so the grid stays primitive-first.
+- **A linked line is not steppable.** It is excluded from `scalableRows`: a −/+ inside a disclosure
+  label fights the disclosure for the tap. Its quantity still follows the factor the other rows set
+  — only the control it could have started moves away.
+- **Linking is a swipe, and it is a correction.** The swipe opens `ComponentPickerSheet` (the
+  `LibraryStore`, current recipe excluded), which calls `updateComponent` on the **displayed**
+  version: no version is created, the rating stands. The picked row shows its own spinner — a CTA
+  that hits the network shows it.
+
+Gallery: `-gallery recipe-component` (the composed sheet) and `-gallery component-picker`.
+
 ## The coffee sheet — parameters, not ingredients
 
 A coffee has no ingredient list: `CoffeeParametersSection` takes the place of

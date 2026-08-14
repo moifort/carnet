@@ -174,6 +174,66 @@ enum Fixtures {
         versionToOpen: bourguignonV3
     )
 
+    // MARK: - Ravioles (a recipe one of whose ingredients IS a recipe)
+
+    /// The pasta dough, as the ravioli sheet reads it: its live title, the best rating
+    /// it ever earned, and what its best version holds — resolved server-side, so this
+    /// follows the dough as it improves.
+    static let doughComponent = RecipeComponent(
+        id: "pate-a-pates",
+        title: "Pâte à pâtes fraîches",
+        rating: 5,
+        ingredients: [
+            Ingredient(name: "Farine T55", quantity: "300 g"),
+            Ingredient(name: "Œufs", quantity: "3"),
+            Ingredient(name: "Huile d’olive", quantity: "1 c. à s."),
+            Ingredient(name: "Sel fin", quantity: "1 pincée"),
+        ],
+        steps: [
+            "Mélanger la farine et les œufs jusqu’à obtenir une boule.",
+            "Pétrir 10 min, filmer et laisser reposer 1 h au frais.",
+            "Abaisser au laminoir jusqu’au cran 6.",
+        ]
+    )
+
+    static let ravioliIngredients = [
+        // The name is the ROLE the dough plays here, not the title of the recipe it is.
+        Ingredient(name: "Pâte à ravioles", quantity: "400 g", component: doughComponent),
+        Ingredient(name: "Champignons de Paris", quantity: "250 g"),
+        Ingredient(name: "Ricotta", quantity: "150 g"),
+        Ingredient(name: "Parmesan râpé", quantity: "40 g"),
+        Ingredient(name: "Beurre", quantity: "30 g"),
+    ]
+
+    static let ravioliSteps = [
+        "Faire revenir les champignons émincés au beurre, saler.",
+        "Mélanger à la ricotta et au parmesan, laisser refroidir.",
+        "Garnir la pâte abaissée, souder et découper les ravioles.",
+        "Pocher 3 min à l’eau frémissante.",
+    ]
+
+    static let ravioliV1 = RecipeVersion(
+        number: 1, basedOn: nil, change: nil, why: nil, originKind: .import,
+        originDetail: "Importée par photo",
+        content: .dish(ingredients: ravioliIngredients, steps: ravioliSteps),
+        recipeId: "ravioles", rating: 4,
+        remarks: "Garniture parfaite, pâte un peu épaisse.",
+        executedAt: date.addingTimeInterval(-86_400 * 5), photoUrl: nil,
+        createdAt: date.addingTimeInterval(-86_400 * 9),
+        updatedAt: date.addingTimeInterval(-86_400 * 5)
+    )
+
+    static let ravioli = Recipe(
+        id: "ravioles",
+        title: "Ravioles aux champignons",
+        type: .dish,
+        category: .main,
+        favorite: false,
+        versions: [ravioliV1],
+        bestRating: 4,
+        versionToOpen: ravioliV1
+    )
+
     // MARK: - Quiche (dish that bakes — the oven profile)
 
     static let quicheIngredients = [
