@@ -545,6 +545,32 @@ describe('ProposalUseCase.accept', () => {
   })
 })
 
+describe('a component across an iteration', () => {
+  test('the model is told which line is a recipe of its own, and which is not', async () => {
+    const recipe = await RecipeCommand.create(userId, {
+      ...recipeInput(),
+      content: {
+        kind: 'dish',
+        ingredients: [ing('Pâte à ravioles', '400 g'), ing('Champignons', '250 g')],
+        steps: stepList('Garnir'),
+      },
+    })
+    const linked = await RecipeCommand.create(userId, recipeInput())
+    if (typeof recipe === 'string' || typeof linked === 'string')
+      throw new Error('expected recipes')
+    await RecipeCommand.updateComponent(userId, recipe.id, V1, 0, linked.id)
+
+    await ProposalUseCase.fromAttempt(userId, recipe.id, V1, ATTEMPT)
+
+    // A flag, never the id: the model has no use for a RecipeId, and it must not be
+    // able to write one back.
+    expect(lastCookingContext?.currentIngredients).toEqual([
+      { name: 'Pâte à ravioles', quantity: '400 g', component: true },
+      { name: 'Champignons', quantity: '250 g', component: false },
+    ])
+  })
+})
+
 describe('the oven across an iteration', () => {
   // The version the iteration starts from bakes. The model is never told about it
   // and never answers one — the profile must survive all the same.

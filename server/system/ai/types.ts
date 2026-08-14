@@ -93,7 +93,10 @@ type ProposalRequest = {
 export type CookingProposalContext = ProposalRequest & {
   type: CookingRecipeType
   category: DishCategory
-  currentIngredients: { name: string; quantity: string }[]
+  // `component` marks a line that IS a recipe of its own (the ravioli's pasta dough).
+  // A flag, never the identifier: the model has no use for a RecipeId, and what it
+  // cannot read it cannot write back.
+  currentIngredients: { name: string; quantity: string; component: boolean }[]
   // Each step carries its own settings (an empty object is a step that sets nothing).
   currentSteps: ImportStep[]
 }
