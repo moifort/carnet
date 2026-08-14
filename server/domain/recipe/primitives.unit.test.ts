@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { VersionContent } from '~/domain/recipe/primitives'
+import { Ingredients, VersionContent, VersionSteps } from '~/domain/recipe/primitives'
 import type {
   CoffeeBeanName,
   CoffeeDose,
@@ -165,5 +165,45 @@ describe('VersionContent — the oven’s own programmes', () => {
         oven: { program: 'assisted', temperature: 170 },
       }),
     ).toThrow()
+  })
+})
+
+describe('Ingredients — the shopping list on its own', () => {
+  test('brands a whole list, order kept', () => {
+    expect(Ingredients([{ name: ' Farine ', quantity: '250 g' }])).toEqual([
+      { name: 'Farine' as IngredientName, quantity: '250 g' as IngredientQuantity },
+    ])
+  })
+
+  test('refuses a line with an empty name', () => {
+    expect(() => Ingredients([{ name: '  ', quantity: '250 g' }])).toThrow()
+  })
+
+  test('accepts an empty list — a recipe with nothing measurable', () => {
+    expect(Ingredients([])).toEqual([])
+  })
+})
+
+describe('VersionSteps — the method on its own', () => {
+  test('brands the text and the machine settings that come with it', () => {
+    expect(VersionSteps([{ text: 'Mixer', settings: { time: '10 min', reverse: true } }])).toEqual([
+      { text: 'Mixer' as StepText, settings: { time: '10 min' as ThermomixTime, reverse: true } },
+    ])
+  })
+
+  test('a step with no settings at all is a plain step', () => {
+    expect(VersionSteps([{ text: 'Enfourner' }])).toEqual([
+      { text: 'Enfourner' as StepText, settings: {} },
+    ])
+  })
+
+  test('reverse false carries no information and is dropped', () => {
+    expect(VersionSteps([{ text: 'Mixer', settings: { reverse: false } }])).toEqual([
+      { text: 'Mixer' as StepText, settings: {} },
+    ])
+  })
+
+  test('refuses an empty step text', () => {
+    expect(() => VersionSteps([{ text: '   ' }])).toThrow()
   })
 })

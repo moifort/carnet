@@ -30,6 +30,7 @@ import {
   type DishCategory as DishCategoryType,
   type IngredientName as IngredientNameType,
   type IngredientQuantity as IngredientQuantityType,
+  type Ingredient as IngredientType,
   OVEN_PROGRAM_VALUES,
   type OvenCoreTemperature as OvenCoreTemperatureType,
   type OvenDuration as OvenDurationType,
@@ -305,12 +306,34 @@ const brandOvenProfile = (raw: z.infer<typeof looseOvenSchema>): OvenProfileType
 export const OvenProfile = (value: unknown): OvenProfileType =>
   brandOvenProfile(looseOvenSchema.parse(value))
 
+// Boundary branding for an ingredient list alone — what the in-place correction
+// (`updateIngredients`) passes through, the steps and the oven untouched.
+export const Ingredients = (value: unknown): IngredientType[] =>
+  z.array(looseIngredientSchema).parse(value).map(brandIngredient)
+
 const brandLooseSettings = (s: z.infer<typeof looseSettingsSchema>): LooseThermomixSettings => ({
   ...(s.time ? { time: ThermomixTime(s.time) } : {}),
   ...(s.temperature ? { temperature: ThermomixTemperature(s.temperature) } : {}),
   ...(s.speed ? { speed: ThermomixSpeed(s.speed) } : {}),
   ...(s.reverse ? { reverse: s.reverse } : {}),
 })
+
+// One step as the boundaries hand it over: its text plus the machine settings only a
+// Thermomix version keeps. The single shape `updateSteps` speaks, whichever world the
+// version belongs to — the command is what knows its kind and drops what does not
+// apply.
+export type LooseVersionStep = { text: StepTextType; settings: LooseThermomixSettings }
+
+// Boundary branding for a step list alone — what the in-place correction
+// (`updateSteps`) passes through, the ingredients and the oven untouched.
+export const VersionSteps = (value: unknown): LooseVersionStep[] =>
+  z
+    .array(z.object({ text: z.unknown(), settings: looseSettingsSchema.nullish() }))
+    .parse(value)
+    .map((step) => ({
+      text: StepText(step.text),
+      settings: brandLooseSettings(step.settings ?? {}),
+    }))
 
 // Every scalar goes through its branded constructor, so a raw payload never sneaks
 // in, then `toCoffeeParameters` normalizes the blocks (absent keys, no empty milk).
