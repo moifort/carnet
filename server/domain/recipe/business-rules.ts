@@ -1,3 +1,4 @@
+import type { VersionContent } from '~/domain/recipe/content/types'
 import { VersionNumber as toVersionNumber } from '~/domain/recipe/primitives'
 import {
   BREW_METHOD_VALUES,
@@ -34,6 +35,35 @@ export const methodRank = (method: BrewMethod): number => BREW_METHOD_VALUES.ind
 // recipe.type` invariant, and the reason `Recipe.method` can stay optional.
 export const methodMatchesType = (recipe: Pick<Recipe, 'type' | 'method'>): boolean =>
   recipe.type === 'coffee' ? recipe.method !== undefined : recipe.method === undefined
+
+// Components survive an iteration. The model regenerates the WHOLE ingredient list and
+// knows nothing of the pasta dough the cook linked, so the version it produces would
+// silently drop it: the cook would say yes to a change of seasoning and find the link
+// gone. Carried forward by the CODE, never by the model — the same guard the oven
+// profile gets in `proposal/use-case.ts`, placed here instead because a component must
+// survive ANY birth of version n+1, not just an AI proposal, and `addVersion` is the
+// only door to one.
+// Matched on the ingredient name: a regenerated list leaves no other handle. A renamed
+// line therefore loses its link, and the cook puts it back in one tap — a lost link
+// costs nothing, a wrong one costs a recipe. A line that arrives with its own link
+// keeps it: the incoming version is the one being written.
+export const carriedComponents = (
+  content: VersionContent,
+  base: VersionContent | undefined,
+): VersionContent => {
+  if (content.kind === 'coffee' || base === undefined || base.kind === 'coffee') return content
+  const components = new Map(
+    base.ingredients.flatMap((i) => (i.component ? [[i.name as string, i.component]] : [])),
+  )
+  if (components.size === 0) return content
+  return {
+    ...content,
+    ingredients: content.ingredients.map((i) => {
+      const component = i.component ?? components.get(i.name as string)
+      return component ? { ...i, component } : i
+    }),
+  }
+}
 
 export const nextVersionNumber = (lastVersionNumber: VersionNumber) =>
   toVersionNumber(lastVersionNumber + 1)

@@ -1,14 +1,20 @@
 import { describe, expect, test } from 'bun:test'
 import {
   bestRating,
+  carriedComponents,
   categoryRank,
   nextVersionNumber,
   toTestCount,
   versionToOpen,
 } from '~/domain/recipe/business-rules'
+import type { VersionContent } from '~/domain/recipe/content/types'
 import {
   DISH_CATEGORY_VALUES,
+  type Ingredient,
+  type IngredientName,
+  type IngredientQuantity,
   type Rating,
+  type RecipeId,
   type RecipeVersion,
   type VersionNumber,
 } from '~/domain/recipe/types'
@@ -84,6 +90,74 @@ describe('bestRating', () => {
   test('ignores never-cooked versions', () => {
     const v1 = version(1, { rating: 4 })
     expect(bestRating([v1, version(2), version(3)])).toBe(v1)
+  })
+})
+
+describe('carriedComponents', () => {
+  const dough = 'dough-recipe' as RecipeId
+  const sauce = 'sauce-recipe' as RecipeId
+  const line = (name: string, component?: RecipeId): Ingredient => ({
+    name: name as IngredientName,
+    quantity: '400 g' as IngredientQuantity,
+    ...(component ? { component } : {}),
+  })
+  const dish = (...ingredients: Ingredient[]): VersionContent => ({
+    kind: 'dish',
+    ingredients,
+    steps: [],
+  })
+  const coffee: VersionContent = {
+    kind: 'coffee',
+    beans: {},
+    water: {},
+    extraction: {},
+    gear: {},
+  }
+
+  test('carries the link onto the line the model regenerated under the same name', () => {
+    const next = carriedComponents(
+      dish(line('Pâte à ravioles'), line('Champignons')),
+      dish(line('Pâte à ravioles', dough), line('Champignons')),
+    )
+
+    if (next.kind === 'coffee') throw new Error('expected a dish')
+    expect(next.ingredients[0]?.component).toBe(dough)
+    // A plain neighbour stays plain — no link is invented.
+    expect(next.ingredients[1]).not.toHaveProperty('component')
+  })
+
+  test('drops the link when the model renamed the line — the only handle it left', () => {
+    const next = carriedComponents(
+      dish(line('Pâte à ravioles maison')),
+      dish(line('Pâte à ravioles', dough)),
+    )
+
+    if (next.kind === 'coffee') throw new Error('expected a dish')
+    expect(next.ingredients[0]).not.toHaveProperty('component')
+  })
+
+  test('never invents a link on a line the base did not have', () => {
+    const next = carriedComponents(dish(line('Sauce tomate')), dish(line('Pâte à ravioles', dough)))
+
+    if (next.kind === 'coffee') throw new Error('expected a dish')
+    expect(next.ingredients[0]).not.toHaveProperty('component')
+  })
+
+  test('keeps the incoming link over the base one', () => {
+    const next = carriedComponents(
+      dish(line('Pâte à ravioles', sauce)),
+      dish(line('Pâte à ravioles', dough)),
+    )
+
+    if (next.kind === 'coffee') throw new Error('expected a dish')
+    expect(next.ingredients[0]?.component).toBe(sauce)
+  })
+
+  test('returns the content untouched with no base, and on a coffee either side', () => {
+    const content = dish(line('Pâte à ravioles'))
+    expect(carriedComponents(content, undefined)).toBe(content)
+    expect(carriedComponents(content, coffee)).toBe(content)
+    expect(carriedComponents(coffee, dish(line('Pâte à ravioles', dough)))).toBe(coffee)
   })
 })
 

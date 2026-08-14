@@ -353,6 +353,54 @@ describe('RecipeCommand.addVersion', () => {
     expect(fake.directWrites).toEqual([])
   })
 
+  test('carries the components of the version it iterates on, matched by name', async () => {
+    const parent = await RecipeCommand.create(
+      userId,
+      newInput(dishContent({ ingredients: [ingredient('Pâte à ravioles', '400 g')] })),
+    )
+    const linked = await RecipeCommand.create(userId, newInput())
+    if (typeof parent === 'string' || typeof linked === 'string')
+      throw new Error('expected recipes')
+    await RecipeCommand.updateComponent(userId, parent.id, 1 as VersionNumber, 0, linked.id)
+
+    // What the model answers: the whole list regenerated, and it knows nothing of the
+    // link — the same line, one quantity moved.
+    await RecipeCommand.addVersion(userId, parent.id, {
+      change: 'Pâte 400 → 450 g',
+      basedOn: 1 as VersionNumber,
+      content: dishContent({ ingredients: [ingredient('Pâte à ravioles', '450 g')] }),
+      tips: [],
+    })
+
+    const v2 = fake.snapshot('recipe-versions').get(`${parent.id}_2`)?.content as DishContent
+    expect(v2.ingredients[0]?.component).toBe(linked.id)
+    expect(v2.ingredients[0]?.quantity).toBe('450 g' as IngredientQuantity)
+  })
+
+  test('loses the link when the model renamed the line, and keeps the rest intact', async () => {
+    const parent = await RecipeCommand.create(
+      userId,
+      newInput(dishContent({ ingredients: [ingredient('Pâte à ravioles', '400 g')] })),
+    )
+    const linked = await RecipeCommand.create(userId, newInput())
+    if (typeof parent === 'string' || typeof linked === 'string')
+      throw new Error('expected recipes')
+    await RecipeCommand.updateComponent(userId, parent.id, 1 as VersionNumber, 0, linked.id)
+
+    await RecipeCommand.addVersion(userId, parent.id, {
+      change: 'Pâte maison',
+      basedOn: 1 as VersionNumber,
+      content: dishContent({ ingredients: [ingredient('Pâte à ravioles maison', '400 g')] }),
+      tips: [],
+    })
+
+    const v2 = fake.snapshot('recipe-versions').get(`${parent.id}_2`)?.content as DishContent
+    expect(v2.ingredients[0]).not.toHaveProperty('component')
+    // The version it iterates on keeps its own link — nothing was rewritten there.
+    const v1 = fake.snapshot('recipe-versions').get(`${parent.id}_1`)?.content as DishContent
+    expect(v1.ingredients[0]?.component).toBe(linked.id)
+  })
+
   test('an improvement-born version is one to test, and v1 never was', async () => {
     const recipe = await RecipeCommand.create(userId, newInput())
     if (typeof recipe === 'string') throw new Error('expected a recipe')

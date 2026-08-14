@@ -1,5 +1,10 @@
 import type { WriteBatch } from 'firebase-admin/firestore'
-import { lastWorkedOn, methodMatchesType, nextVersionNumber } from '~/domain/recipe/business-rules'
+import {
+  carriedComponents,
+  lastWorkedOn,
+  methodMatchesType,
+  nextVersionNumber,
+} from '~/domain/recipe/business-rules'
 import type { CoffeeParameters } from '~/domain/recipe/content/coffee'
 import type { OvenProfile } from '~/domain/recipe/content/oven'
 import type { VersionContent } from '~/domain/recipe/content/types'
@@ -213,6 +218,12 @@ export namespace RecipeCommand {
     const lineage = await repository.findVersionsOf(recipeId)
     const number = nextVersionNumber(recipe.lastVersionNumber)
     const now = new Date()
+    // The version this one iterates on — read before the new one is built, because it
+    // is what its components are carried over from.
+    const base =
+      input.basedOn === undefined
+        ? undefined
+        : lineage.find(({ number }) => number === input.basedOn)
     const version: RecipeVersion = {
       userId,
       recipeId,
@@ -224,17 +235,15 @@ export namespace RecipeCommand {
       change: input.change,
       ...(input.basedOn !== undefined ? { basedOn: input.basedOn } : {}),
       ...(input.why ? { why: input.why } : {}),
-      content: input.content,
+      // The linked recipes of the version this one iterates on ride along: the model
+      // regenerated the list and knows nothing of them (see `carriedComponents`).
+      content: carriedComponents(input.content, base?.content),
       tips: input.tips,
       // What the cook asked for and has not made yet: it owes a try.
       toTest: true as const,
     }
     // The cook that asked for this iteration, written on the version it was made
     // from — which stops owing a try, since it has just been made.
-    const base =
-      input.basedOn === undefined
-        ? undefined
-        : lineage.find(({ number }) => number === input.basedOn)
     const cookedBase = input.attempt && base ? cooked(base, input.attempt, now) : undefined
     const updated: Recipe = {
       ...recipe,
