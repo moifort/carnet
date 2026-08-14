@@ -104,6 +104,8 @@ struct DebugGallery: View {
             RecipeDetailGalleryScreen(recipe: Fixtures.freshImport)
         case "recipe-delete":
             RecipeDetailGalleryScreen(recipe: Fixtures.bourguignon, startOnDeleteConfirm: true)
+        case "recipe-copy":
+            RecipeDetailGalleryScreen(recipe: Fixtures.bourguignon, startOnCopyPrompt: true)
         case "history":
             Color.clear
                 .sheet(isPresented: .constant(true)) {
@@ -403,15 +405,23 @@ private struct RecipeDetailGalleryScreen: View {
     let focusVersionNumber: Int?
     /// Opens straight on the delete dialog (version vs whole recipe).
     let startOnDeleteConfirm: Bool
+    /// Opens straight on the copy prompt (the displayed version becomes a recipe).
+    let startOnCopyPrompt: Bool
     @State private var path = NavigationPath()
     /// The flow's state, seeded with the fixture: offline, and shared with the
     /// version screens the sheets push, exactly as a tab shares it.
     @State private var store: RecipeStore
 
-    init(recipe: Recipe, focusVersionNumber: Int? = nil, startOnDeleteConfirm: Bool = false) {
+    init(
+        recipe: Recipe,
+        focusVersionNumber: Int? = nil,
+        startOnDeleteConfirm: Bool = false,
+        startOnCopyPrompt: Bool = false
+    ) {
         self.recipe = recipe
         self.focusVersionNumber = focusVersionNumber
         self.startOnDeleteConfirm = startOnDeleteConfirm
+        self.startOnCopyPrompt = startOnCopyPrompt
         self._store = State(initialValue: RecipeStore(previewRecipe: recipe))
     }
 
@@ -422,7 +432,8 @@ private struct RecipeDetailGalleryScreen: View {
                 store: store,
                 path: $path,
                 focusVersionNumber: focusVersionNumber,
-                startOnDeleteConfirm: startOnDeleteConfirm
+                startOnDeleteConfirm: startOnDeleteConfirm,
+                startOnCopyPrompt: startOnCopyPrompt
             )
             .recipeFlow(store: store, path: $path, onReload: {}, onDelete: { _ in }, onDeleteVersion: { _, _ in })
         }

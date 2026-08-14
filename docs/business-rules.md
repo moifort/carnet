@@ -110,6 +110,18 @@ launched it from — never guessed from the source.
 - **Linear lineage**: a recipe owns a chain of `RecipeVersion`s (`v1 → v2 → v3 …`).
   `RecipeVersion.basedOn` is the `VersionNumber` a version was iterated from (**absent** on v1,
   which iterates on nothing). No forks, no variations, no `derivedFrom`.
+- **Copying a version out is the only way to leave a lineage**, through
+  `RecipeCommand.copyVersion(userId, { recipeId, number, title })`: the variant that has drifted
+  too far to be one more iteration becomes a recipe of its own, under a name the cook types (the
+  same name twice is two library rows nobody can tell apart). The new recipe keeps the type, the
+  course or brew method and the `warnings` of the one copied; its `v1` carries that version's
+  `content`, its `tips` and its attempt outcome (`executedAt`/`rating`/`remarks`/`photoPath`) — a
+  rating is a verdict on the plate, and the plate is what was copied. It carries **nothing of the
+  lineage**: no `change`, no `basedOn`, no `toTest` (nobody asked for this version). And nothing
+  links the two sides — no pointer either way, so "no forks" still holds on both: where it came
+  from survives as the origin label alone (`{ kind: 'import', detail: "Grandma's lasagna v3" }`),
+  the very field an import fills with the site it read. The recipe copied is not written at all,
+  its date included: copying a version is not working on it.
 - **A version *is* an attempt**: its `content` (the `VersionContent` union — `ingredients` +
   `steps`) and lineage (`origin`/`change`/`basedOn`) are immutable; its outcome **and its `tips`**
   are overwritable. An attempt is not an entity. A version with no outcome yet is a *planned*

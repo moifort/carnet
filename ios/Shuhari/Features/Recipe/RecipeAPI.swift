@@ -43,6 +43,22 @@ enum RecipeAPI {
         return data.createRecipe.id
     }
 
+    /// Copy one version into a recipe of its own — the variant that has drifted too
+    /// far to be one more iteration. The new recipe keeps the type, the course or the
+    /// brew method and the cautions of the one copied, and its v1 carries that
+    /// version's content, tips and rating. Returns the new recipe's id.
+    static func copyVersion(recipeId: String, number: Int, title: String) async throws -> String {
+        let data = try await GraphQLHelpers.perform(
+            GraphQLClient.shared.apollo,
+            mutation: ShuhariGraphQL.CopyVersionMutation(
+                recipeId: recipeId,
+                number: number,
+                title: title
+            )
+        )
+        return data.copyVersion.id
+    }
+
     static func deleteRecipe(id: String) async throws {
         _ = try await GraphQLHelpers.perform(
             GraphQLClient.shared.apollo,

@@ -77,6 +77,15 @@ export type UpdateRecipeInput = {
   favorite?: boolean
 }
 
+// Which version becomes a recipe of its own, and under what name. The name is
+// asked for rather than derived: two rows spelled the same in the library are two
+// rows the cook cannot tell apart.
+export type CopyVersionInput = {
+  recipeId: RecipeId
+  number: VersionNumberT
+  title: RecipeTitle
+}
+
 export type RecordAttemptInput = {
   recipeId: RecipeId
   versionNumber: VersionNumberT
@@ -121,6 +130,70 @@ export namespace RecipeCommand {
       await repository.save(recipe, batch)
       await repository.saveVersion(firstVersion(recipe, origin, input), batch)
       await teachVocabulary(userId, input.content, batch)
+      return recipe
+    })
+  }
+
+  // Copy one version into a recipe of its own — the cook has drifted far enough
+  // from the recipe that the next attempt is no longer one of its iterations, and
+  // wants its own page in the notebook. A full detachment: the copy carries the
+  // version's content, its tips, the recipe's cautions and the verdict the plate
+  // earned, and holds no pointer back. The lineage stays linear on both sides (no
+  // fork, no `derivedFrom`): the only trace of where it came from is its origin
+  // label, "Grandma's lasagna v3", the field an import fills with the site it read.
+  // What is deliberately dropped is the lineage itself — the copy is a v1, so it
+  // iterates on nothing and changes nothing. The source recipe is not written at
+  // all, its date included: copying a version is not working on it.
+  export const copyVersion = async (
+    userId: UserId,
+    input: CopyVersionInput,
+  ): Promise<Recipe | 'not-found'> => {
+    const source = await repository.findBy(userId, input.recipeId)
+    if (!source) return 'not-found' as const
+    const version = await repository.findVersion(input.recipeId, input.number)
+    if (!version) return 'not-found' as const
+    const now = new Date()
+    const recipe: Recipe = {
+      id: randomRecipeId(),
+      userId,
+      type: source.type,
+      // Type, course and brew method are the recipe's identity, and the copy is the
+      // same dish under another name: it lands in the same tab, ranked the same way.
+      category: source.category,
+      ...(source.method ? { method: source.method } : {}),
+      title: input.title,
+      // The cautions outlive every iteration on the recipe they were pinned on;
+      // they outlive the copy too — a gesture that ruins the dish ruins it here.
+      warnings: source.warnings,
+      lastVersionNumber: FIRST_VERSION,
+      createdAt: now,
+      // `lastWorkedOn` of a lineage of one, born this instant — whatever the age of
+      // the plate copied.
+      updatedAt: now,
+    }
+    const copied: RecipeVersion = {
+      userId,
+      recipeId: recipe.id,
+      number: FIRST_VERSION,
+      createdAt: now,
+      updatedAt: now,
+      origin: { kind: 'import', detail: `${source.title} v${version.number}` },
+      content: version.content,
+      tips: version.tips,
+      // The verdict travels with the plate: a rating is about what came out of the
+      // oven, not about the page it was written on, and the copy starts from
+      // something known to work. A version never cooked copies as one never cooked
+      // — and never as one owing a try: `toTest` is what an improvement asked for,
+      // and nobody asked for this one.
+      ...(version.executedAt ? { executedAt: version.executedAt } : {}),
+      ...(version.rating !== undefined ? { rating: version.rating } : {}),
+      ...(version.remarks ? { remarks: version.remarks } : {}),
+      ...(version.photoPath ? { photoPath: version.photoPath } : {}),
+    }
+    return atomically(async (batch) => {
+      await repository.save(recipe, batch)
+      await repository.saveVersion(copied, batch)
+      await teachVocabulary(userId, version.content, batch)
       return recipe
     })
   }

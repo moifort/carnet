@@ -158,6 +158,61 @@ describe('createRecipe mutation', () => {
   })
 })
 
+describe('copyVersion mutation', () => {
+  test('detaches a version into a recipe of its own, verdict and cautions included', async () => {
+    const id = await createdId()
+    await execute(`
+      mutation {
+        updateWarnings(recipeId: "${id}", warnings: ["Le fouet dès le début"]) { id }
+      }
+    `)
+    await execute(`
+      mutation {
+        recordAttempt(input: { recipeId: "${id}", versionNumber: 1, rating: 4 }) { number }
+      }
+    `)
+
+    const result = await execute(`
+      mutation {
+        copyVersion(recipeId: "${id}", number: 1, title: "Lasagnes de nonna") {
+          id
+          title
+          category
+          warnings
+          versionCount
+          bestRating
+          versionToOpen { number tried rating originDetail }
+        }
+      }
+    `)
+    expect(result.errors).toBeUndefined()
+    expect(result.data?.copyVersion).toMatchObject({
+      title: 'Lasagnes de nonna',
+      // The course of the recipe copied, and its cautions.
+      category: 'MAIN',
+      warnings: ['Le fouet dès le début'],
+      // A lineage of one, opening on the plate it was copied from — rating and all.
+      versionCount: 1,
+      bestRating: 4,
+      versionToOpen: { number: 1, tried: true, rating: 4, originDetail: 'Lasagnes de mamie v1' },
+    })
+
+    const copyId = (result.data as { copyVersion: { id: string } }).copyVersion.id
+    expect(copyId).not.toBe(id)
+    // Nothing links the two lineages, and the recipe copied still owns its own.
+    expect(fake.snapshot('recipe-versions').get(`${copyId}_1`)).not.toHaveProperty('basedOn')
+    expect(fake.snapshot('recipe-versions').get(`${id}_1`)?.recipeId).toBe(id)
+  })
+
+  test('surfaces an unknown version as NOT_FOUND', async () => {
+    const id = await createdId()
+    const result = await execute(`
+      mutation { copyVersion(recipeId: "${id}", number: 7, title: "Fantôme") { id } }
+    `)
+    expect(result.errors?.[0]?.extensions?.code).toBe('NOT_FOUND')
+  })
+})
+
 describe('updateRecipe mutation', () => {
   test('renames, refiles and marks as favourite in one call', async () => {
     const id = await createdId()

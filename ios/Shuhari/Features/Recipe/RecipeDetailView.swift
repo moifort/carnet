@@ -34,6 +34,12 @@ struct RecipeDetailView: View {
     @State private var showToTest = false
     @State private var recordRequest: ExecutionRequest?
     @State private var showDeleteConfirm = false
+    /// The copy prompt: the displayed version leaves for a recipe of its own, under
+    /// the name typed here — seeded from the current one, because two rows spelled
+    /// the same in the library are two rows nobody can tell apart.
+    @State private var showCopyPrompt = false
+    @State private var copyTitle = ""
+    @State private var copyError = ErrorPresenter()
     /// The version the sheet shows — picked in the history or the to-cook list, which
     /// hand back a number and nothing else. Nil opens on the recipe's own
     /// `versionToOpen`. Picking swaps what this one screen displays instead of pushing
@@ -71,7 +77,8 @@ struct RecipeDetailView: View {
         onDelete: @escaping (String) -> Void = { _ in },
         onDeleteVersion: @escaping (String, Int) -> Void = { _, _ in },
         focusVersionNumber: Int? = nil,
-        startOnDeleteConfirm: Bool = false
+        startOnDeleteConfirm: Bool = false,
+        startOnCopyPrompt: Bool = false
     ) {
         self.recipeId = previewRecipe.id
         self.focusVersionNumber = focusVersionNumber
@@ -81,6 +88,8 @@ struct RecipeDetailView: View {
         self.onDelete = onDelete
         self.onDeleteVersion = onDeleteVersion
         self._showDeleteConfirm = State(initialValue: startOnDeleteConfirm)
+        self._showCopyPrompt = State(initialValue: startOnCopyPrompt)
+        self._copyTitle = State(initialValue: Self.suggestedCopyTitle(previewRecipe.title))
         self._selectedVersion = State(initialValue: focusVersionNumber)
     }
 
@@ -204,6 +213,18 @@ struct RecipeDetailView: View {
                     .accessibilityIdentifier("confirm-delete-recipe")
                     Button("Annuler", role: .cancel) {}
                 }
+                // The displayed version leaves for a recipe of its own, taking its
+                // content, its tips, the recipe's cautions and its rating with it.
+                // The recipe it came from is left exactly as it was.
+                .alert("Nouvelle recette", isPresented: $showCopyPrompt) {
+                    TextField("Nom de la recette", text: $copyTitle)
+                        .accessibilityIdentifier("copy-version-title-field")
+                    Button("Copier") { copyDisplayedVersion(recipe) }
+                        .accessibilityIdentifier("confirm-copy-version")
+                    Button("Annuler", role: .cancel) {}
+                } message: {
+                    Text("Copier la version \(displayedVersion(recipe).number) dans une recette à part ?")
+                }
             } else if let error = store.error(recipeId) {
                 ContentUnavailableView("Erreur", systemImage: "exclamationmark.triangle", description: Text(error))
             } else {
@@ -211,6 +232,7 @@ struct RecipeDetailView: View {
             }
         }
         .errorAlert(favoriteError)
+        .errorAlert(copyError)
         // Read on every appearance, never only on the first: what the flow already
         // knows is drawn at once — a version picked in a sheet opens on it instead of
         // on a spinner — and this only corrects it.
@@ -356,11 +378,19 @@ struct RecipeDetailView: View {
                     systemImage: "exclamationmark.triangle"
                 ) { showWarnings = true }
                     .accessibilityIdentifier("edit-warnings-button")
+                // The way out of a lineage: this version has drifted too far to be
+                // one more iteration, so it becomes a recipe on its own.
+                Button("Copier en nouvelle recette", systemImage: "doc.on.doc") {
+                    copyTitle = Self.suggestedCopyTitle(recipe.title)
+                    showCopyPrompt = true
+                }
+                .accessibilityIdentifier("copy-version-button")
                 Button("Supprimer", systemImage: "trash", role: .destructive) { showDeleteConfirm = true }
                     .accessibilityIdentifier("delete-recipe-button")
             } label: {
-                Image(systemName: "ellipsis")
+                ActionIcon(systemImage: "ellipsis", isRunning: copyError.isRunning)
             }
+            .disabled(copyError.isRunning)
             .accessibilityIdentifier("recipe-menu")
         }
 
@@ -460,6 +490,35 @@ struct RecipeDetailView: View {
         onDeleteVersion(recipeId, displayedVersion(recipe).number)
         store.forget(recipeId)
         if !path.isEmpty { path.removeLast() }
+    }
+
+    /// What the copy is named before the cook touches it: never the very same name,
+    /// which would put two rows nobody can tell apart in the library.
+    private static func suggestedCopyTitle(_ title: String) -> String {
+        "\(title) (copie)"
+    }
+
+    /// Copy the displayed version into a recipe of its own, then open it on top of
+    /// this one — the cook lands on what they just created, exactly as after an
+    /// import. Unlike the deletion, this one is awaited: there is nothing to show
+    /// until the server has given the new recipe its id.
+    private func copyDisplayedVersion(_ recipe: Recipe) {
+        let title = copyTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty else { return }
+        let number = displayedVersion(recipe).number
+        Task {
+            await copyError.run {
+                let copyId = try await RecipeAPI.copyVersion(
+                    recipeId: recipeId,
+                    number: number,
+                    title: title
+                )
+                // The library behind gains the row, and the new recipe sheet opens
+                // over the one it was copied from.
+                onReload()
+                path.append(RecipeRoute.recipe(id: copyId))
+            }
+        }
     }
 
     /// Flip the favourite and reload — the sheet redraws its heart, and the library

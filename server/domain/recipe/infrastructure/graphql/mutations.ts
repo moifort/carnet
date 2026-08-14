@@ -68,6 +68,52 @@ builder.mutationField('createRecipe', (t) =>
   }),
 )
 
+builder.mutationField('copyVersion', (t) =>
+  t.field({
+    type: RecipeType,
+    description: [
+      'Copy one version into a recipe of its own — the variant that has drifted too far to be one ' +
+        'more iteration of this recipe. The new recipe keeps the type, the course or brew method ' +
+        'and the cautions of the one copied, and its `v1` carries that version’s content, tips and ' +
+        'attempt outcome (rating, remarks). It is a detached copy, not a fork: nothing links the ' +
+        'two lineages, the `v1` iterates on nothing, and where it came from survives only as its ' +
+        '`originDetail` (`"Grandma’s lasagna v3"`). The recipe copied is left untouched. Returns ' +
+        'the new recipe.',
+      '',
+      '```graphql',
+      'copyVersion(recipeId: "9f1c-a3b2", number: 3, title: "Nonna’s lasagna") {',
+      '  id',
+      '  versionToOpen { number }',
+      '}',
+      '```',
+    ].join('\n'),
+    args: {
+      recipeId: t.arg({
+        type: 'RecipeId',
+        required: true,
+        description: 'Which recipe the version belongs to',
+      }),
+      number: t.arg({
+        type: 'VersionNumber',
+        required: true,
+        description: 'Which version to copy, e.g. `3`',
+      }),
+      title: t.arg({
+        type: 'RecipeTitle',
+        required: true,
+        description: 'The new recipe’s name, e.g. `"Nonna’s lasagna"`',
+      }),
+    },
+    resolve: async (_root, { recipeId, number, title }, { userId }) => {
+      const result = await RecipeCommand.copyVersion(userId, { recipeId, number, title })
+      return match(result)
+        .with('not-found', domainError)
+        .with(P.not(P.string), (recipe) => recipe)
+        .exhaustive()
+    },
+  }),
+)
+
 builder.mutationField('updateRecipe', (t) =>
   t.field({
     type: RecipeType,

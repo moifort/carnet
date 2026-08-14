@@ -6,6 +6,12 @@ mutation DeleteVersion($recipeId: RecipeId!, $number: VersionNumber!) {
   deleteVersion(recipeId: $recipeId, number: $number)
 }
 
+mutation CopyVersion($recipeId: RecipeId!, $number: VersionNumber!, $title: RecipeTitle!) {
+  copyVersion(recipeId: $recipeId, number: $number, title: $title) {
+    id
+  }
+}
+
 mutation UpdateRecipe($id: RecipeId!, $input: UpdateRecipeInput!) {
   updateRecipe(id: $id, input: $input) {
     id

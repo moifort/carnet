@@ -179,6 +179,150 @@ describe('RecipeCommand.create', () => {
   })
 })
 
+describe('RecipeCommand.copyVersion', () => {
+  test('copies the version into a recipe of its own — content, tips and verdict included', async () => {
+    const source = await RecipeCommand.create(userId, {
+      ...newInput(),
+      tips: ['Servir avec du riz' as Tip],
+    })
+    if (typeof source === 'string') throw new Error('expected a recipe')
+    await RecipeCommand.updateWarnings(userId, source.id, ['Fouet dès le début' as Warning])
+    await RecipeCommand.recordAttempt(userId, {
+      recipeId: source.id,
+      versionNumber: 1 as VersionNumber,
+      rating: 4 as Rating,
+      remarks: 'Trop salé' as Remarks,
+    })
+
+    // What the setup wrote (the cautions land as a direct save) is not what this
+    // test is about: only the writes the copy itself adds are counted.
+    const batches = fake.batches.length
+    const directWrites = fake.directWrites.length
+
+    const copy = await RecipeCommand.copyVersion(userId, {
+      recipeId: source.id,
+      number: 1 as VersionNumber,
+      title: 'Blanquette au citron' as RecipeTitle,
+    })
+    if (typeof copy === 'string') throw new Error(`expected a recipe, got ${copy}`)
+
+    expect(copy.id).not.toBe(source.id)
+    expect(copy.title).toBe('Blanquette au citron' as RecipeTitle)
+    // The identity of the recipe copied, cautions included.
+    expect(copy.type).toBe('dish')
+    expect(copy.category).toBe('main')
+    expect(copy.warnings).toEqual(['Fouet dès le début' as Warning])
+    expect(copy.lastVersionNumber).toBe(1 as VersionNumber)
+
+    const v1 = fake.snapshot('recipe-versions').get(`${copy.id}_1`)
+    expect(v1?.content).toEqual(dishContent())
+    expect(v1?.tips).toEqual(['Servir avec du riz' as Tip])
+    // Where it came from survives as a label and nothing else.
+    expect(v1?.origin).toEqual({ kind: 'import', detail: 'Blanquette v1' })
+    // The verdict travels with the plate…
+    expect(v1?.rating).toBe(4 as Rating)
+    expect(v1?.remarks).toBe('Trop salé' as Remarks)
+    expect(v1?.executedAt).toBeInstanceOf(Date)
+    // …but not the lineage: a copy is a v1, it iterates on nothing.
+    expect(v1).not.toHaveProperty('change')
+    expect(v1).not.toHaveProperty('basedOn')
+    expect(v1).not.toHaveProperty('toTest')
+    // Both docs land in a single batch (all-or-nothing).
+    expect(fake.directWrites.length).toBe(directWrites)
+    expect(fake.batches.length).toBe(batches + 1)
+  })
+
+  test('leaves the recipe copied exactly as it was', async () => {
+    const source = await RecipeCommand.create(userId, newInput())
+    if (typeof source === 'string') throw new Error('expected a recipe')
+    const before = fake.snapshot('recipes').get(source.id as string)
+    const versionBefore = fake.snapshot('recipe-versions').get(`${source.id}_1`)
+
+    await RecipeCommand.copyVersion(userId, {
+      recipeId: source.id,
+      number: 1 as VersionNumber,
+      title: 'Blanquette au citron' as RecipeTitle,
+    })
+
+    // Copying a version is not working on it: not one field of the source moves,
+    // its date least of all.
+    expect(fake.snapshot('recipes').get(source.id as string)).toEqual(before)
+    expect(fake.snapshot('recipe-versions').get(`${source.id}_1`)).toEqual(versionBefore)
+  })
+
+  test('keeps the brew method of a coffee, rank included', async () => {
+    const source = await RecipeCommand.create(userId, {
+      type: 'coffee',
+      category: 'drink' as const,
+      method: 'v60' as const,
+      title: 'V60 Éthiopie' as RecipeTitle,
+      content: coffeeContent(),
+      tips: [],
+    })
+    if (typeof source === 'string') throw new Error('expected a recipe')
+
+    const copy = await RecipeCommand.copyVersion(userId, {
+      recipeId: source.id,
+      number: 1 as VersionNumber,
+      title: 'V60 Éthiopie — mouture fine' as RecipeTitle,
+    })
+    if (typeof copy === 'string') throw new Error(`expected a recipe, got ${copy}`)
+
+    expect(copy.method).toBe('v60')
+    expect(fake.snapshot('recipes').get(copy.id as string)?.methodRank).toBe(6)
+    expect(fake.snapshot('recipe-versions').get(`${copy.id}_1`)?.content).toEqual(coffeeContent())
+  })
+
+  test('copies a version never cooked as one never cooked, owing no try', async () => {
+    const source = await RecipeCommand.create(userId, newInput())
+    if (typeof source === 'string') throw new Error('expected a recipe')
+    // An improvement's version: it owes a try on the recipe it was asked for…
+    await RecipeCommand.addVersion(userId, source.id, {
+      change: 'Moins de sel',
+      basedOn: 1 as VersionNumber,
+      content: dishContent(),
+      tips: [],
+    })
+
+    const copy = await RecipeCommand.copyVersion(userId, {
+      recipeId: source.id,
+      number: 2 as VersionNumber,
+      title: 'Blanquette peu salée' as RecipeTitle,
+    })
+    if (typeof copy === 'string') throw new Error(`expected a recipe, got ${copy}`)
+
+    const v1 = fake.snapshot('recipe-versions').get(`${copy.id}_1`)
+    expect(v1).not.toHaveProperty('rating')
+    expect(v1).not.toHaveProperty('executedAt')
+    // …but nobody asked for the copy: it is a v1 like any other, not a version
+    // the kitchen owes a cook.
+    expect(v1).not.toHaveProperty('toTest')
+    expect(v1?.origin).toEqual({ kind: 'import', detail: 'Blanquette v2' })
+  })
+
+  test('answers not-found for another cook’s recipe and for a version that does not exist', async () => {
+    const source = await RecipeCommand.create(userId, newInput())
+    if (typeof source === 'string') throw new Error('expected a recipe')
+    const writes = fake.batches.length
+
+    const stranger = await RecipeCommand.copyVersion('user-2' as UserId, {
+      recipeId: source.id,
+      number: 1 as VersionNumber,
+      title: 'Volée' as RecipeTitle,
+    })
+    const missing = await RecipeCommand.copyVersion(userId, {
+      recipeId: source.id,
+      number: 7 as VersionNumber,
+      title: 'Fantôme' as RecipeTitle,
+    })
+
+    expect(stranger).toBe('not-found')
+    expect(missing).toBe('not-found')
+    expect(fake.batches.length).toBe(writes)
+    expect(fake.directWrites).toEqual([])
+  })
+})
+
 describe('RecipeCommand.addVersion', () => {
   test('appends v2, stamping its basedOn and bumping the version count', async () => {
     const recipe = await RecipeCommand.create(userId, newInput())
