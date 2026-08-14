@@ -51,6 +51,8 @@ struct RecipeDetailView: View {
     @State private var showIngredients = false
     /// Whether the method editor is open.
     @State private var showSteps = false
+    /// Whether the tips editor is open.
+    @State private var showTips = false
 
     /// Which line the component picker was opened on. Identified by its index: the
     /// picker and the list editor are never open at once, so the list cannot shift
@@ -218,6 +220,20 @@ struct RecipeDetailView: View {
                         onReload()
                     }
                 }
+                // Rewriting the displayed version's tips by hand — the same in-place
+                // write the AI proposal ends on, without the model.
+                .sheet(isPresented: $showTips) {
+                    let version = displayedVersion(recipe)
+                    TipsEditSheet(initial: version.tips) { tips in
+                        try await ProposalAPI.updateTips(
+                            recipeId: recipeId,
+                            versionNumber: version.number,
+                            tips: tips
+                        )
+                        await store.load(recipeId)
+                        onReload()
+                    }
+                }
                 // Saying which recipe an ingredient line IS: a correction in place on
                 // the displayed version — no version created, its rating untouched.
                 .sheet(item: $linkRequest) { request in
@@ -338,7 +354,8 @@ struct RecipeDetailView: View {
                 // A coffee has no method to correct: its dials say everything.
                 onEditSteps: displayedVersion(recipe).content.coffeeParameters == nil
                     ? { showSteps = true }
-                    : nil
+                    : nil,
+                onEditTips: { showTips = true }
             )
         } else {
             RecipeDetailPage(
@@ -350,7 +367,8 @@ struct RecipeDetailView: View {
                 // A coffee has no method to correct: its dials say everything.
                 onEditSteps: displayedVersion(recipe).content.coffeeParameters == nil
                     ? { showSteps = true }
-                    : nil
+                    : nil,
+                onEditTips: { showTips = true }
             )
         }
     }

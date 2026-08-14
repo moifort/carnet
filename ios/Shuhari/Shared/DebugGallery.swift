@@ -199,7 +199,9 @@ struct DebugGallery: View {
             // The recipe sheet's closing section on its own — it sits below the steps,
             // too far down the sheet to be seen without scrolling.
             List {
-                TipsSection(tips: Fixtures.bourguignonV3.tips)
+                TipsSection(tips: Fixtures.bourguignonV3.tips, onEdit: {})
+                // Empty and editable: the state that lets a first tip be written.
+                TipsSection(tips: [], onEdit: {})
             }
         case "tips-proposal":
             NavigationStack {
@@ -240,6 +242,11 @@ struct DebugGallery: View {
             Color.clear
                 .sheet(isPresented: .constant(true)) {
                     IngredientsEditSheet(initial: []) { _ in }
+                }
+        case "tips-edit":
+            Color.clear
+                .sheet(isPresented: .constant(true)) {
+                    TipsEditSheet(initial: Fixtures.bourguignonV3.tips) { _ in }
                 }
         case "steps-edit":
             Color.clear

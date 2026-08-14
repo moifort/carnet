@@ -31,6 +31,8 @@ struct RecipeDetailPage: View {
     /// Opens the editor of the displayed version's method. Nil leaves it read-only —
     /// and a coffee, which has no steps, never gets it.
     var onEditSteps: (() -> Void)? = nil
+    /// Opens the editor of the displayed version's tips. Nil leaves them read-only.
+    var onEditTips: (() -> Void)? = nil
 
     /// Ephemeral quantity scaling of the ingredient list — lives only while the
     /// sheet is open, the stored version is never rewritten. Only the plain sheet
@@ -79,7 +81,7 @@ struct RecipeDetailPage: View {
             // The oven the version bakes in — absent entirely on a dish that never
             // sees one, which is most of them.
             ovenSection
-            TipsSection(tips: displayedVersion.tips)
+            TipsSection(tips: displayedVersion.tips, onEdit: onEditTips)
         }
         .listSectionSpacing(5)
         // The factor never survives a version switch: the sheet lands back on the
