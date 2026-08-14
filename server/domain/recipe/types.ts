@@ -116,7 +116,19 @@ export type AssistedProgram = Brand<string, 'AssistedProgram'>
 
 // A recipe component with its measured quantity ("Gin" → "50 ml", "Beurre" →
 // "170 g"). The shopping-list view of the recipe. Ordered list, never a map.
-export type Ingredient = { name: IngredientName; quantity: IngredientQuantity }
+export type Ingredient = {
+  // What goes in, as this recipe calls it. On a linked line it is the ROLE the
+  // component plays here ("Pâte à ravioles"), never the linked recipe's title — the
+  // content is immutable, and a stored title would rot the day it is renamed.
+  name: IngredientName
+  quantity: IngredientQuantity
+  // This line IS a recipe of its own — the pasta dough of a ravioli, the sauce of a
+  // gratin. Deliberately NOT a version number: which version answers for the linked
+  // recipe is derived at read time (`versionToOpen`), so it keeps improving on its own
+  // and this one follows without a write. Absent, never `null`, and only
+  // `updateComponent` ever sets it.
+  component?: RecipeId
+}
 
 // Thermomix settings for one step, display-oriented strings (no computation is
 // ever done on them — "Varoma" and "pétrin" are valid values, not numbers).

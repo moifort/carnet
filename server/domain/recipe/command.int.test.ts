@@ -993,6 +993,152 @@ describe('updateCoffeeParameters', () => {
   })
 })
 
+describe('updateComponent', () => {
+  const V1 = 1 as VersionNumber
+  // What Firestore actually holds for the parent's v1 — the assertions are about the
+  // stored line, not only the returned one.
+  const storedIngredients = (recipeId: RecipeId) => {
+    const stored = fake.snapshot('recipe-versions').get(`${recipeId}_1`)
+    return (stored?.content as DishContent | undefined)?.ingredients ?? []
+  }
+  const ravioli = () =>
+    RecipeCommand.create(
+      userId,
+      newInput(
+        dishContent({
+          ingredients: [ingredient('Pâte à ravioles', '400 g'), ingredient('Champignons', '250 g')],
+        }),
+      ),
+    )
+  const dough = () =>
+    RecipeCommand.create(userId, {
+      type: 'dish' as const,
+      category: 'main' as const,
+      title: 'Pâte à pâtes' as RecipeTitle,
+      content: dishContent({ ingredients: [ingredient('Farine', '250 g')] }),
+      tips: [],
+    })
+
+  test('links one ingredient line to a recipe of its own, in a single batch', async () => {
+    const parent = await ravioli()
+    const linked = await dough()
+    if (typeof parent === 'string' || typeof linked === 'string')
+      throw new Error('expected recipes')
+    const batchesBefore = fake.batches.length
+
+    const updated = await RecipeCommand.updateComponent(userId, parent.id, V1, 0, linked.id)
+    if (typeof updated === 'string') throw new Error(`expected a version, got ${updated}`)
+
+    if (updated.content.kind === 'coffee') throw new Error('expected a dish')
+    expect(updated.content.ingredients[0]?.component).toBe(linked.id)
+    // The line keeps what it always said: the name is its ROLE here, the quantity is
+    // still what goes in — the link adds, it never replaces.
+    expect(updated.content.ingredients[0]?.name).toBe('Pâte à ravioles' as IngredientName)
+    expect(updated.content.ingredients[0]?.quantity).toBe('400 g' as IngredientQuantity)
+    // Its neighbours are plain ingredients and stay untouched.
+    expect(updated.content.ingredients[1]).not.toHaveProperty('component')
+    expect(fake.snapshot('recipe-versions').get(`${parent.id}_1`)?.content).toEqual(updated.content)
+    expect(fake.batches.length).toBe(batchesBefore + 1)
+    expect(fake.directWrites).toEqual([])
+  })
+
+  test('replaces a link, and clears it with undefined — absent, never null', async () => {
+    const parent = await ravioli()
+    const first = await dough()
+    const second = await dough()
+    if (typeof parent === 'string' || typeof first === 'string' || typeof second === 'string')
+      throw new Error('expected recipes')
+
+    await RecipeCommand.updateComponent(userId, parent.id, V1, 0, first.id)
+    await RecipeCommand.updateComponent(userId, parent.id, V1, 0, second.id)
+    expect(storedIngredients(parent.id)[0]?.component).toBe(second.id)
+
+    await RecipeCommand.updateComponent(userId, parent.id, V1, 0, undefined)
+    expect(storedIngredients(parent.id)[0]).not.toHaveProperty('component')
+    expect(storedIngredients(parent.id)[0]?.quantity).toBe('400 g' as IngredientQuantity)
+  })
+
+  test('dates the recipe by the version it just annotated', async () => {
+    const parent = await ravioli()
+    const linked = await dough()
+    if (typeof parent === 'string' || typeof linked === 'string')
+      throw new Error('expected recipes')
+
+    const updated = await RecipeCommand.updateComponent(userId, parent.id, V1, 0, linked.id)
+    if (typeof updated === 'string') throw new Error('expected a version')
+
+    expect(fake.snapshot('recipes').get(parent.id as string)?.updatedAt).toEqual(updated.updatedAt)
+  })
+
+  test('refuses a coffee, which has no ingredient list', async () => {
+    const coffee = await RecipeCommand.create(userId, {
+      type: 'coffee' as const,
+      category: 'drink' as const,
+      method: 'espresso' as const,
+      title: 'Espresso du matin' as RecipeTitle,
+      content: coffeeContent(),
+      tips: [],
+    })
+    const linked = await dough()
+    if (typeof coffee === 'string' || typeof linked === 'string')
+      throw new Error('expected recipes')
+
+    expect(await RecipeCommand.updateComponent(userId, coffee.id, V1, 0, linked.id)).toBe(
+      'not-a-cooked-recipe',
+    )
+  })
+
+  test('refuses an ingredient index outside the list', async () => {
+    const parent = await ravioli()
+    const linked = await dough()
+    if (typeof parent === 'string' || typeof linked === 'string')
+      throw new Error('expected recipes')
+
+    expect(await RecipeCommand.updateComponent(userId, parent.id, V1, 7, linked.id)).toBe(
+      'ingredient-not-found',
+    )
+  })
+
+  test('refuses a recipe that is its own ingredient', async () => {
+    const parent = await ravioli()
+    if (typeof parent === 'string') throw new Error('expected a recipe')
+
+    expect(await RecipeCommand.updateComponent(userId, parent.id, V1, 0, parent.id)).toBe(
+      'self-reference',
+    )
+  })
+
+  test('answers not-found for an unknown recipe, an unknown version, or another cook’s', async () => {
+    const parent = await ravioli()
+    const linked = await dough()
+    if (typeof parent === 'string' || typeof linked === 'string')
+      throw new Error('expected recipes')
+
+    expect(await RecipeCommand.updateComponent(userId, 'nope' as RecipeId, V1, 0, linked.id)).toBe(
+      'not-found',
+    )
+    expect(
+      await RecipeCommand.updateComponent(userId, parent.id, 9 as VersionNumber, 0, linked.id),
+    ).toBe('not-found')
+    expect(
+      await RecipeCommand.updateComponent('user-2' as UserId, parent.id, V1, 0, linked.id),
+    ).toBe('not-found')
+  })
+
+  test('answers not-found when the linked recipe is another cook’s — never a code of its own', async () => {
+    const parent = await ravioli()
+    const stranger = await RecipeCommand.create('user-2' as UserId, newInput())
+    if (typeof parent === 'string' || typeof stranger === 'string')
+      throw new Error('expected recipes')
+
+    // A code that said "it exists but is not yours" would tell them it exists.
+    expect(await RecipeCommand.updateComponent(userId, parent.id, V1, 0, stranger.id)).toBe(
+      'not-found',
+    )
+    expect(storedIngredients(parent.id)[0]).not.toHaveProperty('component')
+  })
+})
+
 describe('a version’s updatedAt', () => {
   const V1 = 1 as VersionNumber
   // Frozen clock: the bump is asserted on the exact instant of the edit, not on a

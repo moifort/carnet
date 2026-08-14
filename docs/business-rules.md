@@ -151,6 +151,52 @@ launched it from — never guessed from the source.
   leave it alone: they change nothing the cook wrote, and moving a version to another month
   behind their back is a lie.
 
+## Composition — an ingredient can be a recipe
+
+A ravioli is two recipes: the dough and the ravioli. **An ingredient line can BE another recipe** —
+`Ingredient.component?: RecipeId`, set by `RecipeCommand.updateComponent` and by nothing else.
+
+- **The link holds a recipe, never a version.** Which version answers for the linked recipe is
+  derived at read time (`versionToOpen` — the best-rated one, else the latest, never one still
+  owing a cook). The dough keeps improving on its own and the ravioli follows without a single
+  write. It is [derivation, not promotion](#derivation--no-promotion), applied to a link.
+- **A component is an ingredient line, not a block of its own.** One shopping list, one place to
+  read what to buy; the quantity is the line's own, and no scaling is ever computed on it (a
+  quantity is a display string, and a recipe has neither servings nor yield). The stored `name` is
+  the **role** the component plays here ("Pâte à ravioles"), never the linked recipe's title: the
+  content is immutable, and a stored title would rot the day the recipe is renamed. The live title
+  and rating come from the link.
+- **This is not a fork.** "No forks" forbids *lineage* links between versions (`derivedFrom`, and
+  the deliberate absence of one on `copyVersion`). A component is a *composition* link between two
+  aggregates — another axis entirely. Both rules hold at once.
+- **Changing the dough is a new version; naming the dough already used is a correction.** In the
+  first case the plate changes, so it is an attempt (`addVersion`, another `component` in its
+  content). In the second the plate cooked is identical, so `updateComponent` rewrites the line in
+  place and creates nothing — the same border `updateCoffeeParameters` and `updateOvenProfile`
+  draw. The rating on that version stays valid, because it is a verdict on the same plate.
+- **A component survives an iteration**, carried by the CODE (`carriedComponents`, applied by
+  `addVersion`), matched on the ingredient name — a regenerated list leaves no other handle. The
+  model regenerates the whole ingredient list and knows nothing of the link, so without this the
+  cook would say yes to a change of seasoning and find the dough unlinked. The model is told the
+  line is a recipe of its own and must keep it as one line under the same name; a renamed line
+  loses its link, and one tap puts it back. A lost link costs nothing, a wrong one costs a recipe.
+- **Resolution stops at one level.** The ravioli sheet unfolds the dough; a component of the dough
+  shows as a chip, not unfolded. No recursion, so no cycle to forbid and no unbounded read budget.
+  A recipe that is its own ingredient is refused (`'self-reference'`); longer cycles are left alone
+  — nothing resolves past one level, so they are a navigation, not a loop.
+- **Deleting the linked recipe breaks nothing.** The link resolves to `null` and the line goes back
+  to being a plain ingredient — `name` and `quantity` are stored, so it stays readable and
+  shoppable. Nothing is cleaned up: the content is immutable, and rewriting past versions to tidy a
+  link would be the one rule this must not break. Neither a refused deletion nor an error state to
+  clear: the cook threw that recipe away on purpose.
+- **A coffee cannot carry one**, by construction rather than by rule: `Ingredient` exists only in
+  `DishContent` and `ThermomixContent`. `updateComponent` answers `'not-a-cooked-recipe'` on one,
+  the same code `updateOvenProfile` uses.
+- **Only `updateComponent` sets a component.** `IngredientInput` deliberately does not accept one,
+  so no content-carrying payload can slip a link in sideways; the command is where the linked
+  recipe is checked to be the cook's own (a stranger's answers `'not-found'`, never a code that
+  would tell them it exists). The asymmetry with the `Ingredient` output type is the point.
+
 ## Derivation — no promotion
 
 Everything is derived (`recipe/business-rules.ts`), nothing is promoted:

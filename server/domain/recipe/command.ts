@@ -398,6 +398,55 @@ export namespace RecipeCommand {
     })
   }
 
+  // Say which recipe one ingredient line IS — the ravioli's pasta dough, a page of
+  // its own with its own versions and its own ratings. A correction in place, like
+  // `updateOvenProfile`: naming the dough that was already used changes nothing about
+  // the plate that was cooked, so it creates no version and the rating still stands.
+  // *Changing* dough is another matter — that is a new attempt, and it goes through
+  // `addVersion` with another component in its content.
+  // `component: undefined` unlinks, the same way `oven: undefined` clears a profile.
+  export const updateComponent = async (
+    userId: UserId,
+    recipeId: RecipeId,
+    versionNumber: VersionNumberT,
+    ingredient: number,
+    component: RecipeId | undefined,
+  ): Promise<
+    RecipeVersion | 'not-found' | 'not-a-cooked-recipe' | 'ingredient-not-found' | 'self-reference'
+  > => {
+    const recipe = await repository.findBy(userId, recipeId)
+    if (!recipe) return 'not-found' as const
+    // A recipe that is its own ingredient is nonsense, and refused outright. Longer
+    // cycles (A → B → A) are deliberately left alone: nothing resolves past one level,
+    // so they are a navigation the cook can walk out of, not a loop.
+    if (component === recipeId) return 'self-reference' as const
+    // The linked recipe must be the cook's own. A stranger's answers 'not-found' like
+    // any other — a code of its own would tell them it exists.
+    if (component && !(await repository.findBy(userId, component))) return 'not-found' as const
+    const lineage = await repository.findVersionsOf(recipeId)
+    const version = lineage.find((candidate) => candidate.number === versionNumber)
+    if (!version) return 'not-found' as const
+    // A coffee has no ingredient list to link from — its dose and its water are dials.
+    if (version.content.kind === 'coffee') return 'not-a-cooked-recipe' as const
+    const line = version.content.ingredients[ingredient]
+    if (!line) return 'ingredient-not-found' as const
+    const ingredients = version.content.ingredients.with(ingredient, {
+      // Rebuilt rather than spread, so unlinking drops the field instead of storing a
+      // hollow one: absence IS the plain ingredient.
+      name: line.name,
+      quantity: line.quantity,
+      ...(component ? { component } : {}),
+    })
+    const content: VersionContent = { ...version.content, ingredients }
+    const updated: RecipeVersion = { ...version, content, updatedAt: new Date() }
+    const updatedRecipe: Recipe = { ...recipe, updatedAt: lastWorkedOn(written(lineage, updated)) }
+    return atomically(async (batch) => {
+      await repository.saveVersion(updated, batch)
+      await repository.save(updatedRecipe, batch)
+      return updated
+    })
+  }
+
   // Rewrite the recipe's warnings in place — the aggregate-level counterpart of
   // `updateTips`: the cook is pinning cautions on the recipe, not iterating on it,
   // so no version is created and no batch is needed (a single document).
