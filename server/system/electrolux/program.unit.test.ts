@@ -8,7 +8,11 @@ const profile = (program: string, assisted?: string) =>
 describe('program mapping', () => {
   test('maps the functions this oven has, with the codes it answered with', () => {
     expect(electroluxProgram(profile('convection'))).toBe('TRUE_FAN')
-    expect(electroluxProgram(profile('conventional'))).toBe('BAKE')
+    // The top AND bottom elements together, which is what conventional heat is.
+    // `BAKE` alone is a different code this oven also accepts, and starting a
+    // conventional version on it would cook on another heat than the one written
+    // down.
+    expect(electroluxProgram(profile('conventional'))).toBe('BAKE_BROIL')
     expect(electroluxProgram(profile('grill'))).toBe('BROIL')
   })
 
@@ -19,6 +23,17 @@ describe('program mapping', () => {
 
   test('a code round-trips back to its heating function', () => {
     expect(ovenProgram('TRUE_FAN')).toEqual({ program: 'convection' })
+    // The reading a real bread bake answered with. Unmapped, it made the oven's
+    // settings uncopyable while the very same response still counted the minutes
+    // down — the settings arrived, the mode alone was missing.
+    expect(ovenProgram('BAKE_BROIL')).toEqual({ program: 'conventional' })
+  })
+
+  test('a code the appliance declares but nobody has identified yet reads as nothing', () => {
+    // Declared in this oven's capabilities, left unmapped on purpose: pairing them
+    // by guesswork is how a version ends up cooked on another heat than its own.
+    expect(ovenProgram('BAKE')).toBeUndefined()
+    expect(ovenProgram('BAKE_TRUE_FAN')).toBeUndefined()
   })
 
   test('a code this notebook has no word for is not an error', () => {

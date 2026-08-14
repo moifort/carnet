@@ -26,21 +26,23 @@ struct OvenSettings: Sendable, Equatable {
     var duration: Int?
     var core: Int?
 
-    /// The profile these dials amount to, or nil when the oven says too little to
-    /// make one — a heating function and a temperature are the minimum a version
-    /// needs to be startable.
-    var profile: OvenProfile? {
-        guard let program, let temperature else { return nil }
-        // An assisted programme without its code starts nothing, so it is not a
-        // profile — better no button than one the oven will refuse.
-        if program == .assisted, assisted == nil { return nil }
-        return OvenProfile(
-            program: program,
-            assisted: assisted,
-            temperature: temperature,
-            duration: duration,
-            core: core
-        )
+    /// Whether these dials are worth copying at all — one reading is enough. The
+    /// copy used to require a heating function AND a temperature, which hid the
+    /// button on a real oven baking bread at 230 °C for an hour: its programme code
+    /// was one the notebook had no word for, so the mode alone was missing and the
+    /// two settings that WERE there went with it. What the oven says is copyable
+    /// even when it does not say everything.
+    ///
+    /// An assisted programme without its code is not a mode — it starts nothing —
+    /// so it does not, on its own, make a copy worth offering.
+    var isCopyable: Bool {
+        copyableProgram != nil || temperature != nil || duration != nil || core != nil
+    }
+
+    /// The mode to copy, or nil when the oven names none the notebook can use.
+    var copyableProgram: OvenProgram? {
+        guard let program else { return nil }
+        return program == .assisted && assisted == nil ? nil : program
     }
 }
 

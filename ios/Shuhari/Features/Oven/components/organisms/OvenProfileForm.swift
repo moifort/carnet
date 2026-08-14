@@ -28,16 +28,27 @@ struct OvenProfileDraft {
         core = base.core ?? 63
     }
 
-    /// Take everything the oven is currently set to. The gesture this serves: you
-    /// dialled a cooking in on the appliance itself — its own assisted programmes
-    /// included — and you want the recipe to remember it. Absent dials are cleared,
-    /// not kept: the point is to end up with what the oven says, not a mixture.
+    /// Take what the oven is currently set to. The gesture this serves: you dialled
+    /// a cooking in on the appliance itself — its own assisted programmes included —
+    /// and you want the recipe to remember it.
+    ///
+    /// The copy is as complete as the oven's answer, no more: a dial it reports is
+    /// taken, a dial it does not is left to you rather than blocking the whole
+    /// gesture. The mode is the one that goes missing in practice — the oven names
+    /// its heating functions with codes the notebook does not all know yet — and
+    /// losing a temperature and a duration over it was losing what the oven DID say.
+    ///
+    /// The timer and the probe are the exception: their absence IS an answer. An
+    /// oven reporting no timer is an oven cooking without one, so the toggle
+    /// follows it down — and the button is never offered on an oven that says
+    /// nothing at all, so this never empties a draft over silence.
     mutating func copy(from settings: OvenSettings) {
-        guard let program = settings.program, let temperature = settings.temperature else { return }
         enabled = true
-        self.program = program
-        assisted = settings.assisted
-        self.temperature = temperature
+        if let program = settings.copyableProgram {
+            self.program = program
+            assisted = settings.assisted
+        }
+        if let temperature = settings.temperature { self.temperature = temperature }
         usesTimer = settings.duration != nil
         if let duration = settings.duration { self.duration = duration }
         usesProbe = settings.core != nil
@@ -84,13 +95,21 @@ struct OvenProfileForm: View {
             Text("Désactive-le si le plat ne passe jamais au four.")
         }
 
-        if let applianceSettings, applianceSettings.profile != nil {
+        if let applianceSettings, applianceSettings.isCopyable {
             Section {
                 Button("Copier les réglages du four") {
                     withAnimation { draft.copy(from: applianceSettings) }
                 }
             } footer: {
-                Text(summary(of: applianceSettings))
+                VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                    Text(summary(of: applianceSettings))
+                    // Said before the tap, not discovered after it: a copy that
+                    // leaves the mode alone must say so, or the cook reads the
+                    // untouched row as the oven's answer.
+                    if applianceSettings.copyableProgram == nil {
+                        Text("Le four n’annonce pas son mode : choisis-le toi-même.")
+                    }
+                }
             }
         }
 
@@ -163,7 +182,7 @@ struct OvenProfileForm: View {
     /// before it does it.
     private func summary(of settings: OvenSettings) -> String {
         [
-            settings.program?.label(assisted: settings.assisted),
+            settings.copyableProgram?.label(assisted: settings.assisted),
             settings.temperature.map { "\($0) °C" },
             settings.duration.map { "\($0) min" },
             settings.core.map { "sonde \($0) °C" },
@@ -215,6 +234,15 @@ private struct FormHost: View {
             duration: 25,
             core: nil
         )
+    )
+}
+
+/// A real reading: bread baking at 230 °C for an hour on a heating function whose
+/// code the notebook has no word for. The dials are copyable, the mode is yours.
+#Preview("Le four ne dit pas son mode") {
+    FormHost(
+        draft: OvenProfileDraft(nil),
+        applianceSettings: OvenSettings(program: nil, temperature: 230, duration: 60, core: nil)
     )
 }
 

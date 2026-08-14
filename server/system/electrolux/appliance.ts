@@ -65,6 +65,21 @@ export const findOven = async (): Promise<OvenAppliance | 'no-oven'> => {
   return oven ? { id: oven.applianceId } : 'no-oven'
 }
 
+// Programme codes already reported, so an unmapped one is heard about ONCE per
+// instance: the recipe sheet asks every thirty seconds, and a roast would otherwise
+// report itself twice a minute for an hour.
+const reportedCodes = new Set<string>()
+
+// A code the notebook has no word for is read as no programme at all — which is
+// exactly right for the cook (their sheet still renders) and exactly wrong for us
+// (the settings become uncopyable and the cooking unstartable, silently). Cleaning
+// cycles are the one kind that legitimately has no word: they are not cookings.
+const reportUnknownProgram = (code: string) => {
+  if (code.includes('CLEAN') || reportedCodes.has(code)) return
+  reportedCodes.add(code)
+  Sentry.captureMessage(`The oven reported an unmapped programme: ${code}`, 'warning')
+}
+
 const minutesFrom = (seconds: unknown): number | undefined =>
   typeof seconds === 'number' && seconds !== UNSET && seconds > 0
     ? Math.round(seconds / 60)
@@ -78,6 +93,7 @@ export const applianceState = async (applianceId: string): Promise<ApplianceStat
   const reported = body.properties?.reported ?? {}
   const cavity = (reported[CAVITY] ?? {}) as Record<string, unknown>
   const selected = typeof cavity.program === 'string' ? ovenProgram(cavity.program) : undefined
+  if (typeof cavity.program === 'string' && !selected) reportUnknownProgram(cavity.program)
 
   const busy = cavity.applianceState === 'RUNNING' || cavity.applianceState === 'DELAYED_START'
 

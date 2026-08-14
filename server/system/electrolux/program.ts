@@ -6,13 +6,22 @@ import { OVEN_PROGRAM_VALUES, type OvenProgram } from '~/domain/recipe/types'
 // `GET /appliances/{id}/info`, which is where capabilities live — there is no
 // `/capabilities` endpoint, whatever the shape of the URL suggests.
 //
-// PARTIAL on purpose. The notebook's vocabulary is wider than any one oven's menu:
-// this model has no top-only, bottom-only, pizza or defrost function. An unmapped
-// program is not a word to delete — it is a cook this appliance must refuse BY
-// NAME (`program-unsupported`), so the cook is told what their oven cannot do
-// instead of being silently given a different heat.
+// `conventional` is `BAKE_BROIL`: the top AND bottom elements together, which is
+// what conventional heat is. It was `BAKE` until a real oven baking bread reported
+// `BAKE_BROIL` and the app could neither read the cooking nor copy it. `BAKE` alone
+// is a code this oven also accepts, but it is NOT the conventional heat — a version
+// written for both elements would have been started on something else.
+//
+// PARTIAL on purpose, twice over. The notebook's vocabulary is wider than any one
+// oven's menu, and this appliance's own list is wider than what has been identified
+// on it: `BAKE`, `BAKE_BROIL_FAN`, `BAKE_TRUE_FAN`, `STEAM_HIGH` and `STEAM_LOW` are
+// declared by the oven and deliberately left unmapped until each has been read off
+// the appliance with the function selected — a guessed pairing is a cook given the
+// wrong heat without being told. An unmapped program is not a word to delete: it is
+// a cook this appliance must refuse BY NAME (`program-unsupported`), so the cook is
+// told what their oven cannot do instead of being silently given a different heat.
 const PROGRAM_CODES: Partial<Record<OvenProgram, string>> = {
-  conventional: 'BAKE',
+  conventional: 'BAKE_BROIL',
   convection: 'TRUE_FAN',
   'convection-humid': 'MOIST_FAN_BAKING',
   grill: 'BROIL',

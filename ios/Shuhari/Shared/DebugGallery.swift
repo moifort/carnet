@@ -87,6 +87,16 @@ struct DebugGallery: View {
                         )
                     ) { _ in }
                 }
+        // The oven gives its dials but not its mode — a heating function whose code
+        // the notebook has no word for. The copy is offered all the same.
+        case "oven-copy-partial":
+            Color.clear
+                .sheet(isPresented: .constant(true)) {
+                    OvenProfileEditSheet(
+                        initial: nil,
+                        applianceSettings: OvenSettings(temperature: 230, duration: 60)
+                    ) { _ in }
+                }
         case "oven-edit-empty":
             Color.clear
                 .sheet(isPresented: .constant(true)) {

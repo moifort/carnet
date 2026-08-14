@@ -195,6 +195,37 @@ describe('applianceState', () => {
     })
   })
 
+  test('a programme nobody mapped costs the mode alone, never the dials', async () => {
+    // The real reading of a bread baking on `BAKE_BROIL` back when it was unmapped:
+    // the sheet counted the minutes down while the settings could not be copied,
+    // because a copy needs a mode. What the dials say must survive the mode being
+    // unreadable — they are the appliance's readings, not a package.
+    respondWith({
+      '/token/refresh': refreshed,
+      '/state': {
+        properties: {
+          reported: {
+            remoteControl: 'ENABLED',
+            upperOven: {
+              applianceState: 'RUNNING',
+              program: 'BAKE_TRUE_FAN',
+              targetTemperatureC: 230,
+              targetDuration: 3600,
+              timeToEnd: 1380,
+            },
+          },
+        },
+      },
+    })
+
+    const state = await applianceState('oven-1')
+
+    expect(state.program).toBeUndefined()
+    expect(state.temperature).toBe(230)
+    expect(state.duration).toBe(60)
+    expect(state.remaining).toBe(23)
+  })
+
   test('an oven that answers nothing is unreachable, not a crash', async () => {
     respondWith({ '/token/refresh': refreshed })
 

@@ -211,7 +211,12 @@ export/import).
 
 **`electrolux` — the connected oven.** A thin client over the Electrolux Group API: find the
 oven, read its state, send a cooking command. It is the ONLY module that knows the
-manufacturer's program codes (`program.ts`), so a change of oven costs one mapping table. Its
+manufacturer's program codes (`program.ts`), so a change of oven costs one mapping table. **That
+table is partial in both directions** — the notebook names heating functions no oven has, and an
+appliance declares codes nobody has identified yet — so a code it cannot read is reported to
+Sentry, once per instance and never for a cleaning cycle. Swallowing it is what let a wrong entry
+(`conventional` mapped to `BAKE`, where a real oven answers `BAKE_BROIL`) go unnoticed until a
+cook found the copy button missing. Its
 three secrets (`NITRO_ELECTROLUX_API_KEY`, `NITRO_ELECTROLUX_REFRESH_TOKEN`,
 `NITRO_ELECTROLUX_USER_ID`) are read together — all three or the feature is off, because a key
 without a named owner would let any account drive the oven.

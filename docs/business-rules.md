@@ -81,6 +81,20 @@ the digest; this doc is the spec. The mechanics of building a domain live in
   notebook captures the result. It is the same *shu → ha* move as before, sourced from the
   appliance rather than from a list: the oven proposes, the version records, the next iteration
   deviates.
+- **The copy takes what the oven says, not all or nothing.** A dial the appliance reports is
+  copied, one it does not is left to the cook — and the mode is the one that goes missing in
+  practice, because an oven names its heating functions with codes the notebook does not all know
+  (`PROGRAM_CODES` is partial by design, and partial again against what one appliance declares).
+  Requiring a mode *and* a temperature is what hid the copy from a real oven baking bread at
+  230 °C for an hour: its code was unmapped, so the mode was absent, and the two settings that
+  *were* there went with it. When the mode is missing the copy says so before it runs, since an
+  untouched mode row otherwise reads as the oven's answer. The timer and the probe stay the
+  exception: their absence **is** an answer — an oven reporting no timer is an oven cooking
+  without one — and the copy is never offered on an oven that says nothing at all.
+- **A programme code the notebook cannot read is reported, not swallowed.** It costs the mode
+  alone, never the dials, and it reaches Sentry once per instance: silence here is what turned a
+  wrong entry in the table into a button that simply never appeared, with a sheet counting the
+  minutes down beside it.
 
 ## Two import flows
 

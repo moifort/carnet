@@ -510,11 +510,16 @@ to edit from yet.
 catalogue — heating functions and dials only, never the "Quiche" the appliance's screen offers —
 so the prefill comes from the appliance's *current dials* instead: you set the cooking up on the
 oven itself, its own assisted programmes included, and one tap has the recipe remember it. The
-button's footer names what it will copy before it copies it, and the row disappears when the oven
-says too little to make a profile (a heating function and a temperature are the minimum).
+button's footer names what it will copy before it copies it, and the row disappears only when the
+oven reports **nothing at all** — one reading is enough to make the gesture worth offering.
 
-The copy is total: dials the oven does not report are **cleared**, not kept, so what you end up
-with is what the oven says rather than a mixture of two sources.
+The copy is as complete as the oven's answer. A dial it reports is taken, a dial it does not is
+left to you: requiring a heating function *and* a temperature is what hid the button on a real
+oven baking bread at 230 °C for an hour, whose programme code the notebook had no word for — the
+mode alone was missing, and it took the two settings that were there down with it. When the mode
+is missing the footer says so, because an untouched "Mode" row otherwise reads as the oven's
+answer. The timer and the probe keep clearing themselves: an oven reporting no timer is an oven
+cooking without one, and that silence is an answer rather than a gap.
 
 **The copy lives in the editor and nowhere else.** The recipe sheet's oven section carries the
 settings, "Modifier" and the start CTA — writing a profile is what the editor is for, and a second
