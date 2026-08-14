@@ -28,6 +28,9 @@ struct RecipeDetailPage: View {
     /// Opens the editor of the displayed version's shopping list. Nil leaves it
     /// read-only.
     var onEditIngredients: (() -> Void)? = nil
+    /// Opens the editor of the displayed version's method. Nil leaves it read-only —
+    /// and a coffee, which has no steps, never gets it.
+    var onEditSteps: (() -> Void)? = nil
 
     /// Ephemeral quantity scaling of the ingredient list — lives only while the
     /// sheet is open, the stored version is never rewritten. Only the plain sheet
@@ -66,8 +69,12 @@ struct RecipeDetailPage: View {
             }
             // An espresso is wholly described by its parameters: no empty "steps"
             // section is rendered for it.
-            if !displayedVersion.content.stepTexts.isEmpty {
-                ReferenceVersionSection(version: displayedVersion, modified: modifiedSteps)
+            if !displayedVersion.content.stepTexts.isEmpty || onEditSteps != nil {
+                ReferenceVersionSection(
+                    version: displayedVersion,
+                    modified: modifiedSteps,
+                    onEdit: onEditSteps
+                )
             }
             // The oven the version bakes in — absent entirely on a dish that never
             // sees one, which is most of them.

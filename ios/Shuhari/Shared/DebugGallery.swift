@@ -241,6 +241,19 @@ struct DebugGallery: View {
                 .sheet(isPresented: .constant(true)) {
                     IngredientsEditSheet(initial: []) { _ in }
                 }
+        case "steps-edit":
+            Color.clear
+                .sheet(isPresented: .constant(true)) {
+                    StepsEditSheet(initial: Fixtures.bourguignonV3.editableSteps) { _ in }
+                }
+        case "steps-edit-thermomix":
+            Color.clear
+                .sheet(isPresented: .constant(true)) {
+                    StepsEditSheet(
+                        initial: Fixtures.risottoV2.editableSteps,
+                        showsSettings: true
+                    ) { _ in }
+                }
         case "coffee-parameters-edit":
             CoffeeParametersEditSheet(
                 initial: Fixtures.espressoParameters,

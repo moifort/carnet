@@ -150,6 +150,31 @@ enum RecipeAPI {
         )
     }
 
+    /// Correct one version's method — in place, no version created. The machine
+    /// settings ride along and the server keeps them only on a Thermomix version; a
+    /// plain step sends none at all rather than an empty object.
+    static func updateSteps(
+        recipeId: String,
+        versionNumber: Int,
+        steps: [ThermomixStep]
+    ) async throws {
+        _ = try await GraphQLHelpers.perform(
+            GraphQLClient.shared.apollo,
+            mutation: ShuhariGraphQL.UpdateStepsMutation(
+                recipeId: recipeId,
+                versionNumber: versionNumber,
+                steps: steps.map { step in
+                    ShuhariGraphQL.VersionStepInput(
+                        settings: step.settings.isEmpty
+                            ? .null
+                            : .some(GraphQLHelpers.thermomixSettingsInput(step.settings)),
+                        text: step.text
+                    )
+                }
+            )
+        )
+    }
+
     /// Correct one cooked version's oven settings — in place, no version created,
     /// the steps untouched. Passing nil says the dish never bakes and clears the
     /// profile outright.

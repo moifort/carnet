@@ -82,3 +82,13 @@ mutation UpdateIngredients(
     number
   }
 }
+
+mutation UpdateSteps(
+  $recipeId: RecipeId!
+  $versionNumber: VersionNumber!
+  $steps: [VersionStepInput!]!
+) {
+  updateSteps(recipeId: $recipeId, versionNumber: $versionNumber, steps: $steps) {
+    number
+  }
+}

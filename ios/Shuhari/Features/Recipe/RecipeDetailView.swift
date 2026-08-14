@@ -49,6 +49,8 @@ struct RecipeDetailView: View {
     @State private var linkRequest: LinkRequest?
     /// Whether the shopping-list editor is open.
     @State private var showIngredients = false
+    /// Whether the method editor is open.
+    @State private var showSteps = false
 
     /// Which line the component picker was opened on. Identified by its index: the
     /// picker and the list editor are never open at once, so the list cannot shift
@@ -199,6 +201,23 @@ struct RecipeDetailView: View {
                         onReload()
                     }
                 }
+                // Correcting the method of the displayed version: in place, no version
+                // created, the ingredients and the rating untouched.
+                .sheet(isPresented: $showSteps) {
+                    let version = displayedVersion(recipe)
+                    StepsEditSheet(
+                        initial: version.editableSteps,
+                        showsSettings: version.isThermomix
+                    ) { steps in
+                        try await RecipeAPI.updateSteps(
+                            recipeId: recipeId,
+                            versionNumber: version.number,
+                            steps: steps
+                        )
+                        await store.load(recipeId)
+                        onReload()
+                    }
+                }
                 // Saying which recipe an ingredient line IS: a correction in place on
                 // the displayed version — no version created, its rating untouched.
                 .sheet(item: $linkRequest) { request in
@@ -315,7 +334,11 @@ struct RecipeDetailView: View {
                 onEditOven: openOvenEditor,
                 ovenStart: ovenStart(recipe),
                 onLinkComponent: { openLink(recipe, at: $0) },
-                onEditIngredients: { showIngredients = true }
+                onEditIngredients: { showIngredients = true },
+                // A coffee has no method to correct: its dials say everything.
+                onEditSteps: displayedVersion(recipe).content.coffeeParameters == nil
+                    ? { showSteps = true }
+                    : nil
             )
         } else {
             RecipeDetailPage(
@@ -323,7 +346,11 @@ struct RecipeDetailView: View {
                 onEditOven: openOvenEditor,
                 ovenStart: ovenStart(recipe),
                 onLinkComponent: { openLink(recipe, at: $0) },
-                onEditIngredients: { showIngredients = true }
+                onEditIngredients: { showIngredients = true },
+                // A coffee has no method to correct: its dials say everything.
+                onEditSteps: displayedVersion(recipe).content.coffeeParameters == nil
+                    ? { showSteps = true }
+                    : nil
             )
         }
     }

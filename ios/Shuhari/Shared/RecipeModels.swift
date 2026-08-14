@@ -300,6 +300,22 @@ struct RecipeVersion: Identifiable, Sendable {
     /// The version's plain step texts, whichever content variant it carries.
     var steps: [String] { content.stepTexts }
 
+    /// The steps as the editor speaks them: one shape for both worlds, a dish's steps
+    /// carrying `.plain` settings — which is exactly what the server ignores on one.
+    var editableSteps: [ThermomixStep] {
+        switch content {
+        case .dish(_, let steps, _): steps.map { ThermomixStep(text: $0, settings: .plain) }
+        case .thermomix(_, let steps, _): steps
+        case .coffee: []
+        }
+    }
+
+    /// Whether the machine settings are worth showing — a dish has no machine.
+    var isThermomix: Bool {
+        if case .thermomix = content { return true }
+        return false
+    }
+
     /// Whether this version has been executed (its attempt recorded).
     var tried: Bool { executedAt != nil }
 }

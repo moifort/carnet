@@ -9,9 +9,15 @@ struct ReferenceVersionSection: View {
     /// Step indices changed vs the previous version — flagged with an orange dot.
     /// Empty (the default) renders exactly like the plain recipe sheet.
     var modified: Set<Int> = []
+    /// Opens the method editor. Nil (the default) keeps the steps read-only — the
+    /// execution mode and the previews.
+    var onEdit: (() -> Void)? = nil
 
     var body: some View {
-        if !version.steps.isEmpty {
+        // Editable, the section survives an empty method: a coffee has none by
+        // construction and never gets the action, but an import that produced no step
+        // must still be fixable.
+        if !version.steps.isEmpty || onEdit != nil {
             Section {
                 switch version.content {
                 case .dish(_, let steps, _):
@@ -22,8 +28,21 @@ struct ReferenceVersionSection: View {
                 case .coffee:
                     EmptyView()
                 }
+                if version.steps.isEmpty {
+                    Text("Aucune étape")
+                        .foregroundStyle(.secondary)
+                }
             } header: {
-                Text("Étapes")
+                HStack {
+                    Text("Étapes")
+                    if let onEdit {
+                        Spacer()
+                        Button("Modifier", action: onEdit)
+                            .font(.caption)
+                            .textCase(nil)
+                            .accessibilityIdentifier("steps-edit")
+                    }
+                }
             }
         }
     }
