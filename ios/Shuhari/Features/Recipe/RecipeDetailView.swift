@@ -47,9 +47,12 @@ struct RecipeDetailView: View {
     @State private var selectedVersion: Int?
     /// The ingredient line whose picker is open — nil when none is.
     @State private var linkRequest: LinkRequest?
+    /// Whether the shopping-list editor is open.
+    @State private var showIngredients = false
 
     /// Which line the component picker was opened on. Identified by its index: the
-    /// content of a version is immutable, so the list cannot shift under the sheet.
+    /// picker and the list editor are never open at once, so the list cannot shift
+    /// under the sheet.
     private struct LinkRequest: Identifiable {
         let index: Int
         let name: String
@@ -182,6 +185,20 @@ struct RecipeDetailView: View {
                         onReload()
                     }
                 }
+                // Correcting the shopping list of the displayed version: in place, no
+                // version created, the steps and the rating untouched.
+                .sheet(isPresented: $showIngredients) {
+                    let version = displayedVersion(recipe)
+                    IngredientsEditSheet(initial: version.ingredients) { ingredients in
+                        try await RecipeAPI.updateIngredients(
+                            recipeId: recipeId,
+                            versionNumber: version.number,
+                            ingredients: ingredients
+                        )
+                        await store.load(recipeId)
+                        onReload()
+                    }
+                }
                 // Saying which recipe an ingredient line IS: a correction in place on
                 // the displayed version — no version created, its rating untouched.
                 .sheet(item: $linkRequest) { request in
@@ -297,14 +314,16 @@ struct RecipeDetailView: View {
                 why: focus.why ?? focus.originDetail,
                 onEditOven: openOvenEditor,
                 ovenStart: ovenStart(recipe),
-                onLinkComponent: { openLink(recipe, at: $0) }
+                onLinkComponent: { openLink(recipe, at: $0) },
+                onEditIngredients: { showIngredients = true }
             )
         } else {
             RecipeDetailPage(
                 recipe: recipe,
                 onEditOven: openOvenEditor,
                 ovenStart: ovenStart(recipe),
-                onLinkComponent: { openLink(recipe, at: $0) }
+                onLinkComponent: { openLink(recipe, at: $0) },
+                onEditIngredients: { showIngredients = true }
             )
         }
     }

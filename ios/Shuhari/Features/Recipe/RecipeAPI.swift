@@ -130,6 +130,26 @@ enum RecipeAPI {
         )
     }
 
+    /// Correct one version's shopping list — in place, no version created: the plate
+    /// cooked is the same one, so its rating stays valid. Full replacement, so this is
+    /// also how a line is added, deleted or moved.
+    static func updateIngredients(
+        recipeId: String,
+        versionNumber: Int,
+        ingredients: [Ingredient]
+    ) async throws {
+        _ = try await GraphQLHelpers.perform(
+            GraphQLClient.shared.apollo,
+            mutation: ShuhariGraphQL.UpdateIngredientsMutation(
+                recipeId: recipeId,
+                versionNumber: versionNumber,
+                ingredients: ingredients.map {
+                    ShuhariGraphQL.IngredientInput(name: $0.name, quantity: $0.quantity)
+                }
+            )
+        )
+    }
+
     /// Correct one cooked version's oven settings — in place, no version created,
     /// the steps untouched. Passing nil says the dish never bakes and clears the
     /// profile outright.

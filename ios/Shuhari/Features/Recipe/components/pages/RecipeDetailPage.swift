@@ -25,6 +25,9 @@ struct RecipeDetailPage: View {
     /// Opens the picker that says which recipe an ingredient line IS, by its index in
     /// the displayed version's list. nil (the default) leaves the list read-only.
     var onLinkComponent: ((Int) -> Void)? = nil
+    /// Opens the editor of the displayed version's shopping list. Nil leaves it
+    /// read-only.
+    var onEditIngredients: (() -> Void)? = nil
 
     /// Ephemeral quantity scaling of the ingredient list — lives only while the
     /// sheet is open, the stored version is never rewritten. Only the plain sheet
@@ -57,7 +60,8 @@ struct RecipeDetailPage: View {
                     modified: modifiedIngredients,
                     compactHeader: focusVersion == nil,
                     scale: focusVersion == nil ? $scaleFactor : nil,
-                    onLink: onLinkComponent
+                    onLink: onLinkComponent,
+                    onEdit: onEditIngredients
                 )
             }
             // An espresso is wholly described by its parameters: no empty "steps"

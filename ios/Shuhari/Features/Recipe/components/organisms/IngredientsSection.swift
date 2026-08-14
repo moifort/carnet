@@ -19,6 +19,9 @@ struct IngredientsSection: View {
     /// Opens the picker that says which recipe a line IS, by ingredient index. Nil
     /// (the default) renders the list read-only — the attempt view and the previews.
     var onLink: ((Int) -> Void)? = nil
+    /// Opens the shopping-list editor. Nil (the default) keeps the list read-only —
+    /// the execution mode and the previews.
+    var onEdit: (() -> Void)? = nil
 
     /// Rows whose quantity leads with a number — the ones a stepper can move. A line
     /// that IS a recipe is left out: the row unfolds instead, and a −/+ inside the
@@ -34,9 +37,16 @@ struct IngredientsSection: View {
     }
 
     var body: some View {
-        if !ingredients.isEmpty {
+        // The section survives an empty list as soon as it is editable: otherwise the
+        // first ingredient of a recipe imported without one could never be added.
+        if !ingredients.isEmpty || onEdit != nil {
             Section {
-                grid
+                if ingredients.isEmpty {
+                    Text("Aucun ingrédient")
+                        .foregroundStyle(.secondary)
+                } else {
+                    grid
+                }
             } header: {
                 header
             }
@@ -99,8 +109,8 @@ struct IngredientsSection: View {
     private var header: some View {
         HStack {
             Text("Ingrédients")
+            Spacer()
             if let scale, scale.wrappedValue != 1 {
-                Spacer()
                 Text(IngredientScaling.factorLabel(scale.wrappedValue))
                     .monospacedDigit()
                     .foregroundStyle(Theme.Status.changed)
@@ -109,6 +119,12 @@ struct IngredientsSection: View {
                 }
                 .font(.footnote)
                 .accessibilityIdentifier("ingredients-reset")
+            }
+            if let onEdit {
+                Button("Modifier", action: onEdit)
+                    .font(.caption)
+                    .textCase(nil)
+                    .accessibilityIdentifier("ingredients-edit")
             }
         }
         .padding(.top, compactHeader ? -14 : 0)

@@ -72,3 +72,13 @@ mutation UpdateComponent(
     ...VersionFields
   }
 }
+
+mutation UpdateIngredients(
+  $recipeId: RecipeId!
+  $versionNumber: VersionNumber!
+  $ingredients: [IngredientInput!]!
+) {
+  updateIngredients(recipeId: $recipeId, versionNumber: $versionNumber, ingredients: $ingredients) {
+    number
+  }
+}

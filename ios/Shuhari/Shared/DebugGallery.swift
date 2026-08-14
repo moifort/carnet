@@ -231,6 +231,16 @@ struct DebugGallery: View {
                         initialRating: Fixtures.bourguignon.versionToOpen.rating
                     ) { _, _, _, _ in }
                 }
+        case "ingredients-edit":
+            Color.clear
+                .sheet(isPresented: .constant(true)) {
+                    IngredientsEditSheet(initial: Fixtures.bourguignonV3.ingredients) { _ in }
+                }
+        case "ingredients-edit-empty":
+            Color.clear
+                .sheet(isPresented: .constant(true)) {
+                    IngredientsEditSheet(initial: []) { _ in }
+                }
         case "coffee-parameters-edit":
             CoffeeParametersEditSheet(
                 initial: Fixtures.espressoParameters,
