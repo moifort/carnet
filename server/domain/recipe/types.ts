@@ -68,6 +68,7 @@ export type CoffeeYield = Brand<string, 'CoffeeYield'>
 export type CoffeeBeanName = Brand<string, 'CoffeeBeanName'>
 export type CoffeeCountry = Brand<string, 'CoffeeCountry'>
 export type CoffeeProducer = Brand<string, 'CoffeeProducer'>
+export type CoffeeRoast = Brand<string, 'CoffeeRoast'>
 export type CoffeeDose = Brand<string, 'CoffeeDose'>
 export type CoffeeWaterKind = Brand<string, 'CoffeeWaterKind'>
 export type CoffeeMilkKind = Brand<string, 'CoffeeMilkKind'>

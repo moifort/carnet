@@ -8,6 +8,7 @@ import type {
   CoffeeMilkAmount,
   CoffeeMilkKind,
   CoffeeProducer,
+  CoffeeRoast,
   CoffeeTemperature,
   CoffeeTime,
   CoffeeWater,
@@ -24,6 +25,7 @@ export type CoffeeBeans = {
   name?: CoffeeBeanName // "Belleville — Guji"
   country?: CoffeeCountry // "Éthiopie"
   producer?: CoffeeProducer // "Coop. Hambela"
+  roast?: CoffeeRoast // how far the roaster took it: "Torréfaction claire", "Medium roast"
   roastedOn?: Date
   dose?: CoffeeDose // "18 g"
 }

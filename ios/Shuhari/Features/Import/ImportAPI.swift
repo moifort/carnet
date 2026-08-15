@@ -152,6 +152,7 @@ enum ImportAPI {
                 name: coffee.beans.name,
                 country: coffee.beans.country,
                 producer: coffee.beans.producer,
+                roast: coffee.beans.roast,
                 roastedOn: coffee.beans.roastedOn.flatMap { GraphQLHelpers.parseISO8601($0) },
                 dose: coffee.beans.dose
             ),

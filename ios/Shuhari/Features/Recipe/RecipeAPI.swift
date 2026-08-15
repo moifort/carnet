@@ -225,6 +225,7 @@ enum RecipeAPI {
             beanNames: vocabulary.beanNames,
             countries: vocabulary.countries,
             producers: vocabulary.producers,
+            roasts: vocabulary.roasts,
             waterKinds: vocabulary.waterKinds,
             milkKinds: vocabulary.milkKinds,
             machines: vocabulary.machines,
@@ -376,6 +377,7 @@ func mapVersionContent(_ c: ShuhariGraphQL.VersionContentFields) -> VersionConte
                     name: coffee.beans.name,
                     country: coffee.beans.country,
                     producer: coffee.beans.producer,
+                    roast: coffee.beans.roast,
                     roastedOn: coffee.beans.roastedOn.flatMap { GraphQLHelpers.parseISO8601($0) },
                     dose: coffee.beans.dose
                 ),

@@ -103,6 +103,13 @@ export const coffeeParametersSchemaProperty = {
           description:
             'Farm, washing station or co-op (e.g. "Coop. Hambela"); null when not stated',
         },
+        roast: {
+          type: 'string',
+          nullable: true,
+          description:
+            'Roast profile, as the bag words it (e.g. "Torréfaction claire", "Medium roast", ' +
+            '"Espresso"); null when not stated',
+        },
         roastedOn: {
           type: 'string',
           nullable: true,
@@ -114,7 +121,7 @@ export const coffeeParametersSchemaProperty = {
           description: 'Ground coffee in (e.g. "18 g"); null when not stated',
         },
       },
-      propertyOrdering: ['name', 'country', 'producer', 'roastedOn', 'dose'],
+      propertyOrdering: ['name', 'country', 'producer', 'roast', 'roastedOn', 'dose'],
     },
     water: {
       type: 'object',

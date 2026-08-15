@@ -230,6 +230,13 @@ export const CoffeeBeansType = builder.objectRef<CoffeeBeans>('CoffeeBeans').imp
       description: 'Farm, washing station or co-op, e.g. `"Coop. Hambela"` (`null` if not set)',
       resolve: (b) => b.producer ?? null,
     }),
+    roast: t.field({
+      type: 'CoffeeRoast',
+      nullable: true,
+      description:
+        'How far the roaster took the beans, e.g. `"Torréfaction claire"` (`null` if not set)',
+      resolve: (b) => b.roast ?? null,
+    }),
     roastedOn: t.field({
       type: 'DateTime',
       nullable: true,
@@ -714,6 +721,11 @@ export const CoffeeVocabularyType = builder
         type: ['CoffeeProducer'],
         description: 'Producers you have logged, e.g. `["Coop. Hambela"]`',
         resolve: (v) => v.producers,
+      }),
+      roasts: t.field({
+        type: ['CoffeeRoast'],
+        description: 'Roast profiles you have logged, e.g. `["Torréfaction claire"]`',
+        resolve: (v) => v.roasts,
       }),
       waterKinds: t.field({
         type: ['CoffeeWaterKind'],

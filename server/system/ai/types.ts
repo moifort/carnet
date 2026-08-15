@@ -32,7 +32,14 @@ export type ImportThermomixSettings = {
 // an empty object is "the source says nothing about it", and an absent `milk` is a
 // drink that has none.
 export type ImportCoffeeParameters = {
-  beans: { name?: string; country?: string; producer?: string; roastedOn?: string; dose?: string }
+  beans: {
+    name?: string
+    country?: string
+    producer?: string
+    roast?: string
+    roastedOn?: string
+    dose?: string
+  }
   water: { kind?: string; amount?: string; temperature?: string }
   extraction: { grind?: string; time?: string; yield?: string }
   milk?: { kind?: string; amount?: string; temperature?: string }

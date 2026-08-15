@@ -108,6 +108,10 @@ const ImportCoffeeBeansType = builder
       name: t.exposeString('name', { nullable: true }),
       country: t.exposeString('country', { nullable: true }),
       producer: t.exposeString('producer', { nullable: true }),
+      roast: t.exposeString('roast', {
+        nullable: true,
+        description: 'The roast profile as the source words it — `null` when not stated',
+      }),
       roastedOn: t.exposeString('roastedOn', {
         nullable: true,
         description: 'The roast date as the source states it, ISO 8601 — `null` when not stated',

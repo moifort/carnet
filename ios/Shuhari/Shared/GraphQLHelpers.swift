@@ -173,6 +173,7 @@ enum GraphQLHelpers {
             dose: graphQLNullable(beans.dose),
             name: graphQLNullable(beans.name),
             producer: graphQLNullable(beans.producer),
+            roast: graphQLNullable(beans.roast),
             roastedOn: beans.roastedOn.map { .some(formatISO8601($0)) } ?? .null
         )
     }

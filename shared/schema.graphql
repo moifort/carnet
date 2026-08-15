@@ -104,6 +104,11 @@ type CoffeeBeans {
   producer: CoffeeProducer
 
   """
+  How far the roaster took the beans, e.g. `"Torréfaction claire"` (`null` if not set)
+  """
+  roast: CoffeeRoast
+
+  """
   When the beans were roasted, e.g. `"2026-06-12T00:00:00.000Z"`. See the version’s `restDays` for how long they rested before this cup. `null` if not set.
   """
   roastedOn: DateTime
@@ -122,6 +127,9 @@ input CoffeeBeansInput {
 
   """e.g. `"Coop. Hambela"`"""
   producer: CoffeeProducer
+
+  """e.g. `"Torréfaction claire"`"""
+  roast: CoffeeRoast
 
   """When the beans were roasted"""
   roastedOn: DateTime
@@ -313,6 +321,11 @@ input CoffeeParametersInput {
 """Who grew it — farm, washing station or co-op, e.g. `"Coop. Hambela"`"""
 scalar CoffeeProducer
 
+"""
+How far the roaster took the beans, as the bag words it, e.g. `"Torréfaction claire"` or `"Medium roast"`
+"""
+scalar CoffeeRoast
+
 """The water temperature of a brewing step, e.g. `"93°C"`"""
 scalar CoffeeTemperature
 
@@ -342,6 +355,9 @@ type CoffeeVocabulary {
 
   """Producers you have logged, e.g. `["Coop. Hambela"]`"""
   producers: [CoffeeProducer!]!
+
+  """Roast profiles you have logged, e.g. `["Torréfaction claire"]`"""
+  roasts: [CoffeeRoast!]!
 
   """Waters you have used, e.g. `["Robinet (dureté 3/5)"]`"""
   waterKinds: [CoffeeWaterKind!]!
@@ -550,6 +566,9 @@ type ImportCoffeeBeans {
   dose: String
   name: String
   producer: String
+
+  """The roast profile as the source words it — `null` when not stated"""
+  roast: String
 
   """
   The roast date as the source states it, ISO 8601 — `null` when not stated

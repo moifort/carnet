@@ -3,6 +3,7 @@ query CoffeeVocabulary {
     beanNames
     countries
     producers
+    roasts
     waterKinds
     milkKinds
     machines

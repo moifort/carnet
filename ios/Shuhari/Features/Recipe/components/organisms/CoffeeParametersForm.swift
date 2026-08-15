@@ -8,6 +8,8 @@ struct CoffeeParametersDraft: Sendable, Equatable {
     var beanName: String
     var country: String
     var producer: String
+    /// How far the roaster took the beans ("Torréfaction claire", "Medium roast").
+    var roast: String
     /// The roast date cannot be "left blank" by typing nothing — a picker always
     /// shows a date — so its presence gets its own flag.
     var roastedOn: Date
@@ -37,6 +39,7 @@ struct CoffeeParametersDraft: Sendable, Equatable {
         beanName = parameters.beans.name ?? ""
         country = parameters.beans.country ?? ""
         producer = parameters.beans.producer ?? ""
+        roast = parameters.beans.roast ?? ""
         roastedOn = parameters.beans.roastedOn ?? Date()
         knowsRoastDate = parameters.beans.roastedOn != nil
         dose = parameters.beans.dose ?? ""
@@ -73,6 +76,7 @@ struct CoffeeParametersDraft: Sendable, Equatable {
                 name: trimmed(beanName),
                 country: trimmed(country),
                 producer: trimmed(producer),
+                roast: trimmed(roast),
                 roastedOn: knowsRoastDate ? roastedOn : nil,
                 dose: trimmed(dose)
             ),
@@ -146,6 +150,8 @@ struct CoffeeParametersForm: View {
                 "Producteur", $draft.producer, vocabulary.producers, changedFrom?.beans.producer
             )
             .accessibilityIdentifier("coffee-producer-field")
+            suggesting("Profil", $draft.roast, vocabulary.roasts, changedFrom?.beans.roast)
+                .accessibilityIdentifier("coffee-roast-field")
             // A date read off the bag is a fact, not a question: it is shown as
             // itself, and only a coffee that arrived without one asks.
             if !roastDateWasRead {

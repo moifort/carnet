@@ -368,6 +368,7 @@ enum Fixtures {
             name: "Belleville — Guji",
             country: "Éthiopie",
             producer: "Coop. Hambela",
+            roast: "Torréfaction claire",
             roastedOn: date.addingTimeInterval(-86_400 * 20),
             dose: "18 g"
         ),
@@ -438,6 +439,7 @@ enum Fixtures {
             name: "Belleville — Sidamo",
             country: "Éthiopie",
             producer: "Coop. Hambela",
+            roast: "Torréfaction espresso",
             roastedOn: date.addingTimeInterval(-86_400 * 9),
             dose: "18 g"
         ),
@@ -481,6 +483,7 @@ enum Fixtures {
         beanNames: ["Belleville — Sidamo", "Belleville — Guji", "Cafés Lomi — Yirgacheffe"],
         countries: ["Éthiopie", "Colombie", "Brésil"],
         producers: ["Coop. Hambela", "Finca El Paraíso"],
+        roasts: ["Torréfaction claire", "Torréfaction espresso", "Medium roast"],
         waterKinds: ["Robinet (dureté 3/5)", "Volvic", "Volvic + minéralisation Lotus"],
         milkKinds: ["Entier", "Avoine Oatly"],
         machines: ["Rancilio Silvia", "Hario V60 02", "Moccamaster KBG"],
@@ -660,7 +663,7 @@ enum Fixtures {
         parameters: CoffeeParameters(
             beans: CoffeeBeans(
                 name: "Belleville — Guji", country: "Éthiopie", producer: nil,
-                roastedOn: nil, dose: "18 g"
+                roast: nil, roastedOn: nil, dose: "18 g"
             ),
             // Deduced from the dose at the method's ratio — the one thing the AI
             // may compute rather than read.
@@ -681,7 +684,7 @@ enum Fixtures {
         parameters: CoffeeParameters(
             beans: CoffeeBeans(
                 name: "Belleville — Guji", country: nil, producer: nil,
-                roastedOn: nil, dose: "18 g"
+                roast: nil, roastedOn: nil, dose: "18 g"
             ),
             water: CoffeeWaterSpec(kind: nil, amount: "36 g", temperature: nil),
             extraction: CoffeeExtraction(grind: "fine", time: "28 s", cupYield: "36 g"),

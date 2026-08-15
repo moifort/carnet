@@ -11,6 +11,7 @@ import {
   CoffeeMilkAmount,
   CoffeeMilkKind,
   CoffeeProducer,
+  CoffeeRoast,
   CoffeeTemperature,
   CoffeeTime,
   CoffeeWater,
@@ -231,6 +232,14 @@ builder.scalarType('CoffeeProducer', {
   description: 'Who grew it — farm, washing station or co-op, e.g. `"Coop. Hambela"`',
   serialize: (value) => value as string,
   parseValue: validatedParse('CoffeeProducer', CoffeeProducer),
+})
+
+builder.scalarType('CoffeeRoast', {
+  description:
+    'How far the roaster took the beans, as the bag words it, e.g. `"Torréfaction claire"` or ' +
+    '`"Medium roast"`',
+  serialize: (value) => value as string,
+  parseValue: validatedParse('CoffeeRoast', CoffeeRoast),
 })
 
 builder.scalarType('CoffeeDose', {

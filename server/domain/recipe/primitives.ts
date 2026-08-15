@@ -21,6 +21,7 @@ import {
   type CoffeeMilkAmount as CoffeeMilkAmountType,
   type CoffeeMilkKind as CoffeeMilkKindType,
   type CoffeeProducer as CoffeeProducerType,
+  type CoffeeRoast as CoffeeRoastType,
   type CoffeeTemperature as CoffeeTemperatureType,
   type CoffeeTime as CoffeeTimeType,
   type CoffeeWaterKind as CoffeeWaterKindType,
@@ -172,6 +173,7 @@ const coffeeLabel = (value: unknown) =>
 export const CoffeeBeanName = (value: unknown) => make<CoffeeBeanNameType>()(coffeeLabel(value))
 export const CoffeeCountry = (value: unknown) => make<CoffeeCountryType>()(coffeeLabel(value))
 export const CoffeeProducer = (value: unknown) => make<CoffeeProducerType>()(coffeeLabel(value))
+export const CoffeeRoast = (value: unknown) => make<CoffeeRoastType>()(coffeeLabel(value))
 export const CoffeeWaterKind = (value: unknown) => make<CoffeeWaterKindType>()(coffeeLabel(value))
 export const CoffeeMilkKind = (value: unknown) => make<CoffeeMilkKindType>()(coffeeLabel(value))
 export const CoffeeMachine = (value: unknown) => make<CoffeeMachineType>()(coffeeLabel(value))
@@ -240,6 +242,7 @@ const looseCoffeeParametersSchema = z.object({
       name: z.string().nullish(),
       country: z.string().nullish(),
       producer: z.string().nullish(),
+      roast: z.string().nullish(),
       roastedOn: z.union([z.string(), z.date()]).nullish(),
       dose: z.string().nullish(),
     })
@@ -345,6 +348,7 @@ const brandCoffeeParameters = (
       ...(raw.beans?.name ? { name: CoffeeBeanName(raw.beans.name) } : {}),
       ...(raw.beans?.country ? { country: CoffeeCountry(raw.beans.country) } : {}),
       ...(raw.beans?.producer ? { producer: CoffeeProducer(raw.beans.producer) } : {}),
+      ...(raw.beans?.roast ? { roast: CoffeeRoast(raw.beans.roast) } : {}),
       ...(raw.beans?.roastedOn ? { roastedOn: RoastDate(raw.beans.roastedOn) } : {}),
       ...(raw.beans?.dose ? { dose: CoffeeDose(raw.beans.dose) } : {}),
     },

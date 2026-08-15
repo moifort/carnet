@@ -3,6 +3,7 @@ fragment CoffeeParametersFields on ImportCoffeeParameters {
     name
     country
     producer
+    roast
     roastedOn
     dose
   }

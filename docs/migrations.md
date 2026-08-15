@@ -151,6 +151,9 @@ The `/admin/*` routes are gated by the admin bearer token (`middleware/auth.ts`,
 |---|---|---|
 | 1 | `rename-version-count` | Moves the recipe's version allocator from `versionCount` to `lastVersionNumber`, value untouched. |
 | 2 | `coffee-parameters` | Drops `ingredients` from every coffee version's content and puts empty `beans`/`water`/`extraction`/`gear` in its place. The brewing **steps are kept**. It deliberately derives nothing from the old lines: "Eau 300 g" does not say which water, and a guessed parameter is one the cook would brew against — so they start empty and are re-entered by hand. |
+| 3 | `version-updated-at` | Backfills `updatedAt` on every version that predates the field, with its `createdAt` — nothing stored knows when an older version was last rewritten. |
+| 4 | `recipe-dated-by-its-best-version` | Rewrites each recipe's `updatedAt` as the date of the version it opens on (`lastWorkedOn`), the field the library orders and pages on. |
+| 5 | `coffee-roast-vocabulary` | Adds an empty `roasts` list to every coffee vocabulary stored before the roast profile existed. It derives nothing from the logged coffees: a profile nobody wrote down is not one to guess. |
 
 ## Rules
 

@@ -6,6 +6,7 @@ import type {
   CoffeeMachine,
   CoffeeMilkKind,
   CoffeeProducer,
+  CoffeeRoast,
   CoffeeWaterKind,
 } from '~/domain/recipe/types'
 import type { UserId } from '~/domain/shared/types'
@@ -22,6 +23,7 @@ export type CoffeeVocabulary = {
   beanNames: CoffeeBeanName[]
   countries: CoffeeCountry[]
   producers: CoffeeProducer[]
+  roasts: CoffeeRoast[]
   waterKinds: CoffeeWaterKind[]
   milkKinds: CoffeeMilkKind[]
   machines: CoffeeMachine[]
@@ -36,6 +38,7 @@ export const emptyVocabulary = (userId: UserId): CoffeeVocabulary => ({
   beanNames: [],
   countries: [],
   producers: [],
+  roasts: [],
   waterKinds: [],
   milkKinds: [],
   machines: [],
@@ -58,6 +61,7 @@ export const learnedVocabulary = (
   beanNames: remembering(current.beanNames, parameters.beans.name),
   countries: remembering(current.countries, parameters.beans.country),
   producers: remembering(current.producers, parameters.beans.producer),
+  roasts: remembering(current.roasts, parameters.beans.roast),
   waterKinds: remembering(current.waterKinds, parameters.water.kind),
   milkKinds: remembering(current.milkKinds, parameters.milk?.kind),
   machines: remembering(current.machines, parameters.gear.machine),

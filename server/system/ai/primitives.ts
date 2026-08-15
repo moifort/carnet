@@ -105,6 +105,7 @@ const coffeeParametersSchema = z
         name: optionalClamped(RECIPE_MAX.coffeeLabel),
         country: optionalClamped(RECIPE_MAX.coffeeLabel),
         producer: optionalClamped(RECIPE_MAX.coffeeLabel),
+        roast: optionalClamped(RECIPE_MAX.coffeeLabel),
         roastedOn: optionalClamped(RECIPE_MAX.coffee),
         dose: optionalClamped(RECIPE_MAX.coffee),
       }),

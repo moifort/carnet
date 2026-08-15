@@ -64,15 +64,18 @@ struct CoffeeBeans: Sendable, Hashable {
     let name: String?
     let country: String?
     let producer: String?
+    /// How far the roaster took them ("Torréfaction claire", "Medium roast").
+    let roast: String?
     let roastedOn: Date?
     let dose: String?
 
     var isEmpty: Bool {
-        name == nil && country == nil && producer == nil && roastedOn == nil && dose == nil
+        name == nil && country == nil && producer == nil && roast == nil && roastedOn == nil
+            && dose == nil
     }
 
     static let empty = CoffeeBeans(
-        name: nil, country: nil, producer: nil, roastedOn: nil, dose: nil
+        name: nil, country: nil, producer: nil, roast: nil, roastedOn: nil, dose: nil
     )
 }
 
@@ -149,6 +152,7 @@ struct CoffeeVocabulary: Sendable, Hashable {
     var beanNames: [String] = []
     var countries: [String] = []
     var producers: [String] = []
+    var roasts: [String] = []
     var waterKinds: [String] = []
     var milkKinds: [String] = []
     var machines: [String] = []

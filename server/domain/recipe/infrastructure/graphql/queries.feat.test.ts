@@ -387,6 +387,7 @@ describe('coffeeVocabulary query', () => {
       beanNames: ['Belleville — Sidamo', 'Belleville — Guji'],
       countries: ['Éthiopie'],
       producers: [],
+      roasts: ['Torréfaction claire'],
       waterKinds: ['Robinet (dureté 3/5)'],
       milkKinds: [],
       machines: ['Rancilio Silvia'],
@@ -395,13 +396,14 @@ describe('coffeeVocabulary query', () => {
     })
 
     const result = await execute(
-      `{ coffeeVocabulary { beanNames countries waterKinds machines grinders milkKinds } }`,
+      `{ coffeeVocabulary { beanNames countries roasts waterKinds machines grinders milkKinds } }`,
     )
 
     expect(result.errors).toBeUndefined()
     expect(result.data?.coffeeVocabulary).toEqual({
       beanNames: ['Belleville — Sidamo', 'Belleville — Guji'],
       countries: ['Éthiopie'],
+      roasts: ['Torréfaction claire'],
       waterKinds: ['Robinet (dureté 3/5)'],
       machines: ['Rancilio Silvia'],
       grinders: ['Niche Zero'],
