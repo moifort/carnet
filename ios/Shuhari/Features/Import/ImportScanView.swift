@@ -30,7 +30,6 @@ struct ImportScanView: View {
     @State private var composerPicks: [PhotosPickerItem] = []
     @State private var showComposerLibrary = false
     @State private var showComposerCamera = false
-    @State private var composerShouldCapture = false
     @State private var isLoadingPhoto = false
 
     /// An attached photo: its raw data for the upload, its image for the thumbnail.
@@ -166,38 +165,13 @@ struct ImportScanView: View {
     /// The camera reopened from inside the composer: one shot appends a photo and
     /// comes straight back, so several pages can be captured in a row.
     private var composerCamera: some View {
-        ZStack {
-            CameraView(
-                onCapture: { data in
-                    append(data)
-                    showComposerCamera = false
-                },
-                shouldCapture: $composerShouldCapture
-            )
-            .ignoresSafeArea()
-            ViewfinderOverlay()
-
-            VStack {
-                HStack {
-                    Button { showComposerCamera = false } label: {
-                        CircleIcon(systemImage: "xmark", size: 44)
-                    }
-                    .accessibilityLabel("Fermer")
-                    Spacer()
-                }
-                .padding()
-                Spacer()
-                Button { composerShouldCapture = true } label: {
-                    Circle()
-                        .stroke(.white, lineWidth: 4)
-                        .frame(width: 72, height: 72)
-                        .overlay(Circle().fill(.white).frame(width: 60, height: 60))
-                }
-                .accessibilityIdentifier("composer-shutter")
-                .accessibilityLabel("Prendre une photo")
-                .padding(.bottom, 32)
-            }
-        }
+        CameraShot(
+            onCapture: { data in
+                append(data)
+                showComposerCamera = false
+            },
+            onClose: { showComposerCamera = false }
+        )
     }
 
     /// Load the picked library items into attachments, decoding off the main actor.
@@ -253,21 +227,6 @@ struct ImportScanView: View {
 
     private func capture(_ data: Data) {
         onPick(.capture(data))
-    }
-}
-
-/// A white SF Symbol on a clear interactive glass circle — the iOS 26 idiom for
-/// controls floating over a live media feed.
-private struct CircleIcon: View {
-    let systemImage: String
-    let size: CGFloat
-
-    var body: some View {
-        Image(systemName: systemImage)
-            .font(.title2)
-            .foregroundStyle(.white)
-            .frame(width: size, height: size)
-            .glassEffect(.clear.interactive(), in: .circle)
     }
 }
 

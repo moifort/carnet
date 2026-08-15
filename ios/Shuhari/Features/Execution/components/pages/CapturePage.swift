@@ -2,7 +2,7 @@ import PhotosUI
 import SwiftUI
 
 /// Everything the cook has to say about the displayed version, in one page: a 5-star
-/// rating, remarks and photos of the result, and the tips worth keeping. Each field
+/// rating, remarks and a photo of the result, and the tips worth keeping. Each field
 /// is optional and what is filled decides what happens — the flow routes, the page
 /// only collects. Validation lives in the top-right toolbar; the flow provides the
 /// close button.
@@ -12,9 +12,8 @@ struct CapturePage: View {
     /// improvement asked with no cook behind it.
     let onSave: (_ rating: Int?, _ remarks: String, _ tips: String, _ photoBase64: String?) -> Void
 
-    /// A picked photo kept both decoded (for the thumbnail) and encoded (payload).
-    private struct LoadedPhoto: Identifiable {
-        let id = UUID()
+    /// The photo, kept both decoded (for the thumbnail) and encoded (payload).
+    private struct LoadedPhoto {
         let image: UIImage
         let base64: String
     }
@@ -22,8 +21,10 @@ struct CapturePage: View {
     @State private var rating: Int?
     @State private var remarks: String = ""
     @State private var tips: String = ""
-    @State private var photoItems: [PhotosPickerItem] = []
-    @State private var photos: [LoadedPhoto] = []
+    @State private var photoItem: PhotosPickerItem?
+    @State private var photo: LoadedPhoto?
+    @State private var isLoadingPhoto = false
+    @State private var showCamera = false
 
     var body: some View {
         Form {
@@ -33,7 +34,7 @@ struct CapturePage: View {
             }
             .listRowBackground(Color.clear)
 
-            // Remarks and photos share one block.
+            // Remarks and the photo share one block.
             Section {
                 TextField("Ex. : trop amer, coule trop vite, manque de liant…", text: $remarks, axis: .vertical)
                     .lineLimit(5...20)
@@ -70,7 +71,7 @@ struct CapturePage: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button {
-                    onSave(rating, trimmed(remarks), trimmed(tips), photos.first?.base64)
+                    onSave(rating, trimmed(remarks), trimmed(tips), photo?.base64)
                 } label: {
                     ActionIcon(systemImage: "checkmark", isRunning: isSaving)
                 }
@@ -79,8 +80,20 @@ struct CapturePage: View {
                 .accessibilityLabel("Valider")
             }
         }
-        .onChange(of: photoItems) { _, newValue in
-            Task { await loadPhotos(newValue) }
+        .onChange(of: photoItem) { _, item in
+            guard let item else { return }
+            photoItem = nil
+            Task { await pickFromLibrary(item) }
+        }
+        .fullScreenCover(isPresented: $showCamera) {
+            CameraShot(
+                onCapture: { data in
+                    showCamera = false
+                    Task { await attach(data) }
+                },
+                onClose: { showCamera = false },
+                showsFramingGuide: false
+            )
         }
     }
 
@@ -94,45 +107,99 @@ struct CapturePage: View {
         text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    // MARK: - Photos
+    // MARK: - Photo
 
+    /// One photo — the attempt keeps one — with two ways in: the library, or the
+    /// camera right there, since the plate is in front of the cook when the form
+    /// opens. Removing it puts both entries back.
     private var photoRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: Theme.Spacing.s) {
-                ForEach(photos) { photo in
-                    Image(uiImage: photo.image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 72, height: 72)
-                        .clipShape(.rect(cornerRadius: Theme.Radius.control))
-                }
-
-                PhotosPicker(selection: $photoItems, maxSelectionCount: 5, matching: .images) {
-                    Image(systemName: "photo.badge.plus")
-                        .font(.title3)
-                        .foregroundStyle(Color.accentColor)
-                        .frame(width: 72, height: 72)
-                        .background(Color(.systemFill), in: .rect(cornerRadius: Theme.Radius.control))
+        HStack(spacing: Theme.Spacing.m) {
+            if let photo {
+                thumbnail(photo)
+            } else if isLoadingPhoto {
+                PhotoSlot { ProgressView() }
+            } else {
+                PhotosPicker(selection: $photoItem, matching: .images) {
+                    PhotoSlot {
+                        Image(systemName: "photo.on.rectangle")
+                            .font(.title3)
+                            .foregroundStyle(Color.accentColor)
+                    }
                 }
                 .accessibilityIdentifier("photo-picker")
-                .accessibilityLabel("Ajouter des photos")
+                .accessibilityLabel("Choisir une photo")
+
+                // Absent from the simulator, which has no camera to open.
+                if CameraView.isAvailable {
+                    Button { showCamera = true } label: {
+                        PhotoSlot {
+                            Image(systemName: "camera")
+                                .font(.title3)
+                                .foregroundStyle(Color.accentColor)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("photo-camera")
+                    .accessibilityLabel("Prendre une photo")
+                }
             }
-            .padding(.vertical, 2)
         }
+        .padding(.vertical, Theme.Spacing.xs)
     }
 
-    private func loadPhotos(_ items: [PhotosPickerItem]) async {
-        var loaded: [LoadedPhoto] = []
-        for item in items {
-            guard let data = try? await item.loadTransferable(type: Data.self) else { continue }
-            let jpeg = await Task.detached(priority: .userInitiated) {
-                UIImage(data: data).flatMap { $0.resized(maxDimension: 1200).jpegData(compressionQuality: 0.7) }
-            }.value
-            if let jpeg, let image = UIImage(data: jpeg) {
-                loaded.append(LoadedPhoto(image: image, base64: jpeg.base64EncodedString()))
+    private func thumbnail(_ photo: LoadedPhoto) -> some View {
+        Image(uiImage: photo.image)
+            .resizable()
+            .scaledToFill()
+            .frame(width: 72, height: 72)
+            .clipShape(.rect(cornerRadius: Theme.Radius.control))
+            .overlay(alignment: .topTrailing) {
+                Button { self.photo = nil } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.body)
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(.white, .black.opacity(0.6))
+                        .padding(3)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("photo-remove")
+                .accessibilityLabel("Retirer la photo")
             }
-        }
-        photos = loaded
+            .accessibilityIdentifier("attempt-photo")
+    }
+
+    private func pickFromLibrary(_ item: PhotosPickerItem) async {
+        isLoadingPhoto = true
+        defer { isLoadingPhoto = false }
+        guard let data = try? await item.loadTransferable(type: Data.self) else { return }
+        await attach(data)
+    }
+
+    /// Downscale and JPEG-encode off the main actor: the photo travels as base64
+    /// inside the mutation, so the full-resolution shot never leaves the phone as is.
+    /// A shot that fails to decode leaves the previous photo alone.
+    private func attach(_ data: Data) async {
+        isLoadingPhoto = true
+        defer { isLoadingPhoto = false }
+        let jpeg = await Task.detached(priority: .userInitiated) {
+            UIImage(data: data).flatMap { $0.resized(maxDimension: 1200).jpegData(compressionQuality: 0.7) }
+        }.value
+        guard let jpeg, let image = UIImage(data: jpeg) else { return }
+        photo = LoadedPhoto(image: image, base64: jpeg.base64EncodedString())
+    }
+}
+
+/// The empty square a photo goes in — what fills it says which way in it is.
+/// `nonisolated` because the photo picker builds its label outside the main actor —
+/// the slot holds a view and touches nothing isolated.
+private nonisolated struct PhotoSlot<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: Theme.Radius.control)
+            .fill(Color(.systemFill))
+            .frame(width: 72, height: 72)
+            .overlay(content)
     }
 }
 
