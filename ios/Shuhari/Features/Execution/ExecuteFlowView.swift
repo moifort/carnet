@@ -16,7 +16,10 @@ import SwiftUI
 /// - **tips alone** are reworded and merged into the displayed version's own — in
 ///   place, no version created. A note typed with them is recorded first, on its own.
 ///
-/// Nothing is saved before the proposal is accepted: closing it saves nothing.
+/// Nothing is saved before the proposal is accepted: closing it saves nothing, and
+/// puts the capture back exactly as it was left — the remark can be reworded and
+/// asked again (a new AI call, and a new one off the monthly allowance). The cook
+/// that a tips proposal wrote first is not written twice.
 ///
 /// Presented as a `.sheet` from the recipe sheet — the sheet already shows the recipe,
 /// so the flow opens straight on the capture. On completion it dismisses and asks the
@@ -52,6 +55,10 @@ struct ExecuteFlowView: View {
     @State private var vocabulary: CoffeeVocabulary = .empty
     @State private var isAcceptingProposal = false
     @State private var isCreatingRecipe = false
+    /// Whether the cook has already been written on the displayed version. A closed
+    /// proposal comes back to the capture, and a second validation must not write
+    /// the same cook twice — there is one cook per run of the flow.
+    @State private var attemptRecorded = false
 
     /// The capture is the root; whichever proposal the form asked for follows it.
     private enum Step: Hashable { case proposal, tips }
@@ -119,7 +126,7 @@ struct ExecuteFlowView: View {
                         isWorking: isAcceptingProposal,
                         suggestedRecipeTitle: recipe.title,
                         isCreatingRecipe: isCreatingRecipe,
-                        onClose: { finish() },
+                        onClose: { discardProposal() },
                         onValidate: { edited in Task { await acceptProposal(edited) } },
                         onCreateRecipe: { edited, title in
                             Task { await createRecipe(edited, title: title, from: recipe) }
@@ -135,7 +142,7 @@ struct ExecuteFlowView: View {
                         isWorking: isAcceptingProposal,
                         suggestedRecipeTitle: recipe.title,
                         isCreatingRecipe: isCreatingRecipe,
-                        onClose: { finish() },
+                        onClose: { discardProposal() },
                         onValidate: { edited in Task { await acceptProposal(edited) } },
                         onCreateRecipe: { edited, title in
                             Task { await createRecipe(edited, title: title, from: recipe) }
@@ -148,7 +155,7 @@ struct ExecuteFlowView: View {
                 proposedTips: proposedTips,
                 baseTips: recipe.version(request.versionNumber)?.tips ?? [],
                 isWorking: isSavingTips,
-                onClose: { finish() },
+                onClose: { discardProposal() },
                 onValidate: { edited in Task { await saveTips(edited) } }
             )
         }
@@ -266,7 +273,10 @@ struct ExecuteFlowView: View {
 
     /// Write the cook on the version shown. Answers whether it went through, so a
     /// caller with more to do stops on a failure the error alert already reports.
+    /// Already written — the tips proposal it preceded was closed and validated
+    /// again — it is not written a second time: a cook is an event, not a form.
     private func recordAttempt(rating: Int, photo: String?) async -> Bool {
+        guard !attemptRecorded else { return true }
         isSaving = true
         defer { isSaving = false }
         do {
@@ -276,6 +286,7 @@ struct ExecuteFlowView: View {
                 rating: rating,
                 photoBase64: photo
             )
+            attemptRecorded = true
             return true
         } catch {
             errorPresenter.message = reportError(error)
@@ -322,6 +333,18 @@ struct ExecuteFlowView: View {
         } catch {
             errorPresenter.message = reportError(error)
         }
+    }
+
+    /// Closing a proposal is a step back, not a way out of the flow: the ephemeral
+    /// proposal is dropped and the capture comes back, still holding the note, the
+    /// remark, the photo and the tips that were typed — reword and ask again. The
+    /// flow's own Fermer is what leaves.
+    private func discardProposal() {
+        path = []
+        detent = Self.capture
+        proposal = nil
+        proposedTips = []
+        pendingAttempt = nil
     }
 
     private func finish() {

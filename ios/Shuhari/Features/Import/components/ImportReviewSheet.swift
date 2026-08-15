@@ -23,9 +23,37 @@ struct ImportJob: Identifiable {
     let flow: ImportFlow
 }
 
+/// What the composer held, so that closing the analysis can put it back exactly as
+/// it was left. It is rebuilt from the input being analysed rather than kept alive
+/// beside the review sheet: the import already carries everything that was typed.
+struct ImportDraft {
+    let photos: [Data]
+    let text: String
+}
+
+extension ImportInput {
+    /// The composer this import came from, when it came from one. A photo shot or
+    /// picked straight from the camera screen never went through it — there is
+    /// nothing to restore, the camera itself is what it came from.
+    var draft: ImportDraft? {
+        switch self {
+        case .composed(let photos, let text):
+            return ImportDraft(photos: photos, text: text)
+        case .source(.text(let text)):
+            return ImportDraft(photos: [], text: text)
+        case .source(.url(let url)):
+            return ImportDraft(photos: [], text: url)
+        case .source(.photos), .capture, .library:
+            return nil
+        }
+    }
+}
+
 /// The opaque sheet presented over the camera: runs the AI analysis (glowing
 /// loader), then hands off to the editable `ImportPreviewPage`, and creates the
-/// recipe on Valider. Fermer / failure "close" abandons the whole import.
+/// recipe on Valider. Fermer / failure "close" drops the analysis and hands the
+/// import back to where it was typed — the caller reopens the composer on this
+/// job's `draft`.
 struct ImportReviewSheet: View {
     let input: ImportInput
     /// Which flow reads the source: the coffee one (dials) or the cooking one
@@ -33,7 +61,8 @@ struct ImportReviewSheet: View {
     let flow: ImportFlow
     /// Success → create the recipe and route the tab (dismisses the whole cover).
     let onCreated: (String) -> Void
-    /// Fermer / analysis-failure close → abandon the import and close the flow.
+    /// Fermer / analysis-failure close → drop the analysis and go back to the
+    /// screen the import was typed on. Nothing was created.
     let onCancel: () -> Void
 
     enum Phase: Equatable {

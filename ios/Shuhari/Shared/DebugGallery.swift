@@ -359,6 +359,8 @@ struct DebugGallery: View {
                 .sheet(isPresented: .constant(true)) {
                     PremiumSheet(store: subscription)
                 }
+        case "import-resumed":
+            ImportScanView(draft: .gallery) { _ in }
         case "import-quota-exhausted":
             ImportReviewSheet(galleryPhase: .quotaExhausted)
         case "import-premium-required":
@@ -367,7 +369,7 @@ struct DebugGallery: View {
             ContentUnavailableView(
                 "Écran inconnu : \(screen)",
                 systemImage: "questionmark.square.dashed",
-                description: Text("Écrans : cuisine, cuisine-course, cuisine-favorites, cuisine-thermomix, cuisine-loading, recipe, recipe-thermomix, recipe-fresh, history, attempt, attempt-pending, execute, execute-thermomix, capture, proposal, proposal-thermomix, to-test, to-test-empty, recipe-edit, improve, viewfinder, import-preview, import-preview-thermomix, ai-thinking, import-nothing-found, login, settings-data, quota, quota-premium, premium, premium-live, import-quota-exhausted, import-premium-required")
+                description: Text("Écrans : cuisine, cuisine-course, cuisine-favorites, cuisine-thermomix, cuisine-loading, recipe, recipe-thermomix, recipe-fresh, history, attempt, attempt-pending, execute, execute-thermomix, capture, proposal, proposal-thermomix, to-test, to-test-empty, recipe-edit, improve, viewfinder, import-preview, import-preview-thermomix, ai-thinking, import-nothing-found, login, settings-data, quota, quota-premium, premium, premium-live, import-quota-exhausted, import-premium-required, import-resumed")
             )
         }
     }
@@ -531,6 +533,22 @@ private struct CuisineGalleryScreen: View {
                 onSettings: {}
             )
         }
+    }
+}
+
+/// What a closed analysis hands back to the import: the text and the photos that
+/// were sent, as JPEG data — the composer must reopen holding exactly this. Flat
+/// colour swatches stand in for real photos.
+extension ImportDraft {
+    static var gallery: ImportDraft {
+        let photos: [Data] = [UIColor.systemBrown, .systemTeal].compactMap { color in
+            UIGraphicsImageRenderer(size: CGSize(width: 144, height: 144)).image { context in
+                color.setFill()
+                context.fill(CGRect(x: 0, y: 0, width: 144, height: 144))
+            }
+            .jpegData(compressionQuality: 0.8)
+        }
+        return ImportDraft(photos: photos, text: "Pour 4 personnes, cuisson au four à chaleur tournante.")
     }
 }
 

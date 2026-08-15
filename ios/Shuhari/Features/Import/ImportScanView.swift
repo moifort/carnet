@@ -8,11 +8,12 @@ import SwiftUI
 /// alone is still routed to the AI web search). Capture / pick / compose hand the
 /// chosen `ImportInput` back via `onPick` and dismiss the camera — the parent then
 /// closes this cover and presents the review sheet, so the camera never lingers
-/// behind it.
+/// behind it. Reopened with a `draft` (the analysis was closed rather than
+/// validated), it opens on the composer instead, holding what was sent.
 struct ImportScanView: View {
     /// Which world is being imported — the tab decided it, and it only changes the
     /// words the composer uses.
-    var flow: ImportFlow = .cooking
+    let flow: ImportFlow
     let onPick: (ImportInput) -> Void
 
     /// The server refuses more than this in one import (`MAX_IMPORT_PHOTOS`).
@@ -37,6 +38,29 @@ struct ImportScanView: View {
         let id = UUID()
         let data: Data
         let image: UIImage
+
+        init?(data: Data) {
+            guard let image = UIImage(data: data) else { return nil }
+            self.data = data
+            self.image = image
+        }
+    }
+
+    /// A `draft` — what a closed analysis handed back — opens on the composer
+    /// instead of the camera, holding the text and the photos that were sent. It is
+    /// seeded here rather than put back on appear: a sheet raised from `onAppear`
+    /// renders the state as it was before, and the photos would be missing.
+    init(
+        flow: ImportFlow = .cooking,
+        draft: ImportDraft? = nil,
+        onPick: @escaping (ImportInput) -> Void
+    ) {
+        self.flow = flow
+        self.onPick = onPick
+        let photos = (draft?.photos ?? []).prefix(Self.maxPhotos)
+        _rawText = State(initialValue: draft?.text ?? "")
+        _attached = State(initialValue: photos.compactMap(AttachedPhoto.init))
+        _showComposer = State(initialValue: draft != nil)
     }
 
     var body: some View {
@@ -187,8 +211,8 @@ struct ImportScanView: View {
     }
 
     private func append(_ data: Data) {
-        guard attached.count < Self.maxPhotos, let image = UIImage(data: data) else { return }
-        attached.append(AttachedPhoto(data: data, image: image))
+        guard attached.count < Self.maxPhotos, let photo = AttachedPhoto(data: data) else { return }
+        attached.append(photo)
     }
 
     /// Handed off from the composer's `onDismiss`: waiting for it to fully dismiss

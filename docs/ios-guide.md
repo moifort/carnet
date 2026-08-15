@@ -69,6 +69,15 @@ it reads the source as a coffee, from Cuisine as something cooked. `ContentView`
 `CoffeeImportPreviewPage` or `ImportPreviewPage`. Nothing is guessed from the source, and the
 created recipe lands in the tab it came from. Closing the camera cover restores that tab.
 
+**Closing an AI screen goes back one step, it does not leave.** An analysis or a proposal the cook
+refuses returns to the screen it was asked from, with everything typed still there — a wording to
+fix costs a re-read, never a re-type. The import rebuilds the composer from the `ImportJob` being
+analysed (`ImportInput.draft`) and reopens the cover on it; `ExecuteFlowView` simply pops back to
+its `CapturePage`, whose `@State` never left the `NavigationStack` root. Asking again is a second
+AI call and a second unit off the monthly allowance — closing is free, re-asking is not. A flow
+that already wrote a cook before proposing (tips) must not write it twice on the second
+validation.
+
 ## Data fetching — GraphQL, not REST
 
 All transport goes through Apollo. `APIClient` is reduced to resolving the base URL; there is no

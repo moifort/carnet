@@ -7,7 +7,9 @@ import SwiftUI
 /// camera-first import full-screen; closing that cover restores the content tab, so
 /// the tab bar never lingers on the import entry's empty content. The one import
 /// serves both tabs: on success the new recipe is routed to the tab its detected
-/// type belongs to, which navigates to its recipe sheet.
+/// type belongs to, which navigates to its recipe sheet. Closing the analysis is a
+/// step back, not an abandon: the cover reopens on the composer, refilled with the
+/// text and the photos that were sent.
 struct ContentView: View {
     enum RootTab: Hashable {
         case cooking, coffee, importEntry
@@ -23,6 +25,11 @@ struct ContentView: View {
     /// content tab (so the camera is gone, not lingering behind the sheet).
     @State private var pendingImport: ImportInput?
     @State private var reviewJob: ImportJob?
+    /// Set when the analysis is closed: the import cover reopens once the review
+    /// sheet is gone, on the composer this draft refills — or on the camera, when
+    /// the import never went through the composer (`nil` draft).
+    @State private var resumesImport = false
+    @State private var resumedDraft: ImportDraft?
     /// The imported recipe, handed to whichever tab owns its type — the other tab
     /// must not navigate to a recipe it does not list.
     @State private var importedRecipe: ImportedRecipe?
@@ -74,12 +81,12 @@ struct ContentView: View {
             }
         }
         .fullScreenCover(isPresented: $showImport, onDismiss: onImportCoverDismiss) {
-            ImportScanView(flow: importFlow) { input in
+            ImportScanView(flow: importFlow, draft: resumedDraft) { input in
                 pendingImport = input
                 showImport = false
             }
         }
-        .sheet(item: $reviewJob) { job in
+        .sheet(item: $reviewJob, onDismiss: onReviewSheetDismiss) { job in
             ImportReviewSheet(
                 input: job.input,
                 flow: job.flow,
@@ -96,7 +103,11 @@ struct ContentView: View {
                     }
                     reviewJob = nil
                 },
-                onCancel: { reviewJob = nil }
+                onCancel: {
+                    resumedDraft = job.input.draft
+                    resumesImport = true
+                    reviewJob = nil
+                }
             )
             .presentationDetents([.large])
         }
@@ -107,10 +118,22 @@ struct ContentView: View {
     /// over it, so the camera is fully gone rather than lingering behind the sheet.
     private func onImportCoverDismiss() {
         if selectedTab == .importEntry { selectedTab = lastContentTab }
+        // A restored draft has been handed over: the next import starts blank.
+        resumedDraft = nil
         if let input = pendingImport {
             pendingImport = nil
             reviewJob = ImportJob(input: input, flow: importFlow)
         }
+    }
+
+    /// A closed analysis is not an abandoned import: reopen the cover on what was
+    /// typed, so the text and the photos can be fixed and sent again. Waiting for
+    /// the sheet to be gone avoids presenting the cover over a dismissing sheet.
+    /// A swipe-dismiss sets nothing and still abandons the import.
+    private func onReviewSheetDismiss() {
+        guard resumesImport else { return }
+        resumesImport = false
+        showImport = true
     }
 }
 
