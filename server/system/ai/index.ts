@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto'
 import type { DocumentData } from 'firebase-admin/firestore'
+import * as coffeeChange from '~/system/ai/change/coffee'
+import * as cookingChange from '~/system/ai/change/cooking'
 import * as coffeeImport from '~/system/ai/import/coffee'
 import * as cookingImport from '~/system/ai/import/cooking'
 import { ImportHash } from '~/system/ai/primitives'
@@ -8,9 +10,13 @@ import * as cookingProposal from '~/system/ai/proposal/cooking'
 import * as repository from '~/system/ai/repository'
 import * as tips from '~/system/ai/tips'
 import type {
+  CoffeeChange,
+  CoffeeChangeContext,
   CoffeeImportAnalysis,
   CoffeeProposal,
   CoffeeProposalContext,
+  CookingChange,
+  CookingChangeContext,
   CookingImportAnalysis,
   CookingProposal,
   CookingProposalContext,
@@ -36,6 +42,15 @@ export namespace Ai {
 
   export const proposeNextCooking = (context: CookingProposalContext): Promise<CookingProposal> =>
     cookingProposal.propose(context)
+
+  // Transcribe a change the cook already made and already ate. Same two worlds as
+  // the proposals, and the same rule: never one prompt for both — but the opposite
+  // job, since the model applies an opinion instead of having one.
+  export const applyCoffeeChange = (context: CoffeeChangeContext): Promise<CoffeeChange> =>
+    coffeeChange.apply(context)
+
+  export const applyCookingChange = (context: CookingChangeContext): Promise<CookingChange> =>
+    cookingChange.apply(context)
 
   export const formatTips = (context: TipsContext): Promise<string[]> => tips.format(context)
 

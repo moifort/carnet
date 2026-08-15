@@ -2,15 +2,28 @@ import PhotosUI
 import SwiftUI
 
 /// Everything the cook has to say about the displayed version, in one page: a 5-star
-/// rating, remarks and a photo of the result, and the tips worth keeping. Each field
-/// is optional and what is filled decides what happens — the flow routes, the page
-/// only collects. Validation lives in the top-right toolbar; the flow provides the
-/// close button.
+/// rating, the change they made while cooking, what they would like improved, a photo
+/// of the result, and the tips worth keeping. Each field is optional and what is
+/// filled decides what happens — the flow routes, the page only collects. Validation
+/// lives in the top-right toolbar; the flow provides the close button.
 struct CapturePage: View {
     let isSaving: Bool
-    /// Emits the whole form. The rating is optional: without it the remark is an
-    /// improvement asked with no cook behind it.
-    let onSave: (_ rating: Int?, _ remarks: String, _ tips: String, _ photoBase64: String?) -> Void
+    /// Emits the whole form in one value: five fields is past the point where a
+    /// positional closure can be read at the call site.
+    let onSave: (Capture) -> Void
+
+    /// What the form collected. Every field is optional, and the combination is what
+    /// the flow routes on — a change and an improvement written together chain two
+    /// versions, the one that was eaten and the one to try next.
+    struct Capture: Sendable {
+        var rating: Int?
+        /// What the cook already changed and already ate, in their own words.
+        var change = ""
+        /// What they would like improved next — the remark that asks for a version.
+        var remarks = ""
+        var tips = ""
+        var photoBase64: String?
+    }
 
     /// The photo, kept both decoded (for the thumbnail) and encoded (payload).
     private struct LoadedPhoto {
@@ -19,6 +32,7 @@ struct CapturePage: View {
     }
 
     @State private var rating: Int?
+    @State private var change: String = ""
     @State private var remarks: String = ""
     @State private var tips: String = ""
     @State private var photoItem: PhotosPickerItem?
@@ -34,6 +48,23 @@ struct CapturePage: View {
             }
             .listRowBackground(Color.clear)
 
+            // What the cook did at the stove, as opposed to what they would like
+            // done next: it is written down as a version that already exists.
+            Section {
+                TextField(
+                    "Ex. : 10 g de sucre au lieu de 20, cuit 5 min de plus…",
+                    text: $change,
+                    axis: .vertical
+                )
+                .lineLimit(3...12)
+                .frame(minHeight: 60, alignment: .top)
+                .accessibilityIdentifier("change-field")
+            } header: {
+                Text("Changement")
+            } footer: {
+                Text("Ce que tu as changé en cuisinant : crée une nouvelle version, déjà faite.")
+            }
+
             // Remarks and the photo share one block.
             Section {
                 TextField("Ex. : trop amer, coule trop vite, manque de liant…", text: $remarks, axis: .vertical)
@@ -42,6 +73,8 @@ struct CapturePage: View {
                     .accessibilityIdentifier("remarks-field")
 
                 photoRow
+            } header: {
+                Text("Amélioration")
             } footer: {
                 Text("Une remarque demande la version suivante à l’IA.")
             }
@@ -71,7 +104,15 @@ struct CapturePage: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button {
-                    onSave(rating, trimmed(remarks), trimmed(tips), photo?.base64)
+                    onSave(
+                        Capture(
+                            rating: rating,
+                            change: trimmed(change),
+                            remarks: trimmed(remarks),
+                            tips: trimmed(tips),
+                            photoBase64: photo?.base64
+                        )
+                    )
                 } label: {
                     ActionIcon(systemImage: "checkmark", isRunning: isSaving)
                 }
@@ -100,7 +141,8 @@ struct CapturePage: View {
     /// An empty form has nothing to send: a photo alone says nothing either, it
     /// illustrates a cook that has to be rated to exist.
     private var hasSomethingToSay: Bool {
-        rating != nil || !trimmed(remarks).isEmpty || !trimmed(tips).isEmpty
+        rating != nil || !trimmed(change).isEmpty || !trimmed(remarks).isEmpty
+            || !trimmed(tips).isEmpty
     }
 
     private func trimmed(_ text: String) -> String {
@@ -205,9 +247,6 @@ private nonisolated struct PhotoSlot<Content: View>: View {
 
 #Preview {
     NavigationStack {
-        CapturePage(
-            isSaving: false,
-            onSave: { _, _, _, _ in }
-        )
+        CapturePage(isSaving: false, onSave: { _ in })
     }
 }

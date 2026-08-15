@@ -3,8 +3,10 @@ import { z } from 'zod'
 import { RECIPE_MAX } from '~/domain/recipe/limits'
 import { BREW_METHOD_VALUES, DISH_CATEGORY_VALUES } from '~/domain/recipe/types'
 import type {
+  CoffeeChange,
   CoffeeImportAnalysis,
   CoffeeProposal,
+  CookingChange,
   CookingImportAnalysis,
   CookingProposal,
   ImportCoffeeParameters,
@@ -267,6 +269,35 @@ const CoffeeProposalSchema = z
     }),
   )
 
+// The transcription of a change the cook already made: the same lists a proposal
+// returns, without the rationale nobody asked for and without the tips, which the
+// change never touches.
+const CookingChangeSchema = z
+  .object({
+    changeSummary: clampedField(RECIPE_MAX.changeSummary),
+    ingredients: z.array(ingredientSchema).default([]),
+    steps: z.array(stepSchema).default([]),
+  })
+  .transform(
+    (raw): CookingChange => ({
+      changeSummary: raw.changeSummary,
+      ingredients: foldIngredients(raw.ingredients),
+      steps: foldSteps(raw.steps),
+    }),
+  )
+
+const CoffeeChangeSchema = z
+  .object({
+    changeSummary: clampedField(RECIPE_MAX.changeSummary),
+    parameters: z.unknown().optional(),
+  })
+  .transform(
+    (raw): CoffeeChange => ({
+      changeSummary: raw.changeSummary,
+      parameters: coffeeParametersSchema.parse(raw.parameters ?? {}),
+    }),
+  )
+
 // The model's explicit signal that the source holds nothing to import. Checked
 // before the full schema so a `found: false` reply with everything else blank never
 // trips the stricter parse.
@@ -307,6 +338,12 @@ export const parseCookingProposalResponse = (text: string): CookingProposal =>
 
 export const parseCoffeeProposalResponse = (text: string): CoffeeProposal =>
   CoffeeProposalSchema.parse(JSON.parse(text))
+
+export const parseCookingChangeResponse = (text: string): CookingChange =>
+  CookingChangeSchema.parse(JSON.parse(text))
+
+export const parseCoffeeChangeResponse = (text: string): CoffeeChange =>
+  CoffeeChangeSchema.parse(JSON.parse(text))
 
 const TipsResponseSchema = z.object({ tips: tipsSchema })
 

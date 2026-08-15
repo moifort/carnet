@@ -21,6 +21,12 @@ mutation RequestImprovement(
   }
 }
 
+mutation RequestChange($recipeId: RecipeId!, $versionNumber: VersionNumber!, $change: Remarks!) {
+  requestChange(recipeId: $recipeId, versionNumber: $versionNumber, change: $change) {
+    ...ProposalFields
+  }
+}
+
 mutation RequestTips($recipeId: RecipeId!, $versionNumber: VersionNumber!, $tips: Remarks!) {
   requestTips(recipeId: $recipeId, versionNumber: $versionNumber, tips: $tips) {
     tips

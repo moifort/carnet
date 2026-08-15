@@ -27,6 +27,15 @@ mock.module('~/system/ai', () => ({
   Ai: {
     proposeNextCooking: async () => proposal,
     proposeNextCoffee: async () => proposal,
+    applyCookingChange: async () => ({
+      changeSummary: 'Bouillon 700 → 650 ml',
+      ingredients: proposal.ingredients,
+      steps: proposal.steps,
+    }),
+    applyCoffeeChange: async () => ({
+      changeSummary: 'Mouture Niveau 12 → Niveau 10',
+      parameters: { beans: {}, water: {}, extraction: {}, gear: {} },
+    }),
     analyzeCookingImport: analyzing,
     analyzeCoffeeImport: analyzing,
     formatTips: async () => [],
@@ -145,6 +154,37 @@ describe('requestProposal mutation', () => {
   })
 })
 
+describe('requestChange mutation', () => {
+  const requestChange = `
+    mutation {
+      requestChange(recipeId: "${recipeId}", versionNumber: 1, change: "650 ml de bouillon au lieu de 700") {
+        basedOn
+        changeSummary
+        rationale
+      }
+    }
+  `
+
+  test('returns the transcription and persists nothing but the spent iteration', async () => {
+    const result = await execute(requestChange)
+    expect(result.errors).toBeUndefined()
+    // No rationale: the cook made the change, they were not asking for an opinion.
+    expect(result.data?.requestChange).toMatchObject({
+      basedOn: 1,
+      changeSummary: 'Bouillon 700 → 650 ml',
+      rationale: '',
+    })
+    expect([...fake.snapshot('recipe-versions').keys()]).toEqual([`${recipeId}_1`])
+    expect(fake.snapshot('ai-quotas').get(`${userId}_${monthOf(new Date())}`)?.iterations).toBe(1)
+  })
+
+  test('refuses once the free monthly iterations are used up', async () => {
+    seedIterationsUsed(FREE_LIMITS.iteration)
+    const result = await execute(requestChange)
+    expect(result.errors?.[0]?.extensions?.code).toBe('QUOTA_EXHAUSTED')
+  })
+})
+
 describe('acceptProposal mutation — where the cook lands', () => {
   // The whole loop as the app runs it: the cook makes the version they had to test,
   // rates it, writes what was off, and accepts what the AI answers.
@@ -189,6 +229,42 @@ describe('acceptProposal mutation — where the cook lands', () => {
         ],
         // The sheet opens on what is known to work, never on a version still to test.
         versionToOpen: { number: 1 },
+      },
+    })
+  })
+
+  test('a change already eaten is saved cooked, and its base keeps its own outcome', async () => {
+    const result = await execute(`
+      mutation {
+        acceptProposal(recipeId: "${recipeId}", proposal: {
+          basedOn: 1
+          changeSummary: "Bouillon 700 → 650 ml"
+          rationale: ""
+          cooked: true
+          rating: 4
+          content: { dish: { ingredients: [], steps: ["Mijoter 40 min"] } }
+          tips: []
+        }) {
+          recipe {
+            toTestCount
+            versions { number toTest rating }
+            versionToOpen { number }
+          }
+        }
+      }
+    `)
+    expect(result.errors).toBeUndefined()
+    // The plate that was made is the new version: the note is its own, and nothing
+    // is owed to the kitchen.
+    expect(result.data?.acceptProposal).toMatchObject({
+      recipe: {
+        toTestCount: 0,
+        versions: [
+          { number: 1, toTest: false, rating: null },
+          { number: 2, toTest: false, rating: 4 },
+        ],
+        // Rated, it becomes the version the recipe opens on.
+        versionToOpen: { number: 2 },
       },
     })
   })

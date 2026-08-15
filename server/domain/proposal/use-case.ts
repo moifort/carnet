@@ -39,7 +39,7 @@ const carriedOven = (content: VersionContent) =>
 const brandCookingProposal = (
   type: CookingRecipeType,
   current: VersionContent,
-  proposal: CookingProposal,
+  proposal: Pick<CookingProposal, 'ingredients' | 'steps'>,
 ): VersionContent =>
   type === 'thermomix'
     ? brandVersionContent({
@@ -153,11 +153,59 @@ const cookingAnswer = async (
   }
 }
 
+// The version a change is applied to, in the cook's own words. Its answer carries
+// neither rationale nor tips — see `CookingChange`.
+const coffeeChangeAnswer = async (
+  change: string,
+  method: BrewMethod,
+  content: VersionContent & { kind: 'coffee' },
+) => {
+  const applied = await Ai.applyCoffeeChange({
+    change,
+    method,
+    currentParameters: contextParameters(content),
+  })
+  return {
+    changeSummary: applied.changeSummary,
+    content: brandVersionContent({ kind: 'coffee', ...applied.parameters }),
+  }
+}
+
+const cookingChangeAnswer = async (
+  change: string,
+  category: DishCategory,
+  content: VersionContent & { kind: CookingRecipeType },
+) => {
+  const applied = await Ai.applyCookingChange({
+    change,
+    type: content.kind,
+    category,
+    currentIngredients: contextIngredients(content),
+    currentSteps: contextSteps(content),
+  })
+  return {
+    changeSummary: applied.changeSummary,
+    content: brandCookingProposal(content.kind, content, applied),
+  }
+}
+
+// Everything an iteration on an existing version starts with: the plan, the quota
+// it is gated on, and the recipe/version pair it works from — two keyed doc reads,
+// no lineage scan. Written once so the three flows can never gate differently.
+const iterationOn = async (userId: UserId, recipeId: RecipeId, versionNumber: VersionNumber) => {
+  const plan = await EntitlementQuery.planOf(userId)
+  if (await QuotaQuery.exhaustedFor(userId, plan, 'iteration')) return 'quota-exhausted' as const
+  const recipe = await RecipeQuery.byId(userId, recipeId)
+  if (recipe === 'not-found') return 'not-found' as const
+  const version = await RecipeQuery.versionBy(recipeId, versionNumber)
+  if (version === 'not-found') return 'not-found' as const
+  return { recipe, version }
+}
+
 export namespace ProposalUseCase {
   // Ask the AI for the next version. What motivates it comes from the caller, not
   // from storage: nothing is written until the proposal is accepted, so the cook (or
-  // the improvement) exists only in the request. Loads the version iterated on by key
-  // — recipe + version, two keyed doc reads, no lineage scan — feeds both to the AI,
+  // the improvement) exists only in the request. Feeds the loaded version to the AI,
   // brands the result into domain shapes and returns it stamped with
   // `basedOn = versionNumber`. Nothing is persisted beyond the quota spent.
   const nextVersion = async (
@@ -166,12 +214,9 @@ export namespace ProposalUseCase {
     versionNumber: VersionNumber,
     request: ProposalRequest,
   ) => {
-    const plan = await EntitlementQuery.planOf(userId)
-    if (await QuotaQuery.exhaustedFor(userId, plan, 'iteration')) return 'quota-exhausted'
-    const recipe = await RecipeQuery.byId(userId, recipeId)
-    if (recipe === 'not-found') return 'not-found'
-    const version = await RecipeQuery.versionBy(recipeId, versionNumber)
-    if (version === 'not-found') return 'not-found'
+    const loaded = await iterationOn(userId, recipeId, versionNumber)
+    if (typeof loaded === 'string') return loaded
+    const { recipe, version } = loaded
 
     // The question is the same in both worlds — what was cooked, what was asked —
     // but the answer is not, so each flow builds its own context and reads its own
@@ -209,6 +254,38 @@ export namespace ProposalUseCase {
     improvement: Remarks,
   ) => nextVersion(userId, recipeId, versionNumber, { improvement })
 
+  // The version the cook already cooked: the change they made themselves, applied
+  // to the version on screen by a model whose whole job is to transcribe it. Same
+  // ephemeral shape as a proposal, so the same review screen accepts it — but with
+  // no rationale (nobody asked why) and the tips of the version it starts from,
+  // carried over untouched: a change rewrites the method, never the advice around
+  // it. Accepting it creates a version that has already been made (`cooked`).
+  export const fromChange = async (
+    userId: UserId,
+    recipeId: RecipeId,
+    versionNumber: VersionNumber,
+    change: Remarks,
+  ) => {
+    const loaded = await iterationOn(userId, recipeId, versionNumber)
+    if (typeof loaded === 'string') return loaded
+    const { recipe, version } = loaded
+
+    const { content } = version
+    const answered =
+      content.kind === 'coffee'
+        ? await coffeeChangeAnswer(change, recipe.method ?? 'other', content)
+        : await cookingChangeAnswer(change, recipe.category, content)
+    await QuotaCommand.record(userId, 'iteration')
+
+    const branded: Proposal = {
+      basedOn: version.number,
+      rationale: '',
+      tips: version.tips,
+      ...answered,
+    }
+    return branded
+  }
+
   // The complete tips list merging what the cook just typed into the version's
   // current tips — reworded and deduplicated by the AI. Ephemeral like the version
   // proposals: nothing is persisted until the cook accepts it, which rewrites the
@@ -220,12 +297,9 @@ export namespace ProposalUseCase {
     versionNumber: VersionNumber,
     requested: Remarks,
   ) => {
-    const plan = await EntitlementQuery.planOf(userId)
-    if (await QuotaQuery.exhaustedFor(userId, plan, 'iteration')) return 'quota-exhausted'
-    const recipe = await RecipeQuery.byId(userId, recipeId)
-    if (recipe === 'not-found') return 'not-found'
-    const version = await RecipeQuery.versionBy(recipeId, versionNumber)
-    if (version === 'not-found') return 'not-found'
+    const loaded = await iterationOn(userId, recipeId, versionNumber)
+    if (typeof loaded === 'string') return loaded
+    const { version } = loaded
 
     const tips = await Ai.formatTips({
       currentIngredients: contextIngredients(version.content),
@@ -277,10 +351,11 @@ export namespace ProposalUseCase {
   // Accept a proposal as an iteration: append version n+1 from the client-supplied
   // content, stamping the version it iterated on (`basedOn`, threaded back through the
   // payload so no lineage rescan is needed) and the attempt that asked for it, if a
-  // cook did. This is the only moment that cook is written down — on the version it
-  // produced, never on the one it iterates from, which keeps whatever outcome it
-  // already had. Without an attempt (an improvement), the version created is one to
-  // test.
+  // cook did. This is the only moment that cook is written down. Without an attempt
+  // (an improvement), nothing is recorded and the version created is one to test.
+  // `cooked` flips the whole thing over: the version accepted is one the cook has
+  // already made (a change of theirs, transcribed), so it owes no try and the attempt
+  // lands on IT rather than on the version it iterates from.
   export const accept = async (userId: UserId, recipeId: RecipeId, proposal: AcceptedProposal) =>
     RecipeCommand.addVersion(userId, recipeId, {
       change: proposal.changeSummary,
@@ -289,5 +364,6 @@ export namespace ProposalUseCase {
       content: proposal.content,
       tips: proposal.tips,
       ...(proposal.attempt ? { attempt: proposal.attempt } : {}),
+      ...(proposal.cooked ? { cooked: true as const } : {}),
     })
 }

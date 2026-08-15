@@ -95,9 +95,16 @@ type ProposalRequest = {
   currentTips: string[]
 }
 
-// Context handed to the cooking proposal model: the full current version, plus what
-// asks for the next one.
-export type CookingProposalContext = ProposalRequest & {
+// What the cook already did at the stove: the change they applied themselves,
+// cooked and ate. The opposite of a `ProposalRequest` — nothing is asked for, a
+// version that exists is being written down.
+type ChangeRequest = {
+  // The change, in the cook's own words ("j'ai mis 10 g de sucre au lieu de 20").
+  change: string
+}
+
+// The version something iterates on, in the cooked world.
+type CookingVersion = {
   type: CookingRecipeType
   category: DishCategory
   // `component` marks a line that IS a recipe of its own (the ravioli's pasta dough).
@@ -108,12 +115,25 @@ export type CookingProposalContext = ProposalRequest & {
   currentSteps: ImportStep[]
 }
 
-// Context handed to the coffee proposal model: the dials the extraction starts
-// from, and the method it must stay within — a V60 recipe never becomes an espresso.
-export type CoffeeProposalContext = ProposalRequest & {
+// The same, brewed: the dials the extraction starts from, and the method it must
+// stay within — a V60 recipe never becomes an espresso.
+type CoffeeVersion = {
   method: BrewMethod
   currentParameters: ImportCoffeeParameters
 }
+
+// Context handed to the cooking proposal model: the full current version, plus what
+// asks for the next one.
+export type CookingProposalContext = ProposalRequest & CookingVersion
+
+export type CoffeeProposalContext = ProposalRequest & CoffeeVersion
+
+// Context handed to the change models: the same current version, and the change
+// the cook made to it. No tips travel — a change rewrites the method, never the
+// advice around it.
+export type CookingChangeContext = ChangeRequest & CookingVersion
+
+export type CoffeeChangeContext = ChangeRequest & CoffeeVersion
 
 // Raw next-version proposal produced by Gemini for a cooked recipe — a full
 // ingredient/step list plus a short change summary. Plain strings, validated into
@@ -136,6 +156,21 @@ export type CoffeeProposal = {
   rationale: string
   parameters: ImportCoffeeParameters
   tips: string[]
+}
+
+// The version the cook already made, transcribed: their change applied to the
+// current one and nothing else. No rationale — the reasoning belongs to the cook,
+// who did not ask for an opinion — and no tips: they are carried over untouched.
+export type CookingChange = {
+  changeSummary: string
+  ingredients: { name: string; quantity: string }[]
+  steps: ImportStep[]
+}
+
+// The same, brewed: the whole dial set with the cook's change applied.
+export type CoffeeChange = {
+  changeSummary: string
+  parameters: ImportCoffeeParameters
 }
 
 // Context handed to the tips model: the current version (for grounding the

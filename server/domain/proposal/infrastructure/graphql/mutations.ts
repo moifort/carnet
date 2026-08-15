@@ -158,6 +158,57 @@ builder.mutationField('requestImprovement', (t) =>
   }),
 )
 
+builder.mutationField('requestChange', (t) =>
+  t.field({
+    type: ProposalType,
+    description: [
+      'Write down a change you have ALREADY made: you cooked this recipe, changed something on ' +
+        'the way (10 g of sugar instead of 20) and ate the result. The AI applies exactly that ' +
+        'to the version you name — it invents nothing and improves nothing — and hands back the ' +
+        'complete version to review. Nothing is saved yet: accepting it (see acceptProposal, ' +
+        'with `cooked: true`) creates a version that has already been cooked, which is never on ' +
+        'your to-cook list, unlike requestImprovement. Spends one iteration of your monthly AI ' +
+        'allowance (see quota) — `QUOTA_EXHAUSTED` once it is used up.',
+      '',
+      '```graphql',
+      'requestChange(',
+      '  recipeId: "9f1c-a3b2"',
+      '  versionNumber: 2',
+      '  change: "j’ai mis 10 g de sucre au lieu de 20"',
+      ') {',
+      '  changeSummary',
+      '}',
+      '```',
+    ].join('\n'),
+    args: {
+      recipeId: t.arg({
+        type: 'RecipeId',
+        required: true,
+        description: 'The recipe you cooked, e.g. the id of `"Grandma’s lasagna"`',
+      }),
+      versionNumber: t.arg({
+        type: 'VersionNumber',
+        required: true,
+        description: 'The version you started from — the one on screen, e.g. `2`',
+      }),
+      change: t.arg({
+        type: 'Remarks',
+        required: true,
+        description:
+          'What you changed, in your own words, e.g. `"j’ai mis 10 g de sucre au lieu de 20"`',
+      }),
+    },
+    resolve: async (_root, { recipeId, versionNumber, change }, { userId }) => {
+      const result = await ProposalUseCase.fromChange(userId, recipeId, versionNumber, change)
+      return match(result)
+        .with('not-found', domainError)
+        .with('quota-exhausted', domainError)
+        .with(P.not(P.string), (proposal) => proposal)
+        .exhaustive()
+    },
+  }),
+)
+
 builder.mutationField('requestTips', (t) =>
   t.field({
     type: TipsProposalType,
@@ -211,11 +262,13 @@ builder.mutationField('acceptProposal', (t) =>
   t.field({
     type: AcceptProposalResultType,
     description: [
-      'Accept an AI suggestion (optionally after editing it). It becomes the next version in ' +
-        'the chain and lands on your to-cook list: it has never been made, whatever asked for ' +
-        'it. Coming from a cook (requestProposal), the attempt you just gave — the rating, the ' +
-        'remarks and the photo — is recorded on the version you cooked (`basedOn`), which stops ' +
-        'owing a try. Coming from an improvement (requestImprovement), nothing is recorded.',
+      'Accept a proposal (optionally after editing it). It becomes the next version in the ' +
+        'chain. Coming from a cook (requestProposal), it lands on your to-cook list — nobody ' +
+        'has made it — and the attempt you just gave (rating, remarks, photo) is recorded on ' +
+        'the version you cooked (`basedOn`), which stops owing a try. Coming from an ' +
+        'improvement (requestImprovement), it lands there too and nothing is recorded. Coming ' +
+        'from a change you already made (requestChange, `cooked: true`), it is saved as ' +
+        'already cooked, the attempt is recorded ON IT, and `basedOn` is left untouched.',
       '',
       '```graphql',
       'acceptProposal(recipeId: "9f1c-a3b2", proposal: {',
@@ -252,13 +305,15 @@ builder.mutationField('acceptProposal', (t) =>
         rationale: proposal.rationale,
         content: versionContentInput(proposal.content),
         tips: [...proposal.tips],
-        // The cook that asked for it, when one did — an improvement has none, and the
-        // version created is then the one to test.
-        ...(proposal.rating !== null && proposal.rating !== undefined && proposal.remarks
+        ...(proposal.cooked ? { cooked: true as const } : {}),
+        // The cook that came with it, when there was one — an improvement has none,
+        // and the version created is then the one to test. The remarks are optional:
+        // a change already eaten can be rated without a word written about it.
+        ...(proposal.rating !== null && proposal.rating !== undefined
           ? {
               attempt: {
                 rating: proposal.rating,
-                remarks: proposal.remarks,
+                ...(proposal.remarks ? { remarks: proposal.remarks } : {}),
                 // photo stays a placeholder, as on recordAttempt: accepted on the
                 // contract, not stored until GCS photo storage is provisioned.
               },

@@ -152,7 +152,9 @@ launched it from — never guessed from the source.
   full replacements of their own list — adding, deleting and reordering all come through them —
   and both answer `'not-a-cooked-recipe'` on a coffee, which has neither.
 - **An attempt lands on the version cooked**, always — a rating is a verdict on the plate that was
-  made, and the version an iteration creates has not been made yet:
+  made. Which version that is depends on what was asked: the one on screen when an iteration is
+  asked for (it has not been made yet), the one *created* when it transcribes a change already
+  eaten (see [Change](#change--the-version-already-eaten)):
   - **rating (and photo) without remarks** — nothing new is created,
     `RecipeCommand.recordAttempt` writes `rating` (1..5), `executedAt`, `photoPath` onto the
     version cooked and rewrites them in place on a re-cook (dropping the previous photo *and*
@@ -256,8 +258,32 @@ Everything is derived (`recipe/business-rules.ts`), nothing is promoted:
 - **`toTest`** (`RecipeVersion.toTest?: true`, absent = not on the list): the versions waiting to
   be cooked, listed by the recipe sheet's flask CTA. **Every accepted proposal raises it** — an
   iteration is by definition a version nobody has made yet, whether a cook or an improvement asked
-  for it. It drops the moment the version is cooked: `recordAttempt` rewrites it away, and so does
-  the cook an attempt-born proposal writes on the version it iterates on (`basedOn`).
+  for it. The one exception is a change already eaten (below), which is born cooked. It drops the
+  moment the version is cooked: `recordAttempt` rewrites it away, and so does the cook an
+  attempt-born proposal writes on the version it iterates on (`basedOn`).
+
+## Change — the version already eaten
+
+- **Change**: the third way to a version, and the only one that does not ask for anything. The
+  cook modified the recipe *at the stove* — "j'ai mis 10 g de sucre au lieu de 20" — cooked it and
+  ate it, so `ProposalUseCase.fromChange(userId, recipeId, versionNumber, change)` has the AI
+  **transcribe** it: `Ai.applyCookingChange` / `Ai.applyCoffeeChange` (`system/ai/change/*`, one
+  prompt per world like every other flow) apply exactly what the sentence describes and **invent
+  nothing** — no rationale (`Proposal.rationale` comes back `''`, so the version carries no `why`)
+  and no tips (the version's own are carried over untouched). It is an AI call on an existing
+  version, so it spends one iteration of the allowance.
+- **Accepting it creates a version that has already been made** — `AcceptedProposal.cooked` →
+  `NewVersionInput.cooked` → `RecipeCommand.addVersion`. That flag flips three things at once:
+  the version is born **executed** instead of `toTest`, its `origin.kind` is `'manual'` (the
+  cook's own hand, the model only wrote it down), and the attempt — the verdict on *that* plate —
+  lands **on it**, leaving `basedOn` exactly as it was. Rated, it becomes the recipe's best
+  version like any other; unrated, it is a version cooked without a verdict (`executedAt` with no
+  `rating`), which `bestRating` ignores.
+- **A change and an improvement written together chain two versions**, in that order: the version
+  eaten is written down and takes the cook, then the improvement is asked **from it** — not from
+  the version on screen, since what is asked to be improved is what was eaten. Two AI calls, two
+  iterations of the allowance, and the second version is one to test like any other. The app is
+  what sequences them (`ExecuteFlowView`); the domain knows only the two independent flows.
 
 ## Tips
 
@@ -296,7 +322,8 @@ where the two disagree. Up to `MAX_IMPORT_PHOTOS` (6). A **URL never combines** 
 cache key includes the typed text, so the same photos with a different note are a different
 analysis — photos with no text hash exactly as before.
 
-The prompts, one module per flow under `server/system/ai/` (`import/*`, `proposal/*`, `tips.ts`):
+The prompts, one module per flow under `server/system/ai/` (`import/*`, `proposal/*`, `change/*`,
+`tips.ts`):
 
 - An ingredient **name** carries its intrinsic *variety/type/grade* in parentheses
   (`Pommes de terre (Marbella)`, `Farine (T45)`) — only *transient* preparation (peeled, sliced)
@@ -338,6 +365,15 @@ The prompts, one module per flow under `server/system/ai/` (`import/*`, `proposa
     rewrite the cook's experiment instead of continuing it. The app shows the empty field in the
     proposal — editable, like every other one — and the cook fills it in if they know it. The
     model proposes the field, never its value.
+- **A change is transcribed, never advised** (`change/cooking.ts`, `change/coffee.ts`). The
+  iteration rules above are rules about having an opinion, and here the cook already had theirs,
+  at the stove: the model applies **exactly** what the sentence describes and nothing else — every
+  ingredient, step, setting and dial it does not mention comes back identical, in the same order
+  and the same words. It never rounds a value, never "fixes" a recipe it finds odd, and never
+  moves a second variable (the single-variable rule of a coffee *proposal* does not apply: the
+  cook may well have moved two dials, and what they drank is what gets written down). A sentence
+  no ingredient and no step can carry leaves the lists untouched and is reported in
+  `changeSummary`.
 
 ## The plan and the monthly AI allowance
 
@@ -348,8 +384,8 @@ app's only variable cost, so it is the only thing metered (`quota` domain, dimen
 - Two meters, `imports` and `iterations`. An **import** is one source analysis (either import
   mutation, whatever the source — six photos *and* a text are one analysis, so one import); an
   **iteration**
-  is one AI call on an existing version — a proposal, an improvement *or* a tips merge, all three
-  sharing the same counter.
+  is one AI call on an existing version — a proposal, an improvement, a change *or* a tips merge,
+  all four sharing the same counter.
 - `free` gets 3 imports and 5 iterations per **calendar month** (`FREE_LIMITS`), `premium`
   is unlimited. The window IS the month: one document per cook and per month, no reset job, and
   `renewsOn` is the 1st of the next month, UTC.

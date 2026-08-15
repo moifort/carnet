@@ -7,6 +7,12 @@ import SwiftUI
 ///
 /// - **the note alone** is a cook that asks for nothing: it is recorded on the version
 ///   shown, and the flow ends;
+/// - **a change** is a version that already exists: the cook modified the recipe at the
+///   stove and ate the result, so the AI writes it down — it applies exactly what was
+///   described and improves nothing — and accepting it creates a version already cooked,
+///   never one to test. The note, the photo and the remarks land on IT: it is the plate
+///   that was made. A remark typed beside it is the improvement to ask for NEXT, so it
+///   chains a second proposal, this time from the version just written;
 /// - **a remark** asks the AI for the next version to try, and the version it creates
 ///   lands on the to-cook list — it has not been made yet. Rated, the cook rides along
 ///   and is recorded, on accept, on the version shown: the one that was actually made.
@@ -59,15 +65,33 @@ struct ExecuteFlowView: View {
     /// proposal comes back to the capture, and a second validation must not write
     /// the same cook twice — there is one cook per run of the flow.
     @State private var attemptRecorded = false
+    /// Whether the proposal on screen transcribes a change the cook already made and
+    /// already ate — accepted, it is saved as a version that has been cooked.
+    @State private var proposalIsCooked = false
+    /// What the capture still owes once that change is written down: the improvement
+    /// to ask for, and the cook it is read against. Nil when there is nothing to
+    /// chain, and cleared as soon as it is asked — a capture is spent once.
+    @State private var chained: CapturePage.Capture?
+    /// A version has been written by this run of the flow. Closing whatever proposal
+    /// follows then ends the flow instead of coming back to the capture: the form
+    /// that produced it has been honoured, and re-validating it would write it twice.
+    @State private var versionCreated = false
+    /// The proposal on screen has been accepted. It only stays on screen when what
+    /// was to follow it never arrived (a chained request that failed, quota included):
+    /// validating it a second time must not write the same version twice.
+    @State private var proposalAccepted = false
+    /// Bumped for every proposal put on screen. It is the identity of the proposal
+    /// page, so a second proposal replaces the first with its own editable state
+    /// instead of reusing the rows of the one before it.
+    @State private var proposalGeneration = 0
 
     /// The capture is the root; whichever proposal the form asked for follows it.
     private enum Step: Hashable { case proposal, tips }
 
-    /// The height the form opens at — 70% of the screen: the note, the remark with
-    /// its photos and the tips field are all in view (the last footer takes a nudge
-    /// of scroll), while the recipe still shows behind. Neither stock detent does
-    /// that: `.medium` opens on the remark alone, `.large` covers the recipe the
-    /// form is talking about.
+    /// The height the form opens at — 70% of the screen: the note, the change and the
+    /// remark with its photos are in view, the tips a scroll below, while the recipe
+    /// still shows behind. Neither stock detent does that: `.medium` opens on the
+    /// change alone, `.large` covers the recipe the form is talking about.
     private static let capture = PresentationDetent.fraction(0.7)
 
     var body: some View {
@@ -132,6 +156,7 @@ struct ExecuteFlowView: View {
                             Task { await createRecipe(edited, title: title, from: recipe) }
                         }
                     )
+                    .id(proposalGeneration)
                 } else {
                     ProposalPage(
                         proposal: proposal,
@@ -148,6 +173,7 @@ struct ExecuteFlowView: View {
                             Task { await createRecipe(edited, title: title, from: recipe) }
                         }
                     )
+                    .id(proposalGeneration)
                 }
             }
         case .tips:
@@ -162,8 +188,8 @@ struct ExecuteFlowView: View {
     }
 
     private var captureScreen: some View {
-        CapturePage(isSaving: isSaving) { rating, remarks, tips, photo in
-            Task { await submit(rating: rating, remarks: remarks, tips: tips, photo: photo) }
+        CapturePage(isSaving: isSaving) { capture in
+            Task { await submit(capture) }
         }
     }
 
@@ -178,17 +204,101 @@ struct ExecuteFlowView: View {
         }
     }
 
-    /// The one router of the flow: what the form says decides what is asked, and a
-    /// remark outranks tips — asking for the next version is the bigger move, and the
-    /// tips typed with it travel into that version rather than costing a second call.
-    private func submit(rating: Int?, remarks: String, tips: String, photo: String?) async {
-        if !remarks.isEmpty {
-            await requestNextVersion(rating: rating, remarks: remarks, tips: tips, photo: photo)
-        } else if !tips.isEmpty {
-            await requestTips(rating: rating, tips: tips, photo: photo)
-        } else if let rating {
-            if await recordAttempt(rating: rating, photo: photo) { finish() }
+    /// The one router of the flow: what the form says decides what is asked. A change
+    /// outranks everything — it says a version EXISTS, which has to be written down
+    /// before anything can iterate on it — then a remark outranks tips, since asking
+    /// for the next version is the bigger move and the tips typed with it travel into
+    /// that version rather than costing a second call.
+    private func submit(_ capture: CapturePage.Capture) async {
+        if !capture.change.isEmpty {
+            await writeDownChange(capture)
+        } else if !capture.remarks.isEmpty {
+            await requestNextVersion(
+                rating: capture.rating,
+                remarks: capture.remarks,
+                tips: capture.tips,
+                photo: capture.photoBase64
+            )
+        } else if !capture.tips.isEmpty {
+            await requestTips(rating: capture.rating, tips: capture.tips, photo: capture.photoBase64)
+        } else if let rating = capture.rating {
+            if await recordAttempt(rating: rating, photo: capture.photoBase64) { finish() }
         }
+    }
+
+    // A change is not a request: the cook made it at the stove and ate the result, so
+    // the AI only writes it down — the version it transcribes has been cooked, and the
+    // note, the photo and the remarks are the verdict on IT, not on the version shown.
+    // An improvement typed beside it is held back for after: it iterates on the
+    // version being written, which does not exist yet.
+    private func writeDownChange(_ capture: CapturePage.Capture) async {
+        pendingAttempt = capture.rating.map {
+            Attempt(rating: $0, remarks: capture.remarks, photoBase64: capture.photoBase64)
+        }
+        chained = capture.remarks.isEmpty ? nil : capture
+        proposalIsCooked = true
+        // Grow first so the Siri loader fills the sheet.
+        detent = .large
+        thinking = "L’IA écrit votre version…"
+        defer { thinking = nil }
+        do {
+            var next = try await ProposalAPI.requestChange(
+                recipeId: request.recipeId,
+                versionNumber: request.versionNumber,
+                change: capture.change
+            )
+            // Advice typed beside the change belongs to the version it describes.
+            if !capture.tips.isEmpty {
+                next.tips.append(capture.tips)
+            }
+            await show(next)
+        } catch {
+            errorPresenter.message = reportError(error)
+        }
+    }
+
+    // The second half of a capture carrying both: the version just written down is
+    // what the improvement iterates on, so the recipe is reloaded — it now holds it —
+    // before asking. The cook has already been recorded on it, which is why the
+    // proposal that comes back carries nothing to write.
+    private func chainImprovement(_ capture: CapturePage.Capture, from versionNumber: Int) async {
+        chained = nil
+        thinking = "L’IA imagine la prochaine version…"
+        defer { thinking = nil }
+        do {
+            recipe = try await RecipeAPI.getRecipe(id: request.recipeId)
+            let next =
+                if let rating = capture.rating {
+                    try await ExecutionAPI.requestProposal(
+                        recipeId: request.recipeId,
+                        versionNumber: versionNumber,
+                        rating: rating,
+                        remarks: capture.remarks
+                    )
+                } else {
+                    try await ProposalAPI.requestImprovement(
+                        recipeId: request.recipeId,
+                        versionNumber: versionNumber,
+                        improvement: capture.remarks
+                    )
+                }
+            await show(next)
+        } catch {
+            errorPresenter.message = reportError(error)
+        }
+    }
+
+    /// Put a proposal on screen, with the coffee vocabulary its form needs. Its own
+    /// generation, so one replacing another is a page of its own rather than the
+    /// previous one's editable rows filled with new text.
+    private func show(_ next: Proposal) async {
+        proposal = next
+        proposalAccepted = false
+        if next.content.coffeeParameters != nil {
+            vocabulary = (try? await RecipeAPI.coffeeVocabulary()) ?? .empty
+        }
+        proposalGeneration += 1
+        if path.isEmpty { path.append(.proposal) }
     }
 
     // A written remark is the request to iterate: nothing is recorded here, the cook
@@ -222,11 +332,7 @@ struct ExecuteFlowView: View {
             if !tips.isEmpty {
                 next.tips.append(tips)
             }
-            proposal = next
-            if next.content.coffeeParameters != nil {
-                vocabulary = (try? await RecipeAPI.coffeeVocabulary()) ?? .empty
-            }
-            path.append(.proposal)
+            await show(next)
         } catch {
             errorPresenter.message = reportError(error)
         }
@@ -294,20 +400,38 @@ struct ExecuteFlowView: View {
         }
     }
 
-    // Accepting is what writes the cook down: it lands on the version it was made on —
-    // the one this iterates from — while the version created is one to test, since
-    // nobody has made it. Closing the proposal instead records nothing at all, and a
-    // remark written with no note behind it carries no cook to write.
+    // Accepting is what writes the cook down. On a proposal, it lands on the version
+    // it was made on — the one this iterates from — while the version created is one
+    // to test, since nobody has made it. On a change, the version created IS the one
+    // that was made: it is saved cooked and takes the verdict itself. Closing the
+    // proposal instead records nothing at all, and a remark written with no note
+    // behind it carries no cook to write.
+    //
+    // A change that came with an improvement chains straight into it, from the
+    // version just written rather than from the one on screen: what is asked to be
+    // improved is what was eaten.
     private func acceptProposal(_ edited: ProposalEdit) async {
+        // Already written, and still on screen because what was to follow it failed:
+        // the way out of it is Fermer.
+        guard !proposalAccepted else { return finish() }
         isAcceptingProposal = true
         defer { isAcceptingProposal = false }
         do {
-            try await ProposalAPI.accept(
+            let created = try await ProposalAPI.accept(
                 recipeId: request.recipeId,
                 proposal: edited,
-                attempt: pendingAttempt
+                attempt: pendingAttempt,
+                cooked: proposalIsCooked
             )
-            finish()
+            versionCreated = true
+            proposalAccepted = true
+            // The cook is an event: written once, on the version it was eaten on,
+            // and never carried into whatever is asked next.
+            pendingAttempt = nil
+            attemptRecorded = true
+            guard proposalIsCooked, let chained, let created else { return finish() }
+            proposalIsCooked = false
+            await chainImprovement(chained, from: created)
         } catch {
             errorPresenter.message = reportError(error)
         }
@@ -339,12 +463,19 @@ struct ExecuteFlowView: View {
     /// proposal is dropped and the capture comes back, still holding the note, the
     /// remark, the photo and the tips that were typed — reword and ask again. The
     /// flow's own Fermer is what leaves.
+    ///
+    /// Unless this run already wrote a version down: the form has been honoured, and
+    /// coming back to it with the same text still in place would invite writing it
+    /// twice. Closing then ends the flow, leaving what was created in place.
     private func discardProposal() {
+        guard !versionCreated else { return finish() }
         path = []
         detent = Self.capture
         proposal = nil
         proposedTips = []
         pendingAttempt = nil
+        proposalIsCooked = false
+        chained = nil
     }
 
     private func finish() {

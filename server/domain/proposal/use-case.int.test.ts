@@ -27,8 +27,12 @@ import type {
 } from '~/domain/recipe/types'
 import type { UserId } from '~/domain/shared/types'
 import type {
+  CoffeeChange,
+  CoffeeChangeContext,
   CoffeeProposal,
   CoffeeProposalContext,
+  CookingChange,
+  CookingChangeContext,
   CookingImportAnalysis,
   CookingProposal,
   CookingProposalContext,
@@ -48,6 +52,12 @@ let mergedTips: string[]
 // iteration is asserted to start from.
 let lastCoffeeContext: CoffeeProposalContext | undefined
 let lastCookingContext: CookingProposalContext | undefined
+// The transcription of a change the cook already made, and the context it was
+// asked to apply it to.
+let change: CookingChange
+let coffeeChange: CoffeeChange
+let lastCookingChangeContext: CookingChangeContext | undefined
+let lastCoffeeChangeContext: CoffeeChangeContext | undefined
 mock.module('~/system/ai', () => ({
   Ai: {
     proposeNextCooking: async (context: CookingProposalContext) => {
@@ -57,6 +67,14 @@ mock.module('~/system/ai', () => ({
     proposeNextCoffee: async (context: CoffeeProposalContext) => {
       lastCoffeeContext = context
       return coffeeProposal
+    },
+    applyCookingChange: async (context: CookingChangeContext) => {
+      lastCookingChangeContext = context
+      return change
+    },
+    applyCoffeeChange: async (context: CoffeeChangeContext) => {
+      lastCoffeeChangeContext = context
+      return coffeeChange
     },
     analyzeCookingImport: async () => analysis,
     analyzeCoffeeImport: async () => analysis,
@@ -171,6 +189,30 @@ const baseCoffeeProposal = (): CoffeeProposal => ({
   tips: ['Servir avec du riz'],
 })
 
+// What the cook changed at the stove, transcribed: the same lists, one quantity
+// moved, and never a rationale or a tips list.
+const baseChange = (): CookingChange => ({
+  changeSummary: 'Bouillon 700 → 650 ml',
+  ingredients: [
+    { name: 'Veau', quantity: '800 g' },
+    { name: 'Bouillon', quantity: '650 ml' },
+  ],
+  steps: [
+    { text: 'Saisir', thermomix: {} },
+    { text: 'Mijoter', thermomix: {} },
+  ],
+})
+
+const baseCoffeeChange = (): CoffeeChange => ({
+  changeSummary: 'Mouture Niveau 12 → Niveau 10',
+  parameters: {
+    beans: { name: 'Belleville — Guji', dose: '18 g' },
+    water: {},
+    extraction: { grind: 'Niveau 10', time: '28 s' },
+    gear: { machine: 'Rancilio Silvia' },
+  },
+})
+
 const baseAnalysis = (): CookingImportAnalysis => ({
   type: 'dish',
   category: 'main',
@@ -189,9 +231,13 @@ beforeEach(() => {
   fake = resetFakeFirestore()
   lastCoffeeContext = undefined
   lastCookingContext = undefined
+  lastCookingChangeContext = undefined
+  lastCoffeeChangeContext = undefined
   premiumUserIds = []
   proposal = baseProposal()
   coffeeProposal = baseCoffeeProposal()
+  change = baseChange()
+  coffeeChange = baseCoffeeChange()
   analysis = baseAnalysis()
   mergedTips = ['Servir avec du riz', 'Se congèle bien']
 })
@@ -356,6 +402,77 @@ describe('ProposalUseCase.fromImprovement', () => {
   test('returns not-found for an unknown recipe', async () => {
     expect(
       await ProposalUseCase.fromImprovement(userId, 'nope' as RecipeId, V1, 'x' as Remarks),
+    ).toBe('not-found')
+  })
+})
+
+describe('ProposalUseCase.fromChange', () => {
+  test('transcribes what the cook changed, carrying the version’s tips and no rationale', async () => {
+    const recipe = await RecipeCommand.create(userId, {
+      ...recipeInput(),
+      tips: ['Servir avec du riz' as Tip],
+    })
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+    const docReadsBefore = fake.docReads
+    const batchesBefore = fake.batches.length
+
+    const result = await ProposalUseCase.fromChange(
+      userId,
+      recipe.id,
+      V1,
+      'j’ai mis 650 ml de bouillon au lieu de 700' as Remarks,
+    )
+    if (typeof result === 'string') throw new Error('expected a proposal')
+
+    expect(result.basedOn).toBe(V1)
+    expect(result.changeSummary).toBe('Bouillon 700 → 650 ml')
+    expect(result.content).toEqual({
+      kind: 'dish',
+      ingredients: PROPOSAL_INGREDIENTS,
+      steps: stepList('Saisir', 'Mijoter'),
+    })
+    // The cook did not ask why, and a change never touches the advice around the
+    // recipe: the tips come back exactly as the version carries them.
+    expect(result.rationale).toBe('')
+    expect(result.tips).toEqual(['Servir avec du riz' as Tip])
+    // The change travels to the model as typed, with the version to apply it to.
+    expect(lastCookingChangeContext?.change).toBe('j’ai mis 650 ml de bouillon au lieu de 700')
+    expect(lastCookingChangeContext?.type).toBe('dish')
+
+    // Same budget as any other iteration — entitlement, recipe pointer, version,
+    // and the quota twice — and nothing written until the proposal is accepted.
+    expect(fake.docReads - docReadsBefore).toBe(5)
+    expect(fake.batches.length).toBe(batchesBefore)
+  })
+
+  test('applies a change to a coffee through the coffee prompt', async () => {
+    const recipe = await RecipeCommand.create(
+      userId,
+      recipeInput({ type: 'coffee', coffee: filledCoffeeContent() }),
+    )
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+
+    const result = await ProposalUseCase.fromChange(
+      userId,
+      recipe.id,
+      V1,
+      'mouture au niveau 10' as Remarks,
+    )
+    if (typeof result === 'string') throw new Error('expected a proposal')
+    expect(result.content.kind).toBe('coffee')
+    expect(lastCoffeeChangeContext?.method).toBe('v60')
+    expect(lastCoffeeChangeContext?.currentParameters.extraction.grind).toBe('Niveau 12')
+  })
+
+  test('returns not-found for an unknown recipe or version', async () => {
+    expect(await ProposalUseCase.fromChange(userId, 'nope' as RecipeId, V1, 'x' as Remarks)).toBe(
+      'not-found',
+    )
+
+    const recipe = await RecipeCommand.create(userId, recipeInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+    expect(
+      await ProposalUseCase.fromChange(userId, recipe.id, 9 as VersionNumber, 'x' as Remarks),
     ).toBe('not-found')
   })
 })
@@ -529,6 +646,61 @@ describe('ProposalUseCase.accept', () => {
     expect(v2?.toTest).toBe(true)
     expect(v2).not.toHaveProperty('executedAt')
     expect(v2).not.toHaveProperty('rating')
+  })
+
+  test('accepting a change creates a version already cooked, leaving its base alone', async () => {
+    const recipe = await RecipeCommand.create(userId, recipeInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+
+    await ProposalUseCase.accept(userId, recipe.id, {
+      basedOn: V1,
+      changeSummary: 'Bouillon 700 → 650 ml',
+      rationale: '',
+      cooked: true,
+      attempt: ATTEMPT,
+      content: {
+        kind: 'dish',
+        ingredients: PROPOSAL_INGREDIENTS,
+        steps: stepList('Saisir', 'Mijoter'),
+      },
+      tips: [],
+    })
+
+    // The plate that was made IS the version created: the verdict lands on it, it
+    // owes no try, and the cook's own hand is what it came from.
+    const v2 = fake.snapshot('recipe-versions').get(`${recipe.id}_2`)
+    expect(v2?.rating).toBe(3 as Rating)
+    expect(v2?.remarks).toBe('Trop liquide' as Remarks)
+    expect(v2?.executedAt).toBeInstanceOf(Date)
+    expect(v2).not.toHaveProperty('toTest')
+    expect(v2?.origin).toEqual({ kind: 'manual' })
+    // Nobody re-cooked the version it iterates on: it keeps what it had.
+    const v1 = fake.snapshot('recipe-versions').get(`${recipe.id}_1`)
+    expect(v1).not.toHaveProperty('rating')
+    expect(v1).not.toHaveProperty('executedAt')
+  })
+
+  test('accepting a change with no rating creates a version cooked but unrated', async () => {
+    const recipe = await RecipeCommand.create(userId, recipeInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+
+    await ProposalUseCase.accept(userId, recipe.id, {
+      basedOn: V1,
+      changeSummary: 'Bouillon 700 → 650 ml',
+      rationale: '',
+      cooked: true,
+      content: {
+        kind: 'dish',
+        ingredients: PROPOSAL_INGREDIENTS,
+        steps: stepList('Saisir'),
+      },
+      tips: [],
+    })
+
+    const v2 = fake.snapshot('recipe-versions').get(`${recipe.id}_2`)
+    expect(v2?.executedAt).toBeInstanceOf(Date)
+    expect(v2).not.toHaveProperty('rating')
+    expect(v2).not.toHaveProperty('toTest')
   })
 
   test('returns not-found for an unknown recipe', async () => {

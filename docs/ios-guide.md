@@ -76,7 +76,9 @@ analysed (`ImportInput.draft`) and reopens the cover on it; `ExecuteFlowView` si
 its `CapturePage`, whose `@State` never left the `NavigationStack` root. Asking again is a second
 AI call and a second unit off the monthly allowance — closing is free, re-asking is not. A flow
 that already wrote a cook before proposing (tips) must not write it twice on the second
-validation.
+validation. The one thing that *does* leave: a run that has already written a **version** down (a
+change accepted, then its chained improvement closed) ends there rather than coming back to a form
+whose text would create that version a second time.
 
 ## Data fetching — GraphQL, not REST
 

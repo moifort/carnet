@@ -52,12 +52,14 @@ export type NewRecipeInput = {
   tips: Tip[]
 }
 
-// The cook that asked for an iteration: the rating, remarks and photo of the attempt
-// whose remarks the AI answered. It rides along with the version it gave birth to, and
-// is written on the version it was made from — the plate the rating is a verdict on.
+// The cook that came with an iteration: the rating, remarks and photo of the plate
+// that was actually made. It rides along with the version it gave birth to, and is
+// written on the plate the rating is a verdict on — the version it was made from,
+// or the version created when that one IS what was made (see `NewVersionInput.cooked`).
+// The remarks are optional: a change already eaten can be rated without a word.
 export type Attempt = {
   rating: Rating
-  remarks: Remarks
+  remarks?: Remarks
   photoPath?: string
 }
 
@@ -68,9 +70,15 @@ export type NewVersionInput = {
   content: VersionContent
   tips: Tip[]
   // The attempt that asked for this version — absent when an improvement asked for it
-  // instead, with no cook behind it. Either way the version created is one to test:
-  // the attempt is recorded on `basedOn`, the version it was cooked from.
+  // instead, with no cook behind it. It is recorded on `basedOn`, the version it was
+  // cooked from, unless `cooked` says otherwise.
   attempt?: Attempt
+  // This version has already been made: it writes down a change the cook applied at
+  // the stove and ate, rather than one the AI suggests trying. It is therefore born
+  // executed instead of owing a try, its origin is the cook's own hand (`manual`),
+  // and the attempt — the verdict on that very plate — lands on IT, leaving the
+  // version it iterates from exactly as it was.
+  cooked?: true
 }
 
 // What can be retouched on the aggregate after creation. Anything left out stays as
@@ -205,13 +213,15 @@ export namespace RecipeCommand {
     })
   }
 
-  // Accepted AI iteration → append version n+1 to the lineage, stamping the version
-  // it was proposed from (`basedOn`). No reference/pending pointer to maintain: the
-  // recipe just bumps its `lastVersionNumber` and restamps its date. The version
-  // created has never been made, whatever asked for it, so it is always one to test.
-  // The cook that asked for it, when there was one, lands on the version it was
-  // actually cooked on — the one it iterates on: a rating is a verdict on the plate
-  // that was made, and that plate is the previous version.
+  // Accepted iteration → append version n+1 to the lineage, stamping the version it
+  // was proposed from (`basedOn`). No reference/pending pointer to maintain: the
+  // recipe just bumps its `lastVersionNumber` and restamps its date.
+  // Who made the version decides the rest. Suggested by the AI, it has never been
+  // made — it owes a try, and the cook that asked for it, when there was one, is
+  // written on the version it iterates on: a rating is a verdict on the plate that
+  // was made, and that plate is the previous version. Written down by the cook
+  // instead (`cooked`), the plate that was made IS this one: it is born executed,
+  // takes the attempt, and leaves the version it iterates from untouched.
   export const addVersion = async (userId: UserId, recipeId: RecipeId, input: NewVersionInput) => {
     const recipe = await repository.findBy(userId, recipeId)
     if (!recipe) return 'not-found' as const
@@ -226,14 +236,16 @@ export namespace RecipeCommand {
       input.basedOn === undefined
         ? undefined
         : lineage.find(({ number }) => number === input.basedOn)
-    const version: RecipeVersion = {
+    const born: RecipeVersion = {
       userId,
       recipeId,
       number,
       createdAt: now,
       // Born untouched: a version is last modified when it is created.
       updatedAt: now,
-      origin: { kind: 'ai-proposal' },
+      // A change the cook applied at the stove is theirs, not the model's: the AI
+      // only wrote down what they described.
+      origin: { kind: input.cooked ? 'manual' : 'ai-proposal' },
       change: input.change,
       ...(input.basedOn !== undefined ? { basedOn: input.basedOn } : {}),
       ...(input.why ? { why: input.why } : {}),
@@ -241,12 +253,19 @@ export namespace RecipeCommand {
       // regenerated the list and knows nothing of them (see `carriedComponents`).
       content: carriedComponents(input.content, base?.content),
       tips: input.tips,
-      // What the cook asked for and has not made yet: it owes a try.
-      toTest: true as const,
     }
+    // A version already eaten is born executed — rated too, when the cook gave a
+    // verdict; a version the AI suggests owes a try until someone makes it.
+    const version: RecipeVersion = input.cooked
+      ? input.attempt
+        ? cooked(born, input.attempt, now)
+        : { ...born, executedAt: now }
+      : { ...born, toTest: true as const }
     // The cook that asked for this iteration, written on the version it was made
-    // from — which stops owing a try, since it has just been made.
-    const cookedBase = input.attempt && base ? cooked(base, input.attempt, now) : undefined
+    // from — which stops owing a try, since it has just been made. Nothing to write
+    // there when the version created is the one that was cooked.
+    const cookedBase =
+      !input.cooked && input.attempt && base ? cooked(base, input.attempt, now) : undefined
     const updated: Recipe = {
       ...recipe,
       lastVersionNumber: number,

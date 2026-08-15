@@ -142,10 +142,7 @@ struct DebugGallery: View {
             Color.clear
                 .sheet(isPresented: .constant(true)) {
                     NavigationStack {
-                        CapturePage(
-                            isSaving: false,
-                            onSave: { _, _, _, _ in }
-                        )
+                        CapturePage(isSaving: false, onSave: { _ in })
                     }
                     .presentationDetents([.fraction(0.7), .large])
                     .presentationDragIndicator(.visible)

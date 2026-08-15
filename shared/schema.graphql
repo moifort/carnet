@@ -692,7 +692,7 @@ scalar IngredientQuantity
 
 type Mutation {
   """
-  Accept an AI suggestion (optionally after editing it). It becomes the next version in the chain and lands on your to-cook list: it has never been made, whatever asked for it. Coming from a cook (requestProposal), the attempt you just gave — the rating, the remarks and the photo — is recorded on the version you cooked (`basedOn`), which stops owing a try. Coming from an improvement (requestImprovement), nothing is recorded.
+  Accept a proposal (optionally after editing it). It becomes the next version in the chain. Coming from a cook (requestProposal), it lands on your to-cook list — nobody has made it — and the attempt you just gave (rating, remarks, photo) is recorded on the version you cooked (`basedOn`), which stops owing a try. Coming from an improvement (requestImprovement), it lands there too and nothing is recorded. Coming from a change you already made (requestChange, `cooked: true`), it is saved as already cooked, the attempt is recorded ON IT, and `basedOn` is left untouched.
   
   ```graphql
   acceptProposal(recipeId: "9f1c-a3b2", proposal: {
@@ -867,6 +867,32 @@ type Mutation {
     """The attempt to record — which version, the rating, optionally a photo"""
     input: RecordAttemptInput!
   ): Version!
+
+  """
+  Write down a change you have ALREADY made: you cooked this recipe, changed something on the way (10 g of sugar instead of 20) and ate the result. The AI applies exactly that to the version you name — it invents nothing and improves nothing — and hands back the complete version to review. Nothing is saved yet: accepting it (see acceptProposal, with `cooked: true`) creates a version that has already been cooked, which is never on your to-cook list, unlike requestImprovement. Spends one iteration of your monthly AI allowance (see quota) — `QUOTA_EXHAUSTED` once it is used up.
+  
+  ```graphql
+  requestChange(
+    recipeId: "9f1c-a3b2"
+    versionNumber: 2
+    change: "j’ai mis 10 g de sucre au lieu de 20"
+  ) {
+    changeSummary
+  }
+  ```
+  """
+  requestChange(
+    """
+    What you changed, in your own words, e.g. `"j’ai mis 10 g de sucre au lieu de 20"`
+    """
+    change: Remarks!
+
+    """The recipe you cooked, e.g. the id of `"Grandma’s lasagna"`"""
+    recipeId: RecipeId!
+
+    """The version you started from — the one on screen, e.g. `2`"""
+    versionNumber: VersionNumber!
+  ): Proposal!
 
   """
   Ask the AI for a next version answering something you want changed — no cook needed, just say what to improve. Nothing is saved yet: you get a proposal to review, and accepting it (see acceptProposal) creates the version, which lands on your to-cook list. Spends one iteration of your monthly AI allowance (see quota) — `QUOTA_EXHAUSTED` once it is used up.
@@ -1426,12 +1452,17 @@ input ProposalInput {
   content: VersionContentInput!
 
   """
+  Whether you have ALREADY made this version — send `true` for a proposal that came from requestChange, where you changed the recipe at the stove and ate the result. It is then saved as a version that has been cooked (never on the to-cook list), the rating/remarks/photo below are recorded ON IT, and the version it iterates on (`basedOn`) is left untouched. Defaults to `false`: a suggestion nobody has cooked yet
+  """
+  cooked: Boolean
+
+  """
   Base64 JPEG of that cook, e.g. `"/9j/4AAQSkZJRg…"` (optional; not yet stored)
   """
   photo: String
 
   """
-  How the cook that asked for this version turned out, `1` to `5`, e.g. `3`. Recorded on the version you cooked (`basedOn`), which is what it is a verdict on (leave out when the proposal came from requestImprovement)
+  How the cook turned out, `1` to `5`, e.g. `3`. Recorded on the version you cooked — `basedOn`, or this new one when `cooked` is `true` (leave out when the proposal came from requestImprovement)
   """
   rating: Rating
 
