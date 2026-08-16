@@ -120,6 +120,12 @@ append-only collection keyed by a deterministic id:
   state (best rating, version to open) is *derived* from its versions, not stored on it
 - `recipe-versions` — one immutable doc per version, keyed `${recipeId}_${number}`
 
+The aggregate also carries the recipes it is **made of** (`components`, with the weight each goes in
+at) and, beside them, `componentIds` — the same ids flat, written by the same function
+(`withComponents`) for one reason: `array-contains` cannot look inside an array of objects, and that
+query is what answers `usedBy`, the link read backwards. Same denormalization as `categoryRank`,
+with its composite index in `firestore.indexes.json`.
+
 **The AI engine is split by flow.** `system/ai/` holds `gemini.ts` (the call, the timeout, the
 request bodies) under one module per prompt: `import/cooking.ts`, `import/coffee.ts`,
 `proposal/cooking.ts`, `proposal/coffee.ts`, `tips.ts`, plus `schema.ts` (the response-schema

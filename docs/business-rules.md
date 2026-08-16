@@ -179,54 +179,58 @@ launched it from — never guessed from the source.
   leave it alone: they change nothing the cook wrote, and moving a version to another month
   behind their back is a lie.
 
-## Composition — an ingredient can be a recipe
+## Composition — a recipe is made of other recipes
 
-A ravioli is two recipes: the dough and the ravioli. **An ingredient line can BE another recipe** —
-`Ingredient.component?: RecipeId`, set by `RecipeCommand.updateComponent` and by nothing else.
+A bread is two recipes: the poolish and the dough. **A recipe holds the recipes it is made of** —
+`Recipe.components: { recipe: RecipeId, scale: ComponentScale }[]`, set by
+`RecipeCommand.linkComponent` / `unlinkComponent` and by nothing else.
 
+- **The link is held by the RECIPE, not by a version and not by an ingredient line.** The cook
+  posts it from the recipe sheet, it holds for every version of it, and no iteration has to carry
+  it forward. That is what it means for it to be aggregate-level identity, next to `category` and
+  `method`: what a recipe is made of does not change because one attempt reworded a step.
 - **The link holds a recipe, never a version.** Which version answers for the linked recipe is
   derived at read time (`versionToOpen` — the best-rated one, else the latest, never one still
-  owing a cook). The dough keeps improving on its own and the ravioli follows without a single
+  owing a cook). The poolish keeps improving on its own and the bread follows without a single
   write. It is [derivation, not promotion](#derivation--no-promotion), applied to a link.
-- **A component is an ingredient line, not a block of its own.** One shopping list, one place to
-  read what to buy; the quantity is the line's own, and no scaling is ever computed on it (a
-  quantity is a display string, and a recipe has neither servings nor yield). The stored `name` is
-  the **role** the component plays here ("Pâte à ravioles"), never the linked recipe's title: the
-  content is immutable, and a stored title would rot the day the recipe is renamed. The live title
-  and rating come from the link.
+- **A link carries a weight, and the weight is a factor.** `scale` is a multiplier of what the
+  linked recipe writes: `0.2` is a fifth of it, `1` is it as written. It is set by typing the
+  quantity WANTED on one of that recipe's lines ("my flour is 100 g", where it writes 500 g) or by
+  walking it with the −/+ — a factor is never typed, because a factor is not something anyone
+  cooks. What is stored is the factor all the same: it is the only form that still means the same
+  thing after that recipe changes a quantity, and quantities themselves stay display strings the AI
+  wrote ("1,2 kg", "1 gousse"), never numbers — the app resizes them for display and never rewrites
+  the version.
 - **This is not a fork.** "No forks" forbids *lineage* links between versions (`derivedFrom`, and
   the deliberate absence of one on `copyVersion`). A component is a *composition* link between two
   aggregates — another axis entirely. Both rules hold at once.
-- **Changing the dough is a new version; naming the dough already used is a correction.** In the
-  first case the plate changes, so it is an attempt (`addVersion`, another `component` in its
-  content). In the second the plate cooked is identical, so `updateComponent` rewrites the line in
-  place and creates nothing — the same border `updateCoffeeParameters` and `updateOvenProfile`
-  draw. The rating on that version stays valid, because it is a verdict on the same plate.
-- **A component survives an iteration**, carried by the CODE (`carriedComponents`, applied by
-  `addVersion`), matched on the ingredient name — a regenerated list leaves no other handle. The
-  model regenerates the whole ingredient list and knows nothing of the link, so without this the
-  cook would say yes to a change of seasoning and find the dough unlinked. The model is told the
-  line is a recipe of its own and must keep it as one line under the same name; a renamed line
-  loses its link, and one tap puts it back. A lost link costs nothing, a wrong one costs a recipe.
-- **Resolution stops at one level.** The ravioli sheet unfolds the dough; a component of the dough
-  shows as a chip, not unfolded. No recursion, so no cycle to forbid and no unbounded read budget.
-  A recipe that is its own ingredient is refused (`'self-reference'`); longer cycles are left alone
-  — nothing resolves past one level, so they are a navigation, not a loop.
-- **Deleting the linked recipe breaks nothing.** The link resolves to `null` and the line goes back
-  to being a plain ingredient — `name` and `quantity` are stored, so it stays readable and
-  shoppable. Nothing is cleaned up: the content is immutable, and rewriting past versions to tidy a
-  link would be the one rule this must not break. Neither a refused deletion nor an error state to
-  clear: the cook threw that recipe away on purpose.
-- **A coffee cannot carry one**, by construction rather than by rule: `Ingredient` exists only in
-  `DishContent` and `ThermomixContent`. `updateComponent` answers `'not-a-cooked-recipe'` on one,
-  the same code `updateOvenProfile` uses.
-- **A copied version keeps its components**, because `copyVersion` copies the content verbatim and
-  the link is part of it: the copy is the same plate, and its dough is the same dough. Nothing
-  contradicts the rule that the copy holds nothing of the *lineage* — a component is not lineage.
-- **Only `updateComponent` sets a component.** `IngredientInput` deliberately does not accept one,
-  so no content-carrying payload can slip a link in sideways; the command is where the linked
-  recipe is checked to be the cook's own (a stranger's answers `'not-found'`, never a code that
-  would tell them it exists). The asymmetry with the `Ingredient` output type is the point.
+- **Linking is not cooking.** `linkComponent` creates no version, and deliberately does not restamp
+  `updatedAt` (= `lastWorkedOn`): saying what a recipe is made of leaves the kitchen untouched, the
+  same border `update` draws. Linking a recipe already linked **rewrites its weight in place**,
+  keeping its place in the list — that is the whole of "correct the weight", and it is why the
+  command is an upsert rather than an append.
+- **The link is read both ways.** `usedBy` answers which recipes are made of a given one — the
+  poolish's page says which breads call for it. Derived, never set: `componentIds` denormalizes the
+  ids so Firestore can answer it with one `array-contains` query per sheet (`withComponents` writes
+  the list and the ids together, so they cannot drift). The recipe used is never written by being
+  linked: everything about the link lives on the recipe that posted it.
+- **Resolution stops at one level.** The bread's sheet lists the poolish; what the poolish is made
+  of is not read. No recursion, so no cycle to forbid and no unbounded read budget. A recipe made of
+  itself is refused (`'self-reference'`); longer cycles (A → B → A) are left alone — nothing
+  resolves past one level, so they are a navigation the cook walks out of, not a loop.
+- **Deleting the linked recipe breaks nothing.** The link resolves to nothing and drops out of the
+  section. Nothing is cleaned up and no deletion is refused: the cook threw that recipe away on
+  purpose, and a dangling entry costs a line in a document nobody reads.
+- **A coffee can carry one like anything else.** The link is on the aggregate, so it no longer
+  depends on there being an ingredient list — nothing in the domain has to answer
+  `'not-a-cooked-recipe'` here.
+- **A copy holds no link.** `copyVersion` copies the version's CONTENT, and the links are not
+  content: the new recipe starts made of nothing, and the cook links what it is actually made of.
+- **The model is told nothing of the links.** It regenerates ingredient lists and steps, neither of
+  which holds a link any more, so there is nothing to protect and nothing to leak into a prompt.
+- **Twenty links per recipe** (`COMPONENT_LIMITS.perRecipe`), a weight between `0.01` and `100`
+  (`COMPONENT_LIMITS.scale`) — past either, it is a typo and not a recipe. A weight is corrected at
+  the cap, since correcting one does not lengthen the list.
 
 ## Derivation — no promotion
 
@@ -318,7 +322,7 @@ proposal and no prompt ever produces one.
   attempt needs, and the app reads it off the version on screen — the sheet's banner follows what
   is being read, never the recipe as a whole.
 - **Carried onto the next iteration** (`addVersion`, from the version it iterates on), exactly like
-  the oven profile and the components. This is what makes versioning it safe: the cook wrote the
+  the oven profile. This is what makes versioning it safe: the cook wrote the
   caution about a gesture rather than about one seasoning, and saying yes to a proposal must not
   drop it. Nothing in the AI's answer can add, edit or remove one.
 - **Rewritten in place** (`updateWarnings(recipeId, versionNumber, warnings)`), full-replacement,

@@ -187,15 +187,22 @@ rule earning its keep: `versions` used to resolve through a per-recipe query, wh
 parent on a page and, on a single recipe sheet, a second query duplicating the read `versionToOpen`
 already paid for.
 
-**A second loader, `recipesById`, resolves what an ingredient line IS.** `Ingredient.component`
-holds a `RecipeId` (see [business-rules](./business-rules.md#composition--an-ingredient-can-be-a-recipe)),
-and the field hands it to a loader built with the request's `userId` — which is why
+**A second loader, `recipesById`, resolves the recipes a recipe is made of.** `Recipe.components`
+holds `{ recipe: RecipeId, scale }` entries (see
+[business-rules](./business-rules.md#composition--a-recipe-is-made-of-other-recipes)), and
+`Component.recipe` hands the id to a loader built with the request's `userId` — which is why
 `recipeSatelliteLoaders(userId)` takes one — so a recipe that is not the cook's resolves to `null`
-like a deleted one, never to someone else's page. Ten linked lines cost one keyed read of exactly
-those ten documents (Firestore bills per document, so the batch buys the round trip, not the
-count), and the ratings they display go back through `versionsByRecipe`: **one lineage scan for
-every component on the sheet, never one per line.** The library asks for no component, so its
-budget is untouched — the feat tests assert both.
+like a deleted one, never to someone else's page. Ten links cost one keyed read of exactly those ten
+documents (Firestore bills per document, so the batch buys the round trip, not the count), and the
+ratings they display go back through `versionsByRecipe`: **one lineage scan for every link on the
+sheet, never one per link.** The library asks for no link, so its budget is untouched — the feat
+tests assert both.
+
+**`Recipe.usedBy` is the same link read backwards, and it is a query, not a loader.** One
+`array-contains` on the denormalized `componentIds` per sheet opened — never one per row, and never
+a collection scan. It is not batched because nothing batches it: a sheet reads one recipe, and the
+library never asks for it. The recipes it returns take their ratings from `versionsByRecipe` like
+everything else, so the backwards link costs exactly one query on top.
 
 **The batch is keyed on the page, never on the notebook.** `versionsOfMany` filters
 `recipeId in <the batch>` (Firestore caps `in` at 30 values, so a wider page fans out into

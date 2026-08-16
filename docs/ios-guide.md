@@ -388,29 +388,34 @@ content — the cooking import preview (Ingrédients), recipe display (`CurrentV
 Hide, don't stub. A **form** is the exception: `CoffeeParametersForm` shows every field, filled or
 not, because there what is missing is exactly what the cook has to see.
 
-## An ingredient line that IS a recipe
+## The recipes a recipe is made of
 
-`Ingredient.component` carries the recipe a line is — the ravioli's pasta dough
-([business rule](business-rules.md#composition--an-ingredient-can-be-a-recipe)). On the sheet, that
-line becomes a `DisclosureGroup` inside `IngredientsGrid`: the stored name above (the **role** the
-dough plays here), a chip under it with the **live title** of the linked recipe and the best rating
-it ever earned, and the unfolded body showing what its best version holds. A line with no component
-renders exactly as it always has — the whole feature is invisible on a plain recipe.
+`Recipe.components` carries them — the bread's poolish, each with the weight it goes in at
+([business rule](business-rules.md#composition--a-recipe-is-made-of-other-recipes)). The sheet opens
+on two sections above the shopping list: `LinkedRecipesSection` ("Recettes liées") and
+`UsedBySection` ("Utilisée par"), the same link read backwards. Both render nothing when empty, so
+the whole feature is invisible on a recipe that stands alone.
 
-Three consequences worth knowing before touching that file:
+Four things worth knowing before touching those files:
 
-- **Keyed by name, like `modified`.** `IngredientsGrid.components` is a `[String: Component]` keyed
-  on the ingredient name, the row identity the grid already used for its change dots. The flattening
-  from `Ingredient` happens in `IngredientsSection`, so the grid stays primitive-first.
-- **A linked line is not steppable.** It is excluded from `scalableRows`: a −/+ inside a disclosure
-  label fights the disclosure for the tap. Its quantity still follows the factor the other rows set
-  — only the control it could have started moves away.
-- **Linking is a swipe, and it is a correction.** The swipe opens `ComponentPickerSheet` (the
-  `LibraryStore`, current recipe excluded), which calls `updateComponent` on the **displayed**
-  version: no version is created, the rating stands. The picked row shows its own spinner — a CTA
-  that hits the network shows it.
+- **The weight travels in the route.** `RecipeRoute.recipe(id:scale:)` defaults to `1`; a row of
+  "Recettes liées" pushes the linked recipe at the weight it was linked at, and `RecipeDetailPage`
+  opens on it (`openedAt`). That is also what "Réinitialiser" goes back to — landing on the stored
+  quantities would drop what the cook asked for. A row of "Utilisée par" pushes at `1`: the weight
+  belongs to the recipe that posted the link.
+- **Linking is a menu entry, then two steps.** "Lier une recette" opens `LinkRecipeSheet`: the
+  notebook (`LibraryStore`, current recipe excluded), then `LinkWeightForm` on the picked recipe's
+  own shopping list. The form is primitive-first and previews offline — `WeightStep` is what loads
+  the recipe, the form knows nothing of the network.
+- **A weight is typed OR walked.** `IngredientScaling.factor(from:to:)` reads the quantity wanted on
+  a line ("Farine 100 g"), `factorAfterStep` walks it with the −/+; both go through the same
+  `rescale`, which rewrites every line from the single factor. The text field and the stepper are
+  siblings, never nested: a field inside a stepper's label fights it for the tap.
+- **Correcting and unlinking are swipes** on a "Recettes liées" row — "Poids" reopens the weight
+  step (`LinkRecipeSheet(editing:)`, which skips the list), "Délier" calls `unlinkComponent`.
 
-Gallery: `-gallery recipe-component` (the composed sheet) and `-gallery component-picker`.
+Gallery: `-gallery recipe-component` (a sheet with both sections), `-gallery link-recipe` (the
+picker) and `-gallery link-weight` (the weight step).
 
 ## The coffee sheet — parameters, not ingredients
 
