@@ -401,7 +401,12 @@ no "Modifier" in a section header, no menu entry per concern. A page that both r
 grows one entry point per field, and the same gesture ends up reachable three ways.
 
 The one thing the read sheet still moves is the **ephemeral resizing** of the quantities: a lens
-on what is stored, not a write.
+on what is stored, not a write. It holds on **every version the sheet shows** — the best-rated
+one, an attempt read back from the history, and a version still waiting to be cooked, which is
+the one a cook resizes most. Nothing is disguised by it: the `×0,75` badge, the tinted quantities
+and « Réinitialiser » all say the list is no longer what the version stores. The corollary is
+that `IngredientsGrid` wears the change dots inside the stepper's label — resizing an iteration
+never costs the marks saying what it changes.
 
 Three consequences worth holding on to:
 

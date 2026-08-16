@@ -44,8 +44,10 @@ struct RecipeDetailPage: View {
     var openedAt: Double = 1
 
     /// Ephemeral quantity scaling of the ingredient list — lives only while the
-    /// sheet is open, the stored version is never rewritten. Only the plain sheet
-    /// scales; a focused attempt shows its version's exact quantities.
+    /// sheet is open, the stored version is never rewritten. It holds on whichever
+    /// version is on screen: a version waiting to be cooked is precisely the one a
+    /// cook resizes, and the header says loudly enough (badge, tint, "Réinitialiser")
+    /// that the list no longer reads as what the version stores.
     @State private var scaleFactor: Double = 1
 
     /// The version the recipe sheet presents: the focused attempt version when set,
@@ -82,7 +84,7 @@ struct RecipeDetailPage: View {
                     ingredients: displayedVersion.ingredients,
                     modified: modifiedIngredients,
                     compactHeader: focusVersion == nil,
-                    scale: focusVersion == nil ? $scaleFactor : nil,
+                    scale: $scaleFactor,
                     resetsTo: openedAt
                 )
             }

@@ -3,6 +3,12 @@ import SwiftUI
 /// The recipe's shopping list, inline in the recipe sheet: name + quantity rows through
 /// a small dedicated grid. Renders nothing when there are no ingredients (never
 /// an empty section). Composes as a `Section` directly inside a `List`.
+///
+/// The list is always adjustable: scalable rows grow −/+ steppers, every quantity
+/// renders through the factor, and the header grows a reset once the factor leaves
+/// `resetsTo`. Resizing is a lens on what is stored and never a write, so it holds on
+/// whichever version the sheet shows — the one waiting to be cooked as much as the one
+/// already tried, whose change dots the steppers carry alongside.
 struct IngredientsSection: View {
     let ingredients: [Ingredient]
     /// Names of ingredients changed vs the previous version — flagged with an
@@ -11,11 +17,9 @@ struct IngredientsSection: View {
     /// Pulls the header up under the badge line above it — the plain recipe sheet's
     /// compact look. False when a card sits above instead, which needs its own air.
     var compactHeader: Bool = true
-    /// When set, the shopping list is adjustable: scalable rows grow −/+ steppers,
-    /// every quantity renders through the factor, and the header grows a reset once
-    /// the factor leaves 1. Nil (the default) keeps the plain read-only grid — the
-    /// attempt view, whose quantities must show the stored version.
-    var scale: Binding<Double>? = nil
+    /// The factor every quantity is rendered through, owned by the sheet so it dies
+    /// with it.
+    @Binding var scale: Double
     /// The factor "Réinitialiser" goes back to, and below which the header says
     /// nothing. 1 on a recipe opened on its own; the link's weight on one opened from
     /// the recipe that uses it — there, the stored quantities are not what was asked for.
@@ -38,28 +42,23 @@ struct IngredientsSection: View {
         }
     }
 
-    @ViewBuilder
     private var grid: some View {
-        if let scale {
-            let factor = scale.wrappedValue
-            IngredientsGrid(
-                items: ingredients.map { ($0.name, IngredientScaling.scaled($0.quantity, by: factor)) },
-                steppable: scalableRows,
-                scaledRows: factor == resetsTo ? [] : scalableRows,
-                onStep: { index, direction in
-                    guard
-                        let next = IngredientScaling.factorAfterStep(
-                            on: ingredients[index].quantity,
-                            from: factor,
-                            direction: direction
-                        )
-                    else { return }
-                    scale.wrappedValue = next
-                }
-            )
-        } else {
-            IngredientsGrid(items: ingredients.map { ($0.name, $0.quantity) }, modified: modified)
-        }
+        IngredientsGrid(
+            items: ingredients.map { ($0.name, IngredientScaling.scaled($0.quantity, by: scale)) },
+            modified: modified,
+            steppable: scalableRows,
+            scaledRows: scale == resetsTo ? [] : scalableRows,
+            onStep: { index, direction in
+                guard
+                    let next = IngredientScaling.factorAfterStep(
+                        on: ingredients[index].quantity,
+                        from: scale,
+                        direction: direction
+                    )
+                else { return }
+                scale = next
+            }
+        )
     }
 
     // The header says when the list no longer shows the stored recipe: the factor
@@ -68,12 +67,12 @@ struct IngredientsSection: View {
         HStack {
             Text("Ingrédients")
             Spacer()
-            if let scale, scale.wrappedValue != resetsTo {
-                Text(IngredientScaling.factorLabel(scale.wrappedValue))
+            if scale != resetsTo {
+                Text(IngredientScaling.factorLabel(scale))
                     .monospacedDigit()
                     .foregroundStyle(Theme.Status.changed)
                 Button("Réinitialiser") {
-                    scale.wrappedValue = resetsTo
+                    scale = resetsTo
                 }
                 .font(.footnote)
                 .accessibilityIdentifier("ingredients-reset")
@@ -91,14 +90,13 @@ struct IngredientsGrid: View {
     /// Names to flag as changed. Empty (the default) keeps the exact plain-recipe-sheet
     /// `LabeledContent` layout — no leading dot, no shift.
     var modified: Set<String> = []
-    /// Rows that grow a −/+ stepper. Only honoured when `onStep` is set.
-    var steppable: Set<Int> = []
+    /// Rows that grow a −/+ stepper — the ones whose quantity leads with a number.
+    let steppable: Set<Int>
     /// Rows whose displayed quantity no longer matches the stored recipe — tinted
     /// with the changed accent.
-    var scaledRows: Set<Int> = []
-    /// Steps row `index` one tick up (+1) or down (−1). Nil (the default) keeps
-    /// the read-only grid.
-    var onStep: ((_ index: Int, _ direction: Int) -> Void)? = nil
+    let scaledRows: Set<Int>
+    /// Steps row `index` one tick up (+1) or down (−1).
+    let onStep: (_ index: Int, _ direction: Int) -> Void
 
     var body: some View {
         ForEach(Array(items.enumerated()), id: \.offset) { index, item in
@@ -108,13 +106,9 @@ struct IngredientsGrid: View {
 
     @ViewBuilder
     private func row(index: Int, item: (name: String, quantity: String)) -> some View {
-        if let onStep, steppable.contains(index) {
+        if steppable.contains(index) {
             Stepper {
-                HStack(spacing: Theme.Spacing.s) {
-                    Text(item.name)
-                    Spacer(minLength: Theme.Spacing.s)
-                    quantity(item.quantity, index: index)
-                }
+                label(index: index, item: item)
             } onIncrement: {
                 onStep(index, 1)
             } onDecrement: {
@@ -126,14 +120,23 @@ struct IngredientsGrid: View {
                 quantity(item.quantity, index: index)
             }
         } else {
-            HStack(spacing: 10) {
+            label(index: index, item: item)
+        }
+    }
+
+    /// The row's own content — name, then quantity — worn as is by a plain row and as
+    /// the label of a steppable one, so a version being resized keeps the dots saying
+    /// what it changes.
+    private func label(index: Int, item: (name: String, quantity: String)) -> some View {
+        HStack(spacing: modified.isEmpty ? Theme.Spacing.s : 10) {
+            if !modified.isEmpty {
                 Circle()
                     .fill(modified.contains(item.name) ? Theme.Status.changed : .clear)
                     .frame(width: 7, height: 7)
-                Text(item.name)
-                Spacer(minLength: 8)
-                quantity(item.quantity, index: index)
             }
+            Text(item.name)
+            Spacer(minLength: Theme.Spacing.s)
+            quantity(item.quantity, index: index)
         }
     }
 
@@ -146,32 +149,37 @@ struct IngredientsGrid: View {
 }
 
 #if DEBUG
-#Preview {
-    List {
-        IngredientsSection(ingredients: Fixtures.bourguignonV3.ingredients)
-        IngredientsSection(ingredients: Fixtures.risottoV2.ingredients)
-    }
-}
-
-#Preview("Ajustable — facteur 1") {
+#Preview("Facteur 1") {
     @Previewable @State var factor: Double = 1
     List {
         IngredientsSection(ingredients: Fixtures.bourguignonV3.ingredients, scale: $factor)
     }
 }
 
-#Preview("Ajustable — facteur 0,7") {
+#Preview("Facteur 0,7") {
     @Previewable @State var factor: Double = 0.7
     List {
         IngredientsSection(ingredients: Fixtures.bourguignonV3.ingredients, scale: $factor)
     }
 }
 
-#Preview("Ajustable — ligne non scalable") {
+#Preview("Ligne non scalable") {
     @Previewable @State var factor: Double = 0.7
     List {
         IngredientsSection(
             ingredients: Fixtures.risottoV2.ingredients + [Ingredient(name: "Sel", quantity: "à goût")],
+            scale: $factor
+        )
+    }
+}
+
+#Preview("Version à tester — redimensionnée avec ses pastilles") {
+    @Previewable @State var factor: Double = 0.5
+    List {
+        IngredientsSection(
+            ingredients: Fixtures.bourguignonV3.ingredients,
+            modified: ["Vin rouge"],
+            compactHeader: false,
             scale: $factor
         )
     }
