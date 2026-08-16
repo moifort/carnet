@@ -166,9 +166,12 @@ export type Recipe = {
   // `update` enforce, returning `'method-mismatch'`. Absent, never `null`.
   method?: BrewMethod
   title: RecipeTitle
-  // Marked as a favourite by the cook. Aggregate-level like `category`, and absent
-  // rather than false when it is not one — the library's favourites lens filters on
-  // its presence.
+  // Whether any version of it is hearted — `favorited(versions)`, denormalized here
+  // so Firestore can filter the library's favourites lens on a flat field (like
+  // `updatedAt` carrying `lastWorkedOn`, and `categoryRank`). Never written by the
+  // cook: `updateFavorite` hearts a VERSION, and every command that rewrites the
+  // lineage restamps this. Absent rather than false, so presence is the single
+  // spelling the query matches on.
   favorite?: true
   // Highest version number ever allocated — a monotonic allocator, never decremented
   // when a version is deleted, so a number is never reused by a later iteration.

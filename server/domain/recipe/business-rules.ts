@@ -94,6 +94,14 @@ export const bestRating = (versions: RecipeVersion[]): RecipeVersion | undefined
 export const toTestCount = (versions: RecipeVersion[]): number =>
   versions.filter(({ toTest }) => toTest === true).length
 
+// Whether the recipe belongs in the favourites lens: any version hearted is enough.
+// Deliberately not `versionToOpen(versions).favorite` — the heart is a mark the cook
+// put on an attempt, and a mark must not disappear because another version took a
+// better rating. Denormalized onto the recipe document (`Recipe.favorite`) so
+// Firestore can filter on it, like `lastWorkedOn` onto `updatedAt`.
+export const favorited = (versions: RecipeVersion[]): boolean =>
+  versions.some(({ favorite }) => favorite === true)
+
 // Which version the recipe sheet opens on when entered from the home: the best-rated
 // one, falling back to the latest version when nothing was ever cooked (a brand-new,
 // untried recipe). A version that still owes a cook is never opened — the sheet shows

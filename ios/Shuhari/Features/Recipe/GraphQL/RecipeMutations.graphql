@@ -20,6 +20,12 @@ mutation UpdateRecipe($id: RecipeId!, $input: UpdateRecipeInput!) {
   }
 }
 
+mutation UpdateFavorite($recipeId: RecipeId!, $versionNumber: VersionNumber!, $favorite: Boolean!) {
+  updateFavorite(recipeId: $recipeId, versionNumber: $versionNumber, favorite: $favorite) {
+    ...VersionFields
+  }
+}
+
 mutation UpdateWarnings(
   $recipeId: RecipeId!
   $versionNumber: VersionNumber!

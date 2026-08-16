@@ -1070,6 +1070,27 @@ type Mutation {
   ): Version!
 
   """
+  Heart one version, or take the heart off it — the attempt you would make again. The recipe counts as a favourite as soon as ANY of its versions is hearted, so hearting a version that is not the one it opens on still lists it under the favourites lens. Rewritten in place: no version is created, and the recipe keeps its place in the library. Returns the updated version.
+  
+  ```graphql
+  updateFavorite(recipeId: "9f1c-a3b2", versionNumber: 2, favorite: true) {
+    number
+    favorite
+  }
+  ```
+  """
+  updateFavorite(
+    """`true` hearts it, `false` takes the heart off"""
+    favorite: Boolean!
+
+    """Which recipe the version belongs to"""
+    recipeId: RecipeId!
+
+    """Which version to heart, e.g. `2`"""
+    versionNumber: VersionNumber!
+  ): Version!
+
+  """
   Correct one cooked version’s shopping list — a quantity misread off a photo, a line the import split in two. Full replacement, in place: no version is created, the steps, the oven and the outcome are untouched, and the rating stays (correcting what the recipe always said is not iterating on it — a changed plate is a new version). Adding, deleting and reordering all go through this one list. A line that IS a recipe keeps its link as long as its name does not change (see updateComponent). Returns the updated version.
   
   Answers `NOT_A_COOKED_RECIPE` on a coffee, which has no shopping list — it has parameters.
@@ -1135,14 +1156,13 @@ type Mutation {
   ): Version!
 
   """
-  Retouch a recipe: rename it, refile it under another course, mark it as a favourite, or any combination. Returns the updated recipe.
+  Retouch a recipe: rename it, refile it under another course, or both. To heart it, heart one of its versions (see updateFavorite). Returns the updated recipe.
   
   ```graphql
-  updateRecipe(id: "9f1c-a3b2", input: { title: "Nonna's lasagna", category: MAIN, favorite: true }) {
+  updateRecipe(id: "9f1c-a3b2", input: { title: "Nonna's lasagna", category: MAIN }) {
     id
     title
     category
-    favorite
   }
   ```
   """
@@ -1686,7 +1706,7 @@ type Recipe {
   createdAt: DateTime!
 
   """
-  Whether you marked it as a favourite, e.g. `true` for the risotto you keep coming back to. Drives the library’s favourites lens (see the `favorite` argument on `recipes`).
+  Whether any of its versions is hearted, e.g. `true` for the risotto you keep coming back to. Derived, never set here: heart a version (see updateFavorite). Drives the library’s favourites lens (see the `favorite` argument on `recipes`).
   """
   favorite: Boolean!
 
@@ -1968,18 +1988,13 @@ type TipsProposal {
 }
 
 """
-What you can retouch on a recipe: its name, its course or its brew method, and whether it is a favourite. Send only what you want to change — anything you leave out stays as it was. Its type is fixed for good.
+What you can retouch on a recipe: its name, its course or its brew method. Send only what you want to change — anything you leave out stays as it was. Its type is fixed for good, and the heart is worn by a version (see updateFavorite).
 """
 input UpdateRecipeInput {
   """
   The new course, e.g. `DRINK` for a recipe the import filed as `MAIN` (leave out to keep the current one). Ignored on a `COFFEE` — refiling one means changing its `method`.
   """
   category: DishCategory
-
-  """
-  `true` marks it as a favourite, `false` un-marks it, e.g. `true` for the risotto you keep coming back to (leave out to keep it as it is)
-  """
-  favorite: Boolean
 
   """
   The new brew method, e.g. `CHEMEX` for a coffee the import filed as `V60` (leave out to keep the current one). Rejected on a recipe that is not a `COFFEE`.
@@ -2025,6 +2040,11 @@ type Version {
   The day you actually cooked this version, e.g. `"2026-07-18T14:30:00.000Z"`. `null` means it is still a planned attempt (a to-do you have lined up but not tried yet).
   """
   executedAt: DateTime
+
+  """
+  Whether you hearted this attempt — the one you would make again, e.g. `true` on the risotto version you keep coming back to. Carried onto the next iteration, and mirrored on the recipe (see the `favorite` field there) for the library’s favourites lens.
+  """
+  favorite: Boolean!
 
   """
   Its rank in the chain — `1` is the original import, `2` the first tweak, and so on

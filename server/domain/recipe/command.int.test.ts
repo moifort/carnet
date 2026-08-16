@@ -491,31 +491,17 @@ describe('RecipeCommand.addVersion', () => {
 })
 
 describe('RecipeCommand.update', () => {
-  test('marks and un-marks a favourite, absence being the un-marked state', async () => {
+  test('renames the recipe without touching the heart its version wears', async () => {
     const recipe = await RecipeCommand.create(userId, newInput())
     if (typeof recipe === 'string') throw new Error('expected a recipe')
-    // Freshly created: not a favourite, and the field is not there at all.
-    expect(fake.snapshot('recipes').get(recipe.id)).not.toHaveProperty('favorite')
-
-    await RecipeCommand.update(userId, recipe.id, { favorite: true })
-    expect(fake.snapshot('recipes').get(recipe.id)?.favorite).toBe(true)
-
-    await RecipeCommand.update(userId, recipe.id, { favorite: false })
-    expect(fake.snapshot('recipes').get(recipe.id)).not.toHaveProperty('favorite')
-  })
-
-  test('renames without touching the favourite, and vice versa', async () => {
-    const recipe = await RecipeCommand.create(userId, newInput())
-    if (typeof recipe === 'string') throw new Error('expected a recipe')
-    await RecipeCommand.update(userId, recipe.id, { favorite: true })
+    await RecipeCommand.updateFavorite(userId, recipe.id, 1 as VersionNumber, true)
 
     await RecipeCommand.update(userId, recipe.id, { title: 'Blanquette de veau' as RecipeTitle })
+
     const renamed = fake.snapshot('recipes').get(recipe.id)
     expect(renamed?.title).toBe('Blanquette de veau' as RecipeTitle)
     expect(renamed?.favorite).toBe(true)
-
-    await RecipeCommand.update(userId, recipe.id, { favorite: false })
-    expect(fake.snapshot('recipes').get(recipe.id)?.title).toBe('Blanquette de veau' as RecipeTitle)
+    expect(fake.snapshot('recipe-versions').get(`${recipe.id}_1`)?.favorite).toBe(true)
   })
 
   test('refiles the recipe under another course, re-deriving its sort rank', async () => {
@@ -529,7 +515,110 @@ describe('RecipeCommand.update', () => {
   })
 
   test('returns not-found for an unknown recipe', async () => {
-    expect(await RecipeCommand.update(userId, 'nope' as RecipeId, { favorite: true })).toBe(
+    expect(
+      await RecipeCommand.update(userId, 'nope' as RecipeId, {
+        title: 'Blanquette' as RecipeTitle,
+      }),
+    ).toBe('not-found')
+  })
+})
+
+describe('RecipeCommand.updateFavorite', () => {
+  const V1 = 1 as VersionNumber
+  const V2 = 2 as VersionNumber
+
+  const twoVersionRecipe = async () => {
+    const recipe = await RecipeCommand.create(userId, newInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+    await RecipeCommand.addVersion(userId, recipe.id, {
+      change: 'Moins de sel',
+      basedOn: V1,
+      content: dishContent(),
+      tips: [],
+      attempt: { rating: 5 as Rating },
+    })
+    return recipe
+  }
+
+  test('hearts the version, and mirrors it onto the recipe', async () => {
+    const recipe = await RecipeCommand.create(userId, newInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+    // Freshly created: neither the version nor its mirror carries the field.
+    expect(fake.snapshot('recipes').get(recipe.id)).not.toHaveProperty('favorite')
+
+    const hearted = await RecipeCommand.updateFavorite(userId, recipe.id, V1, true)
+    if (typeof hearted === 'string') throw new Error(`expected a version, got ${hearted}`)
+
+    expect(hearted.favorite).toBe(true)
+    expect(fake.snapshot('recipe-versions').get(`${recipe.id}_1`)?.favorite).toBe(true)
+    expect(fake.snapshot('recipes').get(recipe.id)?.favorite).toBe(true)
+  })
+
+  test('un-hearting drops the field on both, absence being the un-hearted state', async () => {
+    const recipe = await RecipeCommand.create(userId, newInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+    await RecipeCommand.updateFavorite(userId, recipe.id, V1, true)
+
+    await RecipeCommand.updateFavorite(userId, recipe.id, V1, false)
+
+    expect(fake.snapshot('recipe-versions').get(`${recipe.id}_1`)).not.toHaveProperty('favorite')
+    expect(fake.snapshot('recipes').get(recipe.id)).not.toHaveProperty('favorite')
+  })
+
+  test('a heart on a version that is not the one opened still lists the recipe', async () => {
+    const recipe = await twoVersionRecipe()
+
+    // v2 is the rated one, so it is what the recipe opens on — the heart goes on v1.
+    await RecipeCommand.updateFavorite(userId, recipe.id, V1, true)
+
+    expect(fake.snapshot('recipes').get(recipe.id)?.favorite).toBe(true)
+  })
+
+  test('the mirror holds while any version keeps its heart', async () => {
+    const recipe = await twoVersionRecipe()
+    await RecipeCommand.updateFavorite(userId, recipe.id, V1, true)
+    await RecipeCommand.updateFavorite(userId, recipe.id, V2, true)
+
+    await RecipeCommand.updateFavorite(userId, recipe.id, V2, false)
+
+    expect(fake.snapshot('recipes').get(recipe.id)?.favorite).toBe(true)
+  })
+
+  test('the next iteration carries the heart over', async () => {
+    const recipe = await RecipeCommand.create(userId, newInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+    await RecipeCommand.updateFavorite(userId, recipe.id, V1, true)
+
+    await RecipeCommand.addVersion(userId, recipe.id, {
+      change: 'Moins de sel',
+      basedOn: V1,
+      content: dishContent(),
+      tips: [],
+    })
+
+    expect(fake.snapshot('recipe-versions').get(`${recipe.id}_2`)?.favorite).toBe(true)
+  })
+
+  test('deleting the only hearted version takes the recipe out of the lens', async () => {
+    const recipe = await twoVersionRecipe()
+    await RecipeCommand.updateFavorite(userId, recipe.id, V2, true)
+
+    await RecipeCommand.removeVersion(userId, recipe.id, V2)
+
+    expect(fake.snapshot('recipes').get(recipe.id)).not.toHaveProperty('favorite')
+  })
+
+  test('returns not-found for an unknown recipe, version, or another cook’s recipe', async () => {
+    expect(await RecipeCommand.updateFavorite(userId, 'nope' as RecipeId, V1, true)).toBe(
+      'not-found',
+    )
+
+    const recipe = await RecipeCommand.create(userId, newInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+    expect(await RecipeCommand.updateFavorite(userId, recipe.id, 9 as VersionNumber, true)).toBe(
+      'not-found',
+    )
+    expect(await RecipeCommand.updateFavorite('user-2' as UserId, recipe.id, V1, true)).toBe(
       'not-found',
     )
   })
@@ -1359,12 +1448,16 @@ describe('a recipe’s date — the version it opens on', () => {
     if (typeof recipe === 'string') throw new Error('expected a recipe')
 
     at('2026-08-06T10:00:00.000Z')
-    await RecipeCommand.update(userId, recipe.id, { favorite: true })
+    await RecipeCommand.updateFavorite(userId, recipe.id, V1, true)
     await RecipeCommand.update(userId, recipe.id, { title: 'Blanquette de mamie' as RecipeTitle })
 
-    // Housekeeping, not cooking: the recipe stays filed under March.
+    // Housekeeping, not cooking: the recipe stays filed under March, and the
+    // version the heart landed on is not dated by it either.
     expect(storedDate(recipe.id)).toEqual(new Date('2026-03-11T08:00:00.000Z'))
     expect(fake.snapshot('recipes').get(recipe.id)?.favorite).toBe(true)
+    expect(fake.snapshot('recipe-versions').get(`${recipe.id}_1`)?.updatedAt).toEqual(
+      new Date('2026-03-11T08:00:00.000Z'),
+    )
   })
 
   test('an attempt rated below the reference leaves the recipe where it was', async () => {

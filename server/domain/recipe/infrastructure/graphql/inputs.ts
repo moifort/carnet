@@ -326,9 +326,9 @@ export const CreateRecipeInput = builder.inputType('CreateRecipeInput', {
 
 export const UpdateRecipeInput = builder.inputType('UpdateRecipeInput', {
   description:
-    'What you can retouch on a recipe: its name, its course or its brew method, and whether it ' +
-    'is a favourite. Send only what you want to change — anything you leave out stays as it was. ' +
-    'Its type is fixed for good.',
+    'What you can retouch on a recipe: its name, its course or its brew method. Send only what ' +
+    'you want to change — anything you leave out stays as it was. Its type is fixed for good, ' +
+    'and the heart is worn by a version (see updateFavorite).',
   fields: (t) => ({
     title: t.field({
       type: 'RecipeTitle',
@@ -345,11 +345,6 @@ export const UpdateRecipeInput = builder.inputType('UpdateRecipeInput', {
       description:
         'The new brew method, e.g. `CHEMEX` for a coffee the import filed as `V60` (leave out to ' +
         'keep the current one). Rejected on a recipe that is not a `COFFEE`.',
-    }),
-    favorite: t.boolean({
-      description:
-        '`true` marks it as a favourite, `false` un-marks it, e.g. `true` for the risotto you ' +
-        'keep coming back to (leave out to keep it as it is)',
     }),
   }),
 })

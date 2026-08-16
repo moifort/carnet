@@ -1,6 +1,7 @@
 import type { WriteBatch } from 'firebase-admin/firestore'
 import {
   carriedComponents,
+  favorited,
   lastWorkedOn,
   methodMatchesType,
   nextVersionNumber,
@@ -82,14 +83,13 @@ export type NewVersionInput = {
 }
 
 // What can be retouched on the aggregate after creation. Anything left out stays as
-// it was; `favorite: false` un-favourites.
+// it was. The heart is not here: it is worn by a version (`updateFavorite`).
 export type UpdateRecipeInput = {
   title?: RecipeTitle
   category?: DishCategory
   // Refiling a coffee under another brew method. Rejected on a recipe that is not
   // one — the type itself is never editable.
   method?: BrewMethod
-  favorite?: boolean
 }
 
 // Which version becomes a recipe of its own, and under what name. The name is
@@ -181,6 +181,8 @@ export namespace RecipeCommand {
       // `lastWorkedOn` of a lineage of one, born this instant — whatever the age of
       // the plate copied.
       updatedAt: now,
+      // The mirror of the single version below, which carries the heart over.
+      ...(version.favorite ? { favorite: true as const } : {}),
     }
     const copied: RecipeVersion = {
       userId,
@@ -192,8 +194,10 @@ export namespace RecipeCommand {
       content: version.content,
       tips: version.tips,
       // The cautions travel with the plate: a gesture that ruins the dish ruins it
-      // here too, under whatever name the copy was given.
+      // here too, under whatever name the copy was given. So does the heart — the
+      // copy is the attempt the cook would make again, filed under another name.
       warnings: version.warnings,
+      ...(version.favorite ? { favorite: true as const } : {}),
       // The verdict travels with the plate: a rating is about what came out of the
       // oven, not about the page it was written on, and the copy starts from
       // something known to work. A version never cooked copies as one never cooked
@@ -258,6 +262,9 @@ export namespace RecipeCommand {
       // yes to a proposal. Unlike `tips`, which the model regenerates with the
       // content it just rewrote.
       warnings: base?.warnings ?? [],
+      // The heart rides along too: the cook hearted this line of work, and the
+      // iteration they just accepted is where it continues.
+      ...(base?.favorite ? { favorite: true as const } : {}),
     }
     // A version already eaten is born executed — rated too, when the cook gave a
     // verdict; a version the AI suggests owes a try until someone makes it.
@@ -272,9 +279,8 @@ export namespace RecipeCommand {
     const cookedBase =
       !input.cooked && input.attempt && base ? cooked(base, input.attempt, now) : undefined
     const updated: Recipe = {
-      ...recipe,
+      ...restamped(recipe, written(lineage, cookedBase, version)),
       lastVersionNumber: number,
-      updatedAt: lastWorkedOn(written(lineage, cookedBase, version)),
     }
     return atomically(async (batch) => {
       await repository.saveVersion(version, batch)
@@ -301,10 +307,7 @@ export namespace RecipeCommand {
     const version = lineage.find(({ number }) => number === input.versionNumber)
     if (!version) return 'not-found' as const
     const executed = cooked(version, input, new Date())
-    const updatedRecipe: Recipe = {
-      ...recipe,
-      updatedAt: lastWorkedOn(written(lineage, executed)),
-    }
+    const updatedRecipe = restamped(recipe, written(lineage, executed))
     return atomically(async (batch) => {
       await repository.saveVersion(executed, batch)
       await repository.save(updatedRecipe, batch)
@@ -339,7 +342,7 @@ export namespace RecipeCommand {
       executedAt: version.executedAt ?? now,
       updatedAt: now,
     }
-    const updatedRecipe: Recipe = { ...recipe, updatedAt: lastWorkedOn(written(lineage, updated)) }
+    const updatedRecipe = restamped(recipe, written(lineage, updated))
     return atomically(async (batch) => {
       await repository.saveVersion(updated, batch)
       await repository.save(updatedRecipe, batch)
@@ -364,7 +367,7 @@ export namespace RecipeCommand {
     const version = lineage.find(({ number }) => number === versionNumber)
     if (!version) return 'not-found' as const
     const updated: RecipeVersion = { ...version, tips, updatedAt: new Date() }
-    const updatedRecipe: Recipe = { ...recipe, updatedAt: lastWorkedOn(written(lineage, updated)) }
+    const updatedRecipe = restamped(recipe, written(lineage, updated))
     return atomically(async (batch) => {
       await repository.saveVersion(updated, batch)
       await repository.save(updatedRecipe, batch)
@@ -393,7 +396,7 @@ export namespace RecipeCommand {
     if (version.content.kind !== 'coffee') return 'not-a-coffee' as const
     const content: VersionContent = { ...parameters, kind: 'coffee' }
     const updated: RecipeVersion = { ...version, content, updatedAt: new Date() }
-    const updatedRecipe: Recipe = { ...recipe, updatedAt: lastWorkedOn(written(lineage, updated)) }
+    const updatedRecipe = restamped(recipe, written(lineage, updated))
     return atomically(async (batch) => {
       await repository.saveVersion(updated, batch)
       await repository.save(updatedRecipe, batch)
@@ -426,7 +429,7 @@ export namespace RecipeCommand {
     // a quantity must not unlink the dough. Same rule an iteration applies, same code.
     const content = carriedComponents({ ...version.content, ingredients }, version.content)
     const updated: RecipeVersion = { ...version, content, updatedAt: new Date() }
-    const updatedRecipe: Recipe = { ...recipe, updatedAt: lastWorkedOn(written(lineage, updated)) }
+    const updatedRecipe = restamped(recipe, written(lineage, updated))
     return atomically(async (batch) => {
       await repository.saveVersion(updated, batch)
       await repository.save(updatedRecipe, batch)
@@ -465,7 +468,7 @@ export namespace RecipeCommand {
             ),
           }
     const updated: RecipeVersion = { ...version, content, updatedAt: new Date() }
-    const updatedRecipe: Recipe = { ...recipe, updatedAt: lastWorkedOn(written(lineage, updated)) }
+    const updatedRecipe = restamped(recipe, written(lineage, updated))
     return atomically(async (batch) => {
       await repository.saveVersion(updated, batch)
       await repository.save(updatedRecipe, batch)
@@ -496,7 +499,7 @@ export namespace RecipeCommand {
     const { oven: _replaced, ...rest } = version.content
     const content: VersionContent = { ...rest, ...(oven ? { oven } : {}) }
     const updated: RecipeVersion = { ...version, content, updatedAt: new Date() }
-    const updatedRecipe: Recipe = { ...recipe, updatedAt: lastWorkedOn(written(lineage, updated)) }
+    const updatedRecipe = restamped(recipe, written(lineage, updated))
     return atomically(async (batch) => {
       await repository.saveVersion(updated, batch)
       await repository.save(updatedRecipe, batch)
@@ -545,7 +548,7 @@ export namespace RecipeCommand {
     })
     const content: VersionContent = { ...version.content, ingredients }
     const updated: RecipeVersion = { ...version, content, updatedAt: new Date() }
-    const updatedRecipe: Recipe = { ...recipe, updatedAt: lastWorkedOn(written(lineage, updated)) }
+    const updatedRecipe = restamped(recipe, written(lineage, updated))
     return atomically(async (batch) => {
       await repository.saveVersion(updated, batch)
       await repository.save(updatedRecipe, batch)
@@ -570,7 +573,7 @@ export namespace RecipeCommand {
     const version = lineage.find(({ number }) => number === versionNumber)
     if (!version) return 'not-found' as const
     const updated: RecipeVersion = { ...version, warnings, updatedAt: new Date() }
-    const updatedRecipe: Recipe = { ...recipe, updatedAt: lastWorkedOn(written(lineage, updated)) }
+    const updatedRecipe = restamped(recipe, written(lineage, updated))
     return atomically(async (batch) => {
       await repository.saveVersion(updated, batch)
       await repository.save(updatedRecipe, batch)
@@ -579,32 +582,60 @@ export namespace RecipeCommand {
   }
 
   // The touches a cook can make to the aggregate itself: its name, its course or its
-  // brew method, and whether it is a favourite. Each is optional — what is left out
-  // stays as it was. `favorite: false` drops the field entirely (the full-document
-  // write erases it), so absence is the single spelling of "not a favourite". A
-  // category or method change keeps the library's sort honest on its own:
-  // `repository.save` re-derives `categoryRank` and `methodRank`. None of these is
-  // cooking, so none of them moves the recipe's date: hearting a recipe must not
-  // shuffle the notebook.
+  // brew method. Each is optional — what is left out stays as it was. A category or
+  // method change keeps the library's sort honest on its own: `repository.save`
+  // re-derives `categoryRank` and `methodRank`. None of these is cooking, so none of
+  // them moves the recipe's date: renaming a recipe must not shuffle the notebook.
   export const update = async (userId: UserId, recipeId: RecipeId, input: UpdateRecipeInput) => {
     const recipe = await repository.findBy(userId, recipeId)
     if (!recipe) return 'not-found' as const
     // A brew method belongs to a coffee: a dish never grows one, since the type
     // itself is not editable.
     if (input.method && recipe.type !== 'coffee') return 'method-mismatch' as const
-    // Spread without the flag, then put it back only if it holds — otherwise the
-    // rewritten document simply has no `favorite` field.
-    const { favorite: _dropped, ...rest } = recipe
-    const favorite = input.favorite ?? recipe.favorite === true
     const updated: Recipe = {
-      ...rest,
+      ...recipe,
       ...(input.title ? { title: input.title } : {}),
       // A coffee stays a drink — refiling it means changing its method.
       ...(input.category && recipe.type !== 'coffee' ? { category: input.category } : {}),
       ...(input.method ? { method: input.method } : {}),
-      ...(favorite ? { favorite: true as const } : {}),
     }
     return repository.save(updated)
+  }
+
+  // Heart one version, or take the heart off it — the attempt the cook would make
+  // again, not the page it sits on. The recipe's own `favorite` follows as the
+  // derived mirror the library filters on (`favorited`), so hearting a version that
+  // is not the one the recipe opens on still lists it under Favourites. Rewritten in
+  // place: no version is created, and nothing about the plate changes — which is why
+  // the version's own `updatedAt` stays put, unlike a caution or a tip. Hearting is
+  // filing, not cooking, and filing must not shuffle the notebook.
+  export const updateFavorite = async (
+    userId: UserId,
+    recipeId: RecipeId,
+    versionNumber: VersionNumberT,
+    favorite: boolean,
+  ): Promise<RecipeVersion | 'not-found'> => {
+    const recipe = await repository.findBy(userId, recipeId)
+    if (!recipe) return 'not-found' as const
+    const lineage = await repository.findVersionsOf(recipeId)
+    const version = lineage.find(({ number }) => number === versionNumber)
+    if (!version) return 'not-found' as const
+    // Spread without the flag, then put it back only if it holds — the full-document
+    // write erases what is left out, which is what absence means here.
+    const { favorite: _unhearted, ...rest } = version
+    const updated: RecipeVersion = { ...rest, ...(favorite ? { favorite: true as const } : {}) }
+    // The mirror alone, written by hand rather than through `restamped`: the recipe's
+    // date must NOT move, and everything else `restamped` derives is unchanged.
+    const { favorite: _mirrored, ...aggregate } = recipe
+    const updatedRecipe: Recipe = {
+      ...aggregate,
+      ...(favorited(written(lineage, updated)) ? { favorite: true as const } : {}),
+    }
+    return atomically(async (batch) => {
+      await repository.saveVersion(updated, batch)
+      await repository.save(updatedRecipe, batch)
+      return updated
+    })
   }
 
   // Delete one version from the lineage. Its children are re-based onto the version
@@ -640,7 +671,9 @@ export namespace RecipeCommand {
     const remaining = written(versions, ...rebased).filter(
       ({ number: candidate }) => candidate !== number,
     )
-    const updated: Recipe = { ...recipe, updatedAt: lastWorkedOn(remaining) }
+    // Deleting the hearted version can take the recipe out of the favourites lens,
+    // the same way it can hand the reference over: both are derived from what is left.
+    const updated = restamped(recipe, remaining)
     return atomically(async (batch) => {
       for (const child of rebased) await repository.saveVersion(child, batch)
       await repository.removeVersion(recipeId, number, batch)
@@ -669,6 +702,20 @@ export namespace RecipeCommand {
   // Everything this domain holds on one cook, erased: the notebook and every
   // version in it. Called only when the account itself goes.
   export const forget = (userId: UserId): Promise<void> => repository.removeAllByUser(userId)
+
+  // The aggregate as its lineage makes it read: everything the recipe document holds
+  // about its versions is derived, never decided here. One place to do it, so a
+  // command can never restamp one of the two and forget the other.
+  // `favorite` is dropped rather than set to false — the full-document write erases
+  // it, and absence is the single spelling the library's lens queries on.
+  const restamped = (recipe: Recipe, versions: RecipeVersion[]): Recipe => {
+    const { favorite: _derived, ...rest } = recipe
+    return {
+      ...rest,
+      updatedAt: lastWorkedOn(versions),
+      ...(favorited(versions) ? { favorite: true as const } : {}),
+    }
+  }
 
   // The lineage as it will read once the pending writes land — the list the recipe's
   // date is computed from, since those documents are not saved yet. A written version

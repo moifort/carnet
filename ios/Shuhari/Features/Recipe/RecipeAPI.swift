@@ -76,24 +76,35 @@ enum RecipeAPI {
     }
 
     /// Retouch the aggregate: rename it, refile it under another course or another
-    /// brew method, mark it a favourite, or any combination. A field left nil is
-    /// left alone. The type itself is fixed for good.
+    /// brew method, or any combination. A field left nil is left alone. The type
+    /// itself is fixed for good, and the heart is worn by a version.
     static func updateRecipe(
         id: String,
         title: String? = nil,
         category: DishCategory? = nil,
-        method: BrewMethod? = nil,
-        favorite: Bool? = nil
+        method: BrewMethod? = nil
     ) async throws {
         let input = ShuhariGraphQL.UpdateRecipeInput(
             category: GraphQLHelpers.graphQLNullable(category?.graphQLValue),
-            favorite: GraphQLHelpers.graphQLNullable(favorite),
             method: GraphQLHelpers.graphQLNullable(method?.graphQLValue),
             title: GraphQLHelpers.graphQLNullable(title)
         )
         _ = try await GraphQLHelpers.perform(
             GraphQLClient.shared.apollo,
             mutation: ShuhariGraphQL.UpdateRecipeMutation(id: id, input: input)
+        )
+    }
+
+    /// Heart one version, or take the heart off it. The recipe lands in the
+    /// favourites lens as soon as any of its versions is hearted.
+    static func updateFavorite(id: String, versionNumber: Int, favorite: Bool) async throws {
+        _ = try await GraphQLHelpers.perform(
+            GraphQLClient.shared.apollo,
+            mutation: ShuhariGraphQL.UpdateFavoriteMutation(
+                recipeId: id,
+                versionNumber: versionNumber,
+                favorite: favorite
+            )
         )
     }
 
@@ -275,6 +286,7 @@ func mapVersion(_ v: ShuhariGraphQL.VersionFields) -> RecipeVersion {
         content: mapVersionContent(v.content.fragments.versionContentFields),
         tips: v.tips,
         warnings: v.warnings,
+        favorite: v.favorite,
         recipeId: v.recipeId,
         toTest: v.toTest,
         rating: v.rating,

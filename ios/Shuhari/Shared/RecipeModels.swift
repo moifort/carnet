@@ -282,6 +282,9 @@ struct RecipeVersion: Identifiable, Sendable {
     /// next iteration by the server, and rewritable in place like the tips. Empty when
     /// there are none (the banner is then not rendered).
     var warnings: [String] = []
+    /// Hearted by the cook — the attempt they would make again. Carried onto the next
+    /// iteration by the server, and mirrored on the recipe for the library's lens.
+    var favorite: Bool = false
     /// The recipe this version belongs to.
     let recipeId: String
     /// On the to-cook list: an improvement asked for this version, and it has not
@@ -385,7 +388,8 @@ struct Recipe: Identifiable, Sendable {
     /// How it is brewed — fixed at import, shared across all versions, and nil on
     /// anything that is not a coffee.
     var method: BrewMethod? = nil
-    /// Marked as a favourite by the cook — what the library's favourites lens lists.
+    /// Whether any of its versions is hearted — the derived mirror the library's
+    /// favourites lens lists on. Never set directly: heart a version.
     let favorite: Bool
     /// The full lineage, oldest first.
     let versions: [RecipeVersion]

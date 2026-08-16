@@ -122,15 +122,14 @@ builder.mutationField('updateRecipe', (t) =>
   t.field({
     type: RecipeType,
     description: [
-      'Retouch a recipe: rename it, refile it under another course, mark it as a favourite, or ' +
-        'any combination. Returns the updated recipe.',
+      'Retouch a recipe: rename it, refile it under another course, or both. To heart it, heart ' +
+        'one of its versions (see updateFavorite). Returns the updated recipe.',
       '',
       '```graphql',
-      'updateRecipe(id: "9f1c-a3b2", input: { title: "Nonna\'s lasagna", category: MAIN, favorite: true }) {',
+      'updateRecipe(id: "9f1c-a3b2", input: { title: "Nonna\'s lasagna", category: MAIN }) {',
       '  id',
       '  title',
       '  category',
-      '  favorite',
       '}',
       '```',
     ].join('\n'),
@@ -147,9 +146,6 @@ builder.mutationField('updateRecipe', (t) =>
         ...(input.title ? { title: input.title } : {}),
         ...(input.category ? { category: input.category } : {}),
         ...(input.method ? { method: input.method } : {}),
-        ...(input.favorite !== null && input.favorite !== undefined
-          ? { favorite: input.favorite }
-          : {}),
       })
       return match(result)
         .with('not-found', domainError)
@@ -611,6 +607,49 @@ builder.mutationField('updateWarnings', (t) =>
       const result = await RecipeCommand.updateWarnings(userId, recipeId, versionNumber, [
         ...warnings,
       ])
+      return match(result)
+        .with('not-found', domainError)
+        .with(P.not(P.string), (version) => version)
+        .exhaustive()
+    },
+  }),
+)
+
+builder.mutationField('updateFavorite', (t) =>
+  t.field({
+    type: VersionType,
+    description: [
+      'Heart one version, or take the heart off it — the attempt you would make again. The ' +
+        'recipe counts as a favourite as soon as ANY of its versions is hearted, so hearting a ' +
+        'version that is not the one it opens on still lists it under the favourites lens. ' +
+        'Rewritten in place: no version is created, and the recipe keeps its place in the ' +
+        'library. Returns the updated version.',
+      '',
+      '```graphql',
+      'updateFavorite(recipeId: "9f1c-a3b2", versionNumber: 2, favorite: true) {',
+      '  number',
+      '  favorite',
+      '}',
+      '```',
+    ].join('\n'),
+    args: {
+      recipeId: t.arg({
+        type: 'RecipeId',
+        required: true,
+        description: 'Which recipe the version belongs to',
+      }),
+      versionNumber: t.arg({
+        type: 'VersionNumber',
+        required: true,
+        description: 'Which version to heart, e.g. `2`',
+      }),
+      favorite: t.arg.boolean({
+        required: true,
+        description: '`true` hearts it, `false` takes the heart off',
+      }),
+    },
+    resolve: async (_root, { recipeId, versionNumber, favorite }, { userId }) => {
+      const result = await RecipeCommand.updateFavorite(userId, recipeId, versionNumber, favorite)
       return match(result)
         .with('not-found', domainError)
         .with(P.not(P.string), (version) => version)

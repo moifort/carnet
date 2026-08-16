@@ -52,6 +52,11 @@ export type RecipeVersion = {
   // because they said yes to a change of seasoning. Overwritable in place
   // (`updateWarnings`), like `tips`. `[]` = none.
   warnings: Warning[]
+  // Hearted by the cook — the attempt they would make again. Absent rather than
+  // false, and carried onto the next iteration like the cautions. The recipe's own
+  // `favorite` is the derived mirror of this one (`favorited`), which is what the
+  // library's favourites lens filters on.
+  favorite?: true
   // Waiting to be cooked, and listed as such. Only an improvement raises it — the
   // cook asked for this version, so it owes it a try; it drops as soon as the version
   // is cooked (a rating, a photo, remarks). Absent rather than false.

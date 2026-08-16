@@ -239,12 +239,16 @@ Everything is derived (`recipe/business-rules.ts`), nothing is promoted:
   opens — the flask CTA is the only way in.
 - `lastWorkedOn` = the date of that version — **what dates a recipe**. `Recipe.updatedAt` carries
   it, denormalized so Firestore can order and page the library on it (like `categoryRank`), and
-  every command that rewrites the lineage restamps it. Consequences, all deliberate: renaming a
-  recipe, refiling it, hearting it or pinning a caution **never** moves it — housekeeping is not
-  cooking, and the notebook must not reshuffle when you tap a heart; and a fresh attempt rated
-  below the reference leaves the recipe where it was, because the version that answers for it has
-  not changed. A better attempt, a corrected note, or deleting the reference hands it over, date
+  every command that rewrites the lineage restamps it (through `restamped`, which derives it and
+  the favourites mirror in one place). Consequences, all deliberate: renaming a recipe, refiling it
+  or hearting one of its versions **never** moves it — filing is not cooking, and the notebook must
+  not reshuffle when you tap a heart; and a fresh attempt rated below the reference leaves the
+  recipe where it was, because the version that answers for it has not changed. Editing the plate
+  itself — its tips, its cautions, its coffee dials — does move it: that is the cook at work. A better attempt, a corrected note, or deleting the reference hands it over, date
   included.
+- `favorited` = whether **any** version is hearted — **what puts a recipe in the favourites lens**.
+  `Recipe.favorite` carries it, denormalized for the same reason as the date, and restamped by the
+  same helper. See [The heart is worn by a version](#the-heart-is-worn-by-a-version).
 
 ## Improvement and `toTest`
 
@@ -323,6 +327,32 @@ proposal and no prompt ever produces one.
   made, exactly like `updateTips`.
 - **A copied version keeps them** (`copyVersion`), for the same reason it keeps its tips and its
   verdict: it is the same plate under another name.
+
+## The heart is worn by a version
+
+**Favourite** (`RecipeVersion.favorite?: true`): the attempt the cook would make again, not the page
+it sits on. Set by `updateFavorite(recipeId, versionNumber, favorite)` and by nothing else, and
+carried onto the next iteration like the cautions — accepting a proposal continues the line of work
+that was hearted.
+
+- **`Recipe.favorite` is the derived mirror**, `favorited(versions)` — true as soon as **any**
+  version is hearted (`favorited` sits with the other derivations — see
+  [Derivation — no promotion](#derivation--no-promotion)). Deliberately not
+  `versionToOpen(versions).favorite`: a mark the cook put on an
+  attempt must not disappear because another version took a better rating. It is denormalized onto
+  the recipe document for one reason — the library's favourites lens is a Firestore query
+  (`where('favorite', '==', true)`), and Firestore cannot filter a parent on its satellites. Same
+  mechanism as `updatedAt` carrying `lastWorkedOn`, and `categoryRank`/`methodRank`.
+- **Every command that rewrites the lineage restamps it** through the single `restamped(recipe,
+  versions)` helper, which derives the recipe's date and its mirror together — one place, so a
+  command cannot restamp one and forget the other.
+- **Hearting is filing, not cooking**: neither the version's `updatedAt` nor the recipe's moves, so
+  the notebook is not reshuffled by a heart. This is what separates it from a caution or a tip,
+  which are edits to the plate itself.
+- **A copied version keeps its heart**, like its cautions and its verdict: the copy is the same
+  attempt under another name, and its `v1` is the only version its mirror can read.
+- **Deleting the hearted version takes the recipe out of the lens** unless another one carries a
+  heart — derived, like everything else about the aggregate.
 
 ## Iteration — the attempt travels in the request
 

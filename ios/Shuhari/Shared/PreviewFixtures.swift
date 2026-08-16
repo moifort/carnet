@@ -339,6 +339,8 @@ enum Fixtures {
         // The banner atop the recipe sheet — the whisk caution the feature was
         // born from, carried here from the version it was written on.
         warnings: ["Le fouet doit être mis dès le début."],
+        // The attempt the cook would make again: the recipe's own flag mirrors it.
+        favorite: true,
         recipeId: "risotto",
         rating: 4,
         remarks: "Bonne texture, manque un peu de sel.",

@@ -507,6 +507,13 @@ export const VersionType = builder.objectRef<RecipeVersion>('Version').implement
         'Rewritable in place (see updateWarnings).',
       resolve: ({ warnings }) => warnings,
     }),
+    favorite: t.boolean({
+      description:
+        'Whether you hearted this attempt — the one you would make again, e.g. `true` on the ' +
+        'risotto version you keep coming back to. Carried onto the next iteration, and mirrored ' +
+        'on the recipe (see the `favorite` field there) for the library’s favourites lens.',
+      resolve: ({ favorite }) => favorite === true,
+    }),
     executedAt: t.field({
       type: 'DateTime',
       nullable: true,
@@ -607,8 +614,9 @@ RecipeType.implement({
     }),
     favorite: t.boolean({
       description:
-        'Whether you marked it as a favourite, e.g. `true` for the risotto you keep coming back ' +
-        'to. Drives the library’s favourites lens (see the `favorite` argument on `recipes`).',
+        'Whether any of its versions is hearted, e.g. `true` for the risotto you keep coming ' +
+        'back to. Derived, never set here: heart a version (see updateFavorite). Drives the ' +
+        'library’s favourites lens (see the `favorite` argument on `recipes`).',
       resolve: ({ favorite }) => favorite === true,
     }),
     // Satellite: a real count of the remaining versions, not the highest number — a

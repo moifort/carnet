@@ -116,6 +116,7 @@ fragment VersionFields on Version {
   }
   tips
   warnings
+  favorite
   recipeId
   rating
   remarks

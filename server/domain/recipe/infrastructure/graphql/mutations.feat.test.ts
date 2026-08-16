@@ -221,14 +221,13 @@ describe('copyVersion mutation', () => {
 })
 
 describe('updateRecipe mutation', () => {
-  test('renames, refiles and marks as favourite in one call', async () => {
+  test('renames and refiles in one call', async () => {
     const id = await createdId()
     const result = await execute(`
       mutation {
-        updateRecipe(id: "${id}", input: { title: "Lasagnes de nonna", category: DESSERT, favorite: true }) {
+        updateRecipe(id: "${id}", input: { title: "Lasagnes de nonna", category: DESSERT }) {
           title
           category
-          favorite
         }
       }
     `)
@@ -236,7 +235,6 @@ describe('updateRecipe mutation', () => {
     expect(result.data?.updateRecipe).toMatchObject({
       title: 'Lasagnes de nonna',
       category: 'DESSERT',
-      favorite: true,
     })
   })
 
@@ -253,6 +251,47 @@ describe('updateRecipe mutation', () => {
       mutation { updateRecipe(id: "${id}", input: { method: CHEMEX }) { method } }
     `)
     expect(result.errors?.[0]?.extensions?.code).toBe('METHOD_MISMATCH')
+  })
+})
+
+describe('updateFavorite mutation', () => {
+  test('hearts a version, and the recipe follows into the favourites lens', async () => {
+    const id = await createdId()
+    const result = await execute(`
+      mutation {
+        updateFavorite(recipeId: "${id}", versionNumber: 1, favorite: true) {
+          number
+          favorite
+        }
+      }
+    `)
+    expect(result.errors).toBeUndefined()
+    expect(result.data?.updateFavorite).toMatchObject({ number: 1, favorite: true })
+
+    const listed = await execute(`query { recipes(favorite: true) { items { id } } }`)
+    expect(listed.data?.recipes).toMatchObject({ items: [{ id }] })
+  })
+
+  test('un-hearting the last version takes the recipe out of the lens', async () => {
+    const id = await createdId()
+    await execute(
+      `mutation { updateFavorite(recipeId: "${id}", versionNumber: 1, favorite: true) { number } }`,
+    )
+
+    await execute(
+      `mutation { updateFavorite(recipeId: "${id}", versionNumber: 1, favorite: false) { number } }`,
+    )
+
+    const listed = await execute(`query { recipes(favorite: true) { items { id } } }`)
+    expect(listed.data?.recipes).toMatchObject({ items: [] })
+  })
+
+  test('surfaces an unknown version as NOT_FOUND', async () => {
+    const id = await createdId()
+    const result = await execute(
+      `mutation { updateFavorite(recipeId: "${id}", versionNumber: 9, favorite: true) { number } }`,
+    )
+    expect(result.errors?.[0]?.extensions?.code).toBe('NOT_FOUND')
   })
 })
 

@@ -453,18 +453,21 @@ struct RecipeDetailView: View {
         // them so the two read as separate controls on Liquid Glass instead of merging
         // into one capsule.
         ToolbarItem(placement: .topBarTrailing) {
+            // The heart is worn by the version on screen, not by the page: it marks
+            // the attempt the cook would make again.
+            let hearted = displayedVersion(recipe).favorite
             Button {
                 Task { await toggleFavorite(recipe) }
             } label: {
                 ActionIcon(
-                    systemImage: recipe.favorite ? "heart.fill" : "heart",
+                    systemImage: hearted ? "heart.fill" : "heart",
                     isRunning: favoriteError.isRunning
                 )
             }
-            .tint(recipe.favorite ? Theme.Status.favorite : .primary)
+            .tint(hearted ? Theme.Status.favorite : .primary)
             .disabled(favoriteError.isRunning)
             .accessibilityIdentifier("favorite-recipe-button")
-            .accessibilityLabel(recipe.favorite ? "Retirer des favoris" : "Ajouter aux favoris")
+            .accessibilityLabel(hearted ? "Retirer des favoris" : "Ajouter aux favoris")
         }
         ToolbarSpacer(.fixed, placement: .topBarTrailing)
 
@@ -635,11 +638,17 @@ struct RecipeDetailView: View {
         }
     }
 
-    /// Flip the favourite and reload — the sheet redraws its heart, and the library
-    /// behind refreshes so the favourites lens gains or loses the recipe.
+    /// Flip the heart on the displayed version and reload — the sheet redraws it, and
+    /// the library behind refreshes so the favourites lens gains or loses the recipe.
+    /// The recipe stays in the lens as long as another version keeps its own heart.
     private func toggleFavorite(_ recipe: Recipe) async {
+        let version = displayedVersion(recipe)
         await favoriteError.run {
-            try await RecipeAPI.updateRecipe(id: recipeId, favorite: !recipe.favorite)
+            try await RecipeAPI.updateFavorite(
+                id: recipeId,
+                versionNumber: version.number,
+                favorite: !version.favorite
+            )
             // Reloading inside the run keeps the spinner up until the heart can
             // actually redraw in its new state.
             await store.load(recipeId)
