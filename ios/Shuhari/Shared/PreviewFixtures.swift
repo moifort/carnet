@@ -205,6 +205,17 @@ enum Fixtures {
         Ingredient(name: "Beurre", quantity: "30 g"),
     ]
 
+    /// A shopping list picked to exercise every rung of the resizing ladder: a round
+    /// 500 g, a quantity sitting off its grain (12 g), one written with a decimal
+    /// (1,2 g) and one the AI left unmeasured, which no stepper can move.
+    static let breadIngredients = [
+        Ingredient(name: "Farine (T65)", quantity: "500 g"),
+        Ingredient(name: "Eau", quantity: "320 g"),
+        Ingredient(name: "Levain", quantity: "12 g"),
+        Ingredient(name: "Levure fraîche", quantity: "1,2 g"),
+        Ingredient(name: "Sel", quantity: "à goût"),
+    ]
+
     static let ravioliSteps = [
         "Faire revenir les champignons émincés au beurre, saler.",
         "Mélanger à la ricotta et au parmesan, laisser refroidir.",

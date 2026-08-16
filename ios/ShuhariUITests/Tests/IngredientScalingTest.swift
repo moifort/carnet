@@ -26,14 +26,15 @@ final class IngredientScalingTest: XCTestCase {
         let beef = try recipe.ingredientQuantity(0).waitOrFail()
         XCTAssertEqual(beef.label, "1,2 kg")
 
-        // Three −10 g ticks on the beef: 1200 → 1170 g, factor 0,975.
-        for _ in 0..<3 { try recipe.stepIngredient(0, down: true) }
-        XCTAssertEqual(beef.label, "1,17 kg")
+        // Above a kilo a tick is worth 100 g — a tenth of the unit it displays as.
+        // Two of them: 1200 → 1000 g, factor 0,8333.
+        for _ in 0..<2 { try recipe.stepIngredient(0, down: true) }
+        XCTAssertEqual(beef.label, "1 kg")
 
         // Every other line followed the factor, each on its own kitchen grain.
-        XCTAssertEqual(recipe.ingredientQuantity(1).label, "195 g") // lardons 200 × 0,975
-        XCTAssertEqual(recipe.ingredientQuantity(4).label, "73 cl") // red wine 75 cl, kept in cl
-        XCTAssertEqual(recipe.ingredientQuantity(6).label, "29 g") // flour 30 g
+        XCTAssertEqual(recipe.ingredientQuantity(1).label, "165 g") // lardons 200 × 0,8333
+        XCTAssertEqual(recipe.ingredientQuantity(4).label, "62,5 cl") // red wine 75 cl, kept in cl
+        XCTAssertEqual(recipe.ingredientQuantity(6).label, "25 g") // flour 30 g
 
         // Reset drops the factor: back to the stored recipe.
         try recipe.resetScaling()

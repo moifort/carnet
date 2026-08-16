@@ -235,6 +235,11 @@ struct DebugGallery: View {
                 .sheet(isPresented: .constant(true)) {
                     IngredientsEditSheet(initial: Fixtures.bourguignonV3.ingredients) { _ in }
                 }
+        case "ingredients-edit-bread":
+            Color.clear
+                .sheet(isPresented: .constant(true)) {
+                    IngredientsEditSheet(initial: Fixtures.breadIngredients) { _ in }
+                }
         case "ingredients-edit-empty":
             Color.clear
                 .sheet(isPresented: .constant(true)) {

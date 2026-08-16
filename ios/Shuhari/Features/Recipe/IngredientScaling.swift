@@ -22,15 +22,17 @@ enum IngredientScaling {
     }
 
     /// The factor after one −/+ tick on this ingredient: its displayed value moves
-    /// by one step (10 for masses/volumes ≥ 100 g/ml, 1 below, ½ for countable
-    /// pieces) and the whole list follows. Nil when the quantity is not scalable;
-    /// the current factor (a no-op) when the step would hit zero.
+    /// by one grain (see `grain`) and the whole list follows. Nil when the quantity
+    /// is not scalable; the current factor (a no-op) when the tick would hit zero.
     static func factorAfterStep(on quantity: String, from factor: Double, direction: Int) -> Double? {
         guard let parsed = parse(quantity) else { return nil }
         let displayed = rounded(parsed.value * factor, family: parsed.family)
-        let next = displayed + Double(direction) * step(for: displayed, family: parsed.family)
-        guard next >= 0.25 else { return factor }
-        return next / parsed.value
+        let next = stepped(displayed, direction: direction, family: parsed.family)
+        guard next > 0 else { return factor }
+        let resized = next / parsed.value
+        // A tick that lands back on the stored quantity owes exactly 1: float dust
+        // would otherwise leave the list flagged as resized when it no longer is.
+        return (resized - 1).magnitude < 1e-9 ? 1 : resized
     }
 
     /// The header's factor badge, e.g. "×0,75".
@@ -93,22 +95,47 @@ enum IngredientScaling {
     // MARK: - Rounding & stepping
 
     // Smart rounding: derived values land on kitchen-realistic grains rather than
-    // "526,4 ml" — the grain follows the magnitude, halves for counts.
+    // "526,4 ml" — the grain follows the magnitude, halves for counts, tenths under
+    // 10 g/ml so the "1,2 g" of levure a recipe is written with survives a factor.
+    // Deliberately finer than what a tick moves on (see `grain`): the line you touch
+    // jumps on a round kitchen grain, the ones that follow keep what they are worth.
     private static func rounded(_ value: Double, family: Family) -> Double {
         switch family {
         case .count:
             return max(0.5, (value * 2).rounded() / 2)
         case .mass, .volume:
-            let grain: Double = if value >= 1000 { 10 } else if value >= 100 { 5 } else if value >= 10 { 1 } else { 0.5 }
+            let grain: Double = if value >= 1000 { 10 } else if value >= 100 { 5 } else if value >= 10 { 1 } else { 0.1 }
             return max(grain, (value / grain).rounded() * grain)
         }
     }
 
-    private static func step(for displayed: Double, family: Family) -> Double {
-        switch family {
-        case .count: 0.5
-        case .mass, .volume: displayed >= 100 ? 10 : 1
-        }
+    // What one tick moves on. The grain follows the magnitude — a kilo of bœuf has no
+    // business moving by the gram — with one exception: a quantity carrying a decimal
+    // keeps its tenth, so the 1,2 g of levure never gets rounded off by its own stepper.
+    //
+    // `decrementing` reads the magnitude just below the value, so a tick down off an
+    // exact threshold moves on the grain of the zone it lands in: 10 g goes down to
+    // 9 g, and 9 g back up to 10 g. Without it the stepper would not be reversible.
+    private static func grain(for value: Double, family: Family, decrementing: Bool) -> Double {
+        guard family != .count else { return 0.5 }
+        let magnitude = decrementing ? value.nextDown : value
+        if magnitude >= 1000 { return 100 } // a tenth of the kilo/litre it displays as
+        if magnitude >= 10 { return 5 }
+        if magnitude >= 1, value.truncatingRemainder(dividingBy: 1) == 0 { return 1 }
+        return 0.1
+    }
+
+    // One tick, snapped onto the grain rather than added to the value: 12 g goes up
+    // to 15 g, not 17 g — a kitchen quantity is written ON its grain, not beside it.
+    private static func stepped(_ displayed: Double, direction: Int, family: Family) -> Double {
+        let size = grain(for: displayed, family: family, decrementing: direction < 0)
+        let exact = displayed / size
+        // A value already sitting on its grain owes a full tick, so only genuine
+        // float noise is rounded away before the floor/ceiling snaps it.
+        let ticks = (exact.rounded() - exact).magnitude < 1e-9
+            ? exact.rounded()
+            : exact.rounded(direction > 0 ? .down : .up)
+        return (ticks + Double(direction)) * size
     }
 
     // MARK: - Formatting
