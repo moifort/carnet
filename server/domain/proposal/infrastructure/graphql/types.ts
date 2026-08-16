@@ -42,14 +42,14 @@ export const ProposalType = builder.objectRef<Proposal>('Proposal').implement({
       description:
         'The complete body of the suggested version (not just what changed) — a `DishContent`, ' +
         'a `ThermomixContent` or a `CoffeeContent` depending on the recipe type',
-      resolve: (d) => d.content,
+      resolve: ({ content }) => content,
     }),
     tips: t.field({
       type: ['Tip'],
       description:
         'The complete tips list of the suggested version — the current tips carried over, any ' +
         'advice found in your remarks folded in, e.g. `["Serve over rice"]`',
-      resolve: (d) => d.tips,
+      resolve: ({ tips }) => tips,
     }),
   }),
 })
@@ -68,7 +68,7 @@ export const TipsProposalType = builder.objectRef<{ tips: Tip[] }>('TipsProposal
       description:
         'The complete new tips list, e.g. `["Serve over rice", "Freezes well"]` — every current ' +
         'tip kept, the requested advice reworded and deduplicated',
-      resolve: (p) => p.tips,
+      resolve: ({ tips }) => tips,
     }),
   }),
 })
@@ -170,15 +170,18 @@ const ImportCoffeeParametersType = builder
       'The coffee parameters extracted by the AI (unvalidated preview) — `null` on anything ' +
       'that is not a coffee. `milk` is `null` on a drink that has none.',
     fields: (t) => ({
-      beans: t.field({ type: ImportCoffeeBeansType, resolve: (p) => p.beans }),
-      water: t.field({ type: ImportCoffeeWaterType, resolve: (p) => p.water }),
-      extraction: t.field({ type: ImportCoffeeExtractionType, resolve: (p) => p.extraction }),
+      beans: t.field({ type: ImportCoffeeBeansType, resolve: ({ beans }) => beans }),
+      water: t.field({ type: ImportCoffeeWaterType, resolve: ({ water }) => water }),
+      extraction: t.field({
+        type: ImportCoffeeExtractionType,
+        resolve: ({ extraction }) => extraction,
+      }),
       milk: t.field({
         type: ImportCoffeeMilkType,
         nullable: true,
-        resolve: (p) => p.milk ?? null,
+        resolve: ({ milk }) => milk ?? null,
       }),
-      gear: t.field({ type: ImportCoffeeGearType, resolve: (p) => p.gear }),
+      gear: t.field({ type: ImportCoffeeGearType, resolve: ({ gear }) => gear }),
     }),
   })
 
@@ -191,7 +194,7 @@ const ImportStepType = builder.objectRef<ImportStep>('ImportStep').implement({
     thermomix: t.field({
       type: ImportThermomixSettingsType,
       description: 'The step’s Thermomix settings (every field `null` = a step that sets nothing)',
-      resolve: (s) => s.thermomix,
+      resolve: ({ thermomix }) => thermomix,
     }),
   }),
 })
@@ -215,7 +218,7 @@ export const CoffeeImportAnalysisType = builder
           'The dials read off the source. A field is `null` whenever the source says nothing ' +
           'of it — except a value entirely determined by one that WAS read (the water from the ' +
           'dose, at the method’s ratio). The app shows every field anyway, filled or not.',
-        resolve: (a) => a.parameters,
+        resolve: ({ parameters }) => parameters,
       }),
       tips: t.exposeStringList('tips', {
         description:
@@ -243,12 +246,12 @@ export const CookingImportAnalysisType = builder
       ingredients: t.field({
         type: [ImportIngredientType],
         description: 'The extracted ingredients',
-        resolve: (a) => a.ingredients,
+        resolve: ({ ingredients }) => ingredients,
       }),
       steps: t.field({
         type: [ImportStepType],
         description: 'The extracted steps, each carrying its own Thermomix settings',
-        resolve: (a) => a.steps,
+        resolve: ({ steps }) => steps,
       }),
       tips: t.exposeStringList('tips', {
         description:

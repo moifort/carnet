@@ -133,7 +133,7 @@ export const createFakeFirestore = () => {
       makeQuery(collection, { ...state, orders: [...state.orders, { field, direction }] }),
     limit: (count) => makeQuery(collection, { ...state, limit: count }),
     offset: (count) => makeQuery(collection, { ...state, offset: count }),
-    startAfter: (cursor) => makeQuery(collection, { ...state, startAfterId: cursor.id }),
+    startAfter: ({ id }) => makeQuery(collection, { ...state, startAfterId: id }),
     get: async () => {
       queryReads += 1
       let matching = [...docsOf(collection).entries()].filter(([, data]) =>

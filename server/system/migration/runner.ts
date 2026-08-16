@@ -18,8 +18,8 @@ export const runMigrations = async (migrations: Migration[]) => {
   const fromVersion = current.version
 
   const pending = sortBy(
-    migrations.filter((m) => m.version > fromVersion),
-    (m) => m.version,
+    migrations.filter(({ version }) => version > fromVersion),
+    ({ version }) => version,
   )
   if (pending.length === 0) return { outcome: 'up-to-date' as const }
 

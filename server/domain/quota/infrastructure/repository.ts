@@ -55,6 +55,6 @@ export const consume = async (
 // the documents are keyed by month, and nothing records which months exist.
 export const removeAllByUser = async (userId: UserId): Promise<void> => {
   const snap = await quotas().where('userId', '==', userId).get()
-  await deleteInBatches(snap.docs.map((doc) => doc.ref))
+  await deleteInBatches(snap.docs.map(({ ref }) => ref))
   for (const doc of snap.docs) evictFromRequestCache(`quota:${userId}:${doc.data().month}`)
 }

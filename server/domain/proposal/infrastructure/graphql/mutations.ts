@@ -31,7 +31,7 @@ const AcceptProposalResultType = builder.objectRef<AcceptResult>('AcceptProposal
       description:
         'The recipe, now with the accepted version added to its chain, e.g. ' +
         '`"Grandma’s lasagna"` now up to `v3`',
-      resolve: (r) => r.recipe,
+      resolve: ({ recipe }) => recipe,
     }),
     createdVersion: t.expose('createdVersion', {
       type: 'VersionNumber',

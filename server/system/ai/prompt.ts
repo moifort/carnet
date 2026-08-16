@@ -11,6 +11,6 @@ export const formatRequest = (context: {
     ? `Improvement requested by the cook:\n${context.improvement}`
     : `Attempts made:\n${
         context.attempts
-          .map((t) => `- Note ${t.rating}/5. Remarks: ${t.remarks || '—'}.`)
+          .map(({ rating, remarks }) => `- Note ${rating}/5. Remarks: ${remarks || '—'}.`)
           .join('\n') || '—'
       }`

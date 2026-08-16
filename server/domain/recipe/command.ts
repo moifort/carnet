@@ -324,7 +324,7 @@ export namespace RecipeCommand {
     // The whole lineage: correcting a note can hand the reference over (see
     // `recordAttempt`).
     const lineage = await repository.findVersionsOf(recipeId)
-    const version = lineage.find((candidate) => candidate.number === versionNumber)
+    const version = lineage.find(({ number }) => number === versionNumber)
     if (!version) return 'not-found' as const
     const now = new Date()
     const { toTest: _cooked, ...rest } = version
@@ -356,7 +356,7 @@ export namespace RecipeCommand {
     const recipe = await repository.findBy(userId, recipeId)
     if (!recipe) return 'not-found' as const
     const lineage = await repository.findVersionsOf(recipeId)
-    const version = lineage.find((candidate) => candidate.number === versionNumber)
+    const version = lineage.find(({ number }) => number === versionNumber)
     if (!version) return 'not-found' as const
     const updated: RecipeVersion = { ...version, tips, updatedAt: new Date() }
     const updatedRecipe: Recipe = { ...recipe, updatedAt: lastWorkedOn(written(lineage, updated)) }
@@ -382,7 +382,7 @@ export namespace RecipeCommand {
     const recipe = await repository.findBy(userId, recipeId)
     if (!recipe) return 'not-found' as const
     const lineage = await repository.findVersionsOf(recipeId)
-    const version = lineage.find((candidate) => candidate.number === versionNumber)
+    const version = lineage.find(({ number }) => number === versionNumber)
     if (!version) return 'not-found' as const
     // Parameters belong to a coffee and to nothing else — a dish has ingredients.
     if (version.content.kind !== 'coffee') return 'not-a-coffee' as const
@@ -412,7 +412,7 @@ export namespace RecipeCommand {
     const recipe = await repository.findBy(userId, recipeId)
     if (!recipe) return 'not-found' as const
     const lineage = await repository.findVersionsOf(recipeId)
-    const version = lineage.find((candidate) => candidate.number === versionNumber)
+    const version = lineage.find(({ number }) => number === versionNumber)
     if (!version) return 'not-found' as const
     // A coffee has no shopping list — its dose, its water and its milk are parameters.
     if (version.content.kind === 'coffee') return 'not-a-cooked-recipe' as const
@@ -443,7 +443,7 @@ export namespace RecipeCommand {
     const recipe = await repository.findBy(userId, recipeId)
     if (!recipe) return 'not-found' as const
     const lineage = await repository.findVersionsOf(recipeId)
-    const version = lineage.find((candidate) => candidate.number === versionNumber)
+    const version = lineage.find(({ number }) => number === versionNumber)
     if (!version) return 'not-found' as const
     // A coffee has no method to write down — its dials say everything.
     if (version.content.kind === 'coffee') return 'not-a-cooked-recipe' as const
@@ -483,7 +483,7 @@ export namespace RecipeCommand {
     const recipe = await repository.findBy(userId, recipeId)
     if (!recipe) return 'not-found' as const
     const lineage = await repository.findVersionsOf(recipeId)
-    const version = lineage.find((candidate) => candidate.number === versionNumber)
+    const version = lineage.find(({ number }) => number === versionNumber)
     if (!version) return 'not-found' as const
     // A coffee has no oven — it is brewed, and its dials are its parameters.
     if (version.content.kind === 'coffee') return 'not-a-cooked-recipe' as const
@@ -525,7 +525,7 @@ export namespace RecipeCommand {
     // any other — a code of its own would tell them it exists.
     if (component && !(await repository.findBy(userId, component))) return 'not-found' as const
     const lineage = await repository.findVersionsOf(recipeId)
-    const version = lineage.find((candidate) => candidate.number === versionNumber)
+    const version = lineage.find(({ number }) => number === versionNumber)
     if (!version) return 'not-found' as const
     // A coffee has no ingredient list to link from — its dose and its water are dials.
     if (version.content.kind === 'coffee') return 'not-a-cooked-recipe' as const
@@ -605,7 +605,7 @@ export namespace RecipeCommand {
     const recipe = await repository.findBy(userId, recipeId)
     if (!recipe) return 'not-found' as const
     const versions = await repository.findVersionsOf(recipeId)
-    const target = versions.find((version) => version.number === number)
+    const target = versions.find(({ number: candidate }) => candidate === number)
     if (!target) return 'not-found' as const
     if (versions.length === 1) {
       await repository.remove(recipeId)
@@ -615,14 +615,16 @@ export namespace RecipeCommand {
     // or nothing when it was a root. Bookkeeping, not an edit: their `updatedAt`
     // stays put, so the history does not move a version the cook never touched.
     const rebased = versions
-      .filter((version) => version.basedOn === number)
+      .filter(({ basedOn }) => basedOn === number)
       .map(({ basedOn: _deleted, ...rest }) => ({
         ...rest,
         ...(target.basedOn !== undefined ? { basedOn: target.basedOn } : {}),
       }))
     // Losing a version can hand the reference over to another one — deleting the
     // best-rated attempt re-dates the recipe by whatever now answers for it.
-    const remaining = written(versions, ...rebased).filter((version) => version.number !== number)
+    const remaining = written(versions, ...rebased).filter(
+      ({ number: candidate }) => candidate !== number,
+    )
     const updated: Recipe = { ...recipe, updatedAt: lastWorkedOn(remaining) }
     return atomically(async (batch) => {
       for (const child of rebased) await repository.saveVersion(child, batch)

@@ -29,13 +29,13 @@ const QuotaCounterType = builder.objectRef<QuotaCounter>('QuotaCounter').impleme
     limit: t.int({
       nullable: true,
       description: 'How many the plan allows per month, e.g. `3` — `null` on an unlimited plan',
-      resolve: (counter) => counter.limit ?? null,
+      resolve: ({ limit }) => limit ?? null,
     }),
     remaining: t.int({
       nullable: true,
       description:
         'How many are still available this month, e.g. `2` — `null` on an unlimited plan',
-      resolve: (counter) => counter.remaining ?? null,
+      resolve: ({ remaining }) => remaining ?? null,
     }),
   }),
 })
@@ -48,26 +48,26 @@ export const QuotaType = builder.objectRef<QuotaState>('Quota').implement({
     plan: t.field({
       type: PlanEnum,
       description: 'The plan in force, e.g. `FREE`',
-      resolve: (state) => state.plan,
+      resolve: ({ plan }) => plan,
     }),
     imports: t.field({
       type: QuotaCounterType,
       description: 'Recipe imports analyzed by the AI this month (photos, text or URL)',
-      resolve: (state) => counterOf(state.plan, state.quota, 'import'),
+      resolve: ({ plan, quota }) => counterOf(plan, quota, 'import'),
     }),
     iterations: t.field({
       type: QuotaCounterType,
       description:
         'AI calls made on an existing recipe this month — a proposal, an improvement or a tips ' +
         'merge',
-      resolve: (state) => counterOf(state.plan, state.quota, 'iteration'),
+      resolve: ({ plan, quota }) => counterOf(plan, quota, 'iteration'),
     }),
     renewsOn: t.field({
       type: 'DateTime',
       description:
         'When both meters go back to zero — the 1st of next month, e.g. ' +
         '`"2026-08-01T00:00:00.000Z"`',
-      resolve: (state) => renewsOn(state.quota.month),
+      resolve: ({ quota }) => renewsOn(quota.month),
     }),
   }),
 })

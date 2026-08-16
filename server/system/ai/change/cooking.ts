@@ -29,7 +29,10 @@ const APPLY_RULE =
 const prompt = (context: CookingChangeContext): string => {
   const ingredients =
     context.currentIngredients
-      .map((i) => `- ${i.name} : ${i.quantity}${i.component ? ' [recipe of its own]' : ''}`)
+      .map(
+        ({ name, quantity, component }) =>
+          `- ${name} : ${quantity}${component ? ' [recipe of its own]' : ''}`,
+      )
       .join('\n') || '—'
   const steps =
     context.currentSteps

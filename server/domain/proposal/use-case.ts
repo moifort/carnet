@@ -45,13 +45,13 @@ const brandCookingProposal = (
     ? brandVersionContent({
         kind: 'thermomix',
         ingredients: proposal.ingredients,
-        steps: proposal.steps.map((s) => ({ text: s.text, settings: s.thermomix })),
+        steps: proposal.steps.map(({ text, thermomix }) => ({ text, settings: thermomix })),
         ...carriedOven(current),
       })
     : brandVersionContent({
         kind: 'dish',
         ingredients: proposal.ingredients,
-        steps: proposal.steps.map((s) => s.text),
+        steps: proposal.steps.map(({ text }) => text),
         ...carriedOven(current),
       })
 
@@ -67,10 +67,10 @@ const brandCoffeeProposal = (proposal: CoffeeProposal): VersionContent =>
 const contextIngredients = (content: VersionContent) =>
   content.kind === 'coffee'
     ? []
-    : content.ingredients.map((i) => ({
-        name: i.name as string,
-        quantity: i.quantity as string,
-        component: i.component !== undefined,
+    : content.ingredients.map(({ name, quantity, component }) => ({
+        name: name as string,
+        quantity: quantity as string,
+        component: component !== undefined,
       }))
 
 // The coffee parameters the iteration starts from, as the model reads them: plain
@@ -94,7 +94,10 @@ const contextParameters = (
 // no steps at all — it is wholly described by its parameters.
 const contextSteps = (content: VersionContent): ImportStep[] => {
   if (content.kind === 'thermomix')
-    return content.steps.map((s) => ({ text: s.text as string, thermomix: s.settings }))
+    return content.steps.map(({ text, settings }) => ({
+      text: text as string,
+      thermomix: settings,
+    }))
   if (content.kind === 'coffee') return []
   return content.steps.map((text) => ({ text: text as string, thermomix: {} }))
 }

@@ -61,7 +61,7 @@ export const findOven = async (): Promise<OvenAppliance | 'no-oven'> => {
   if (response === 'unavailable' || !response.ok) return 'no-oven'
 
   const appliances = (await response.json()) as { applianceId: string; applianceType: string }[]
-  const oven = appliances.find((a) => OVEN_TYPES.has(a.applianceType))
+  const oven = appliances.find(({ applianceType }) => OVEN_TYPES.has(applianceType))
   return oven ? { id: oven.applianceId } : 'no-oven'
 }
 

@@ -85,7 +85,7 @@ export const findManyByIds = async (userId: UserId, ids: RecipeId[]) => {
   if (ids.length === 0) return []
   if (isInRequestCache(allCacheKey(userId))) {
     const wanted = new Set(ids)
-    return (await findAllByUser(userId)).filter((recipe) => wanted.has(recipe.id))
+    return (await findAllByUser(userId)).filter(({ id }) => wanted.has(id))
   }
   const snaps = await db().getAll(...ids.map((id) => recipes().doc(id)))
   return snaps
@@ -184,7 +184,7 @@ export const findVersionsOfMany = async (recipeIds: RecipeId[]) => {
   const pages = await Promise.all(
     chunk(recipeIds, IN_FILTER_LIMIT).map((ids) => versions().where('recipeId', 'in', ids).get()),
   )
-  return pages.flatMap((snap) => snap.docs.map((doc) => normalizeVersion(doc.data())))
+  return pages.flatMap(({ docs }) => docs.map((doc) => normalizeVersion(doc.data())))
 }
 
 // One memoized full scan per request, for the whole-notebook reads alone (the
@@ -219,7 +219,7 @@ export const removeVersion = async (
 
 export const remove = async (id: RecipeId) => {
   const versionSnap = await versions().where('recipeId', '==', id).get()
-  await deleteInBatches([recipes().doc(id), ...versionSnap.docs.map((doc) => doc.ref)])
+  await deleteInBatches([recipes().doc(id), ...versionSnap.docs.map(({ ref }) => ref)])
 }
 
 // Restore: the cook's notebook becomes exactly what the export carried. The
@@ -243,13 +243,13 @@ export const replaceAllByUser = async (
   await bulkSave(incomingRecipes, (recipe) => save(recipe))
   await bulkSave(incomingVersions, (version) => saveVersion(version))
 
-  const restoredRecipes = new Set(incomingRecipes.map((recipe) => String(recipe.id)))
+  const restoredRecipes = new Set(incomingRecipes.map(({ id }) => String(id)))
   const restoredVersions = new Set(
-    incomingVersions.map((version) => versionDocId(version.recipeId, version.number)),
+    incomingVersions.map(({ recipeId, number }) => versionDocId(recipeId, number)),
   )
   await deleteInBatches([
-    ...recipeSnap.docs.filter((doc) => !restoredRecipes.has(doc.ref.id)).map((doc) => doc.ref),
-    ...versionSnap.docs.filter((doc) => !restoredVersions.has(doc.ref.id)).map((doc) => doc.ref),
+    ...recipeSnap.docs.filter(({ ref }) => !restoredRecipes.has(ref.id)).map(({ ref }) => ref),
+    ...versionSnap.docs.filter(({ ref }) => !restoredVersions.has(ref.id)).map(({ ref }) => ref),
   ])
 }
 
@@ -257,8 +257,8 @@ export const removeAllByUser = async (userId: UserId) => {
   const recipeSnap = await recipes().where('userId', '==', userId).get()
   const versionSnap = await versions().where('userId', '==', userId).get()
   await deleteInBatches([
-    ...recipeSnap.docs.map((doc) => doc.ref),
-    ...versionSnap.docs.map((doc) => doc.ref),
+    ...recipeSnap.docs.map(({ ref }) => ref),
+    ...versionSnap.docs.map(({ ref }) => ref),
     // The vocabulary is learned from the recipes: it goes with them.
     vocabularies().doc(userId),
   ])

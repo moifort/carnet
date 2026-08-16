@@ -167,12 +167,12 @@ const stepSchema = z.union([
 
 // Drop blank ingredients and cap the count. Shared by import and proposal.
 const foldIngredients = (raw: { name: string; quantity: string }[]) =>
-  raw.filter((i) => i.name && i.quantity).slice(0, MAX_ITEMS)
+  raw.filter(({ name, quantity }) => name && quantity).slice(0, MAX_ITEMS)
 
 // Drop blank steps and cap the count. Shared by import and proposal — each step
 // keeps its own settings, so there is no parallel array to align.
 const foldSteps = (raw: ImportStep[]): ImportStep[] =>
-  raw.filter((s) => s.text.length > 0).slice(0, MAX_ITEMS)
+  raw.filter(({ text }) => text.length > 0).slice(0, MAX_ITEMS)
 
 // Drop blank tips and cap the count. Shared by import, proposal and the
 // tips-formatting call.

@@ -53,7 +53,9 @@ export const carriedComponents = (
 ): VersionContent => {
   if (content.kind === 'coffee' || base === undefined || base.kind === 'coffee') return content
   const components = new Map(
-    base.ingredients.flatMap((i) => (i.component ? [[i.name as string, i.component]] : [])),
+    base.ingredients.flatMap(({ name, component }) =>
+      component ? [[name as string, component]] : [],
+    ),
   )
   if (components.size === 0) return content
   return {
@@ -90,7 +92,7 @@ export const bestRating = (versions: RecipeVersion[]): RecipeVersion | undefined
 // off, so the count is what the recipe still owes the kitchen, never what it went
 // through.
 export const toTestCount = (versions: RecipeVersion[]): number =>
-  versions.filter((version) => version.toTest === true).length
+  versions.filter(({ toTest }) => toTest === true).length
 
 // Which version the recipe sheet opens on when entered from the home: the best-rated
 // one, falling back to the latest version when nothing was ever cooked (a brand-new,

@@ -17,7 +17,7 @@ export const OvenSettingsType = builder.objectRef<OvenSettings>('OvenSettings').
         'The heating function selected, e.g. `CONVECTION`. `null` when the oven is set to ' +
         'something this notebook has no word for — a cleaning cycle, or one of the model’s own ' +
         'combinations.',
-      resolve: (s) => s.program ?? null,
+      resolve: ({ program }) => program ?? null,
     }),
     assisted: t.expose('assisted', {
       type: 'AssistedProgram',
@@ -30,19 +30,19 @@ export const OvenSettingsType = builder.objectRef<OvenSettings>('OvenSettings').
     temperature: t.int({
       nullable: true,
       description: 'The target temperature in °C, e.g. `180`',
-      resolve: (s) => s.temperature ?? null,
+      resolve: ({ temperature }) => temperature ?? null,
     }),
     duration: t.int({
       nullable: true,
       description: 'The cooking time set, in minutes, e.g. `25`. `null` when no timer is set.',
-      resolve: (s) => s.duration ?? null,
+      resolve: ({ duration }) => duration ?? null,
     }),
     core: t.int({
       nullable: true,
       description:
         'The probe target in °C, e.g. `63`. `null` unless a probe is plugged in — the appliance ' +
         'reports the field only then.',
-      resolve: (s) => s.core ?? null,
+      resolve: ({ core }) => core ?? null,
     }),
   }),
 })
@@ -57,7 +57,7 @@ export const OvenRunType = builder.objectRef<OvenRun>('OvenRun').implement({
       description:
         'Minutes left on the oven’s own timer, e.g. `12`. `null` on a probe cook, which ends on ' +
         'a temperature rather than a clock.',
-      resolve: (r) => r.remaining ?? null,
+      resolve: ({ remaining }) => remaining ?? null,
     }),
   }),
 })
@@ -81,13 +81,13 @@ export const OvenType = builder.objectRef<OvenState>('Oven').implement({
       type: OvenSettingsType,
       description:
         'What the dials are set to right now — the values a recipe can copy off the oven',
-      resolve: (o) => o.settings,
+      resolve: ({ settings }) => settings,
     }),
     running: t.field({
       type: OvenRunType,
       nullable: true,
       description: 'The cooking under way, or `null` when the oven is idle',
-      resolve: (o) => o.running ?? null,
+      resolve: ({ running }) => running ?? null,
     }),
   }),
 })

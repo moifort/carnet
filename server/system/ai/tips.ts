@@ -18,7 +18,8 @@ const current = (context: TipsContext): string => {
   if (context.currentParameters)
     return `Current parameters:\n${formatParameters(context.currentParameters)}`
   const ingredients =
-    context.currentIngredients.map((i) => `- ${i.name} : ${i.quantity}`).join('\n') || '—'
+    context.currentIngredients.map(({ name, quantity }) => `- ${name} : ${quantity}`).join('\n') ||
+    '—'
   const steps =
     context.currentSteps
       .map((s, i) => `${i + 1}. ${s.text}${formatThermomix(s.thermomix)}`)

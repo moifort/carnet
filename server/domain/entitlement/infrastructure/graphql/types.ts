@@ -19,7 +19,7 @@ export const EntitlementType = builder.objectRef<EntitlementState>('Entitlement'
     plan: t.field({
       type: PlanEnum,
       description: 'The plan in force right now, e.g. `PREMIUM`',
-      resolve: (state) => state.plan,
+      resolve: ({ plan }) => plan,
     }),
     appAccountToken: t.exposeString('appAccountToken', {
       description:
@@ -32,7 +32,7 @@ export const EntitlementType = builder.objectRef<EntitlementState>('Entitlement'
       description:
         'The subscription bought, e.g. `"com.polyforms.shuhari.app.premium.yearly"` — `null` ' +
         'when there is none',
-      resolve: (state) => state.entitlement?.productId ?? null,
+      resolve: ({ entitlement }) => entitlement?.productId ?? null,
     }),
     expiresOn: t.field({
       type: 'DateTime',
@@ -40,7 +40,7 @@ export const EntitlementType = builder.objectRef<EntitlementState>('Entitlement'
       description:
         'When the paid period ends, e.g. `"2027-07-20T09:12:00.000Z"` — `null` when there is no ' +
         'subscription. A cancelled subscription keeps its Premium until this date.',
-      resolve: (state) => state.entitlement?.expiresAt ?? null,
+      resolve: ({ entitlement }) => entitlement?.expiresAt ?? null,
     }),
   }),
 })

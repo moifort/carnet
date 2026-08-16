@@ -388,8 +388,8 @@ const versionContentSchema = z
     if (raw.kind === 'dish') {
       return { kind: 'dish', ingredients, steps: raw.steps.map((s) => StepText(s)), ...oven }
     }
-    const texts = raw.steps.map((s) => StepText(s.text))
-    const settings = raw.steps.map((s) => brandLooseSettings(s.settings ?? {}))
+    const texts = raw.steps.map(({ text }) => StepText(text))
+    const settings = raw.steps.map(({ settings }) => brandLooseSettings(settings ?? {}))
     return { kind: 'thermomix', ingredients, steps: thermomixSteps(texts, settings), ...oven }
   })
 

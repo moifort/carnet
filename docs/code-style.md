@@ -51,12 +51,30 @@ beans.filter((bean) => bean.roast === 'dark')
 
 ### Destructure in callbacks
 
+Every callback whose parameter is only ever read for its properties destructures them — predicates,
+mappings and GraphQL resolvers alike.
+
 ```ts
 // Bad
 sortBy(beans, (b) => b.name)
+beans.find((bean) => bean.roast === 'dark')
+resolve: (bean) => bean.roastedOn ?? null
 // Good
 sortBy(beans, ({ name }) => name)
+beans.find(({ roast }) => roast === 'dark')
+resolve: ({ roastedOn }) => roastedOn ?? null
 ```
+
+Three exceptions, and nothing else:
+
+- **A method call** — `snap.data()`, `file.endsWith('.ts')`. Destructuring a method detaches it from
+  its receiver, so the parameter stays whole.
+- **The object itself is used** — `versions.map((version) => [version.number, version])` needs both.
+- **A reserved word** is renamed rather than left undestructured: `({ yield: extracted }) =>
+  extracted`.
+
+A property read off a primitive (`tip.length`) is not the case this rule is about: keep the
+parameter, whose name says what the value is.
 
 ### Inline single-line guards
 

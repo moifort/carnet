@@ -44,7 +44,7 @@ const backupOf = async (owner: UserId = userId) =>
   JSON.stringify(await PortabilityUseCase.exportAll(owner))
 
 const storedTitles = () =>
-  [...fake.snapshot('recipes').values()].map((doc) => doc.title as string).sort()
+  [...fake.snapshot('recipes').values()].map(({ title }) => title as string).sort()
 
 describe('PortabilityUseCase — round trip', () => {
   test('restores every recipe and version the backup carried', async () => {
@@ -117,9 +117,9 @@ describe('PortabilityUseCase — the restore never empties the notebook', () => 
     // with no copy of them anywhere. Only the rows the backup does not carry are
     // ever enqueued for deletion.
     const deleted = fake.batches
-      .flatMap((batch) => batch.ops)
-      .filter((op) => op.type === 'delete')
-      .map((op) => op.ref.id)
+      .flatMap(({ ops }) => ops)
+      .filter(({ type }) => type === 'delete')
+      .map(({ ref }) => ref.id)
       .sort()
     expect(deleted).toEqual(['r2', 'r2_1'])
   })

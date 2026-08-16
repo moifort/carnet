@@ -202,7 +202,7 @@ describe('recipes query', () => {
     expect(result.errors).toBeUndefined()
     // starter → main → dessert is the business rank, not the alphabet.
     expect(
-      (result.data as { recipes: { items: { id: string }[] } }).recipes.items.map((r) => r.id),
+      (result.data as { recipes: { items: { id: string }[] } }).recipes.items.map(({ id }) => id),
     ).toEqual([r2, r1, r3])
   })
 

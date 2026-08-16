@@ -42,7 +42,7 @@ const seedRecipe = (
   })
 }
 
-const ids = (page: { items: { id: RecipeId }[] }) => page.items.map((r) => String(r.id))
+const ids = (page: { items: { id: RecipeId }[] }) => page.items.map(({ id }) => String(id))
 
 describe('RecipeQuery.library — updatedAt sort & cursor pagination', () => {
   beforeEach(() => {
@@ -350,7 +350,7 @@ describe('RecipeQuery.versionsOfMany — the satellite loader’s read', () => {
     const versions = await RecipeQuery.versionsOfMany(['r1', 'r2'] as RecipeId[])
     // The whole notebook is never scanned: a recipe outside the page contributes
     // nothing, however many versions it holds.
-    expect(versions.map((v) => `${v.recipeId}_${v.number}`).sort()).toEqual([
+    expect(versions.map(({ recipeId, number }) => `${recipeId}_${number}`).sort()).toEqual([
       'r1_1',
       'r1_2',
       'r2_1',

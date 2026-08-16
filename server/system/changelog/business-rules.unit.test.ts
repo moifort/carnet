@@ -53,7 +53,7 @@ describe('parseChangelog', () => {
       '- C',
     ].join('\n')
     const result = parseChangelog(md)
-    expect(result.map((entry) => entry.version)).toEqual([
+    expect(result.map(({ version }) => version)).toEqual([
       ChangelogVersion('Unreleased'),
       ChangelogVersion('1.1'),
       ChangelogVersion('1.0'),

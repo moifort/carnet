@@ -50,7 +50,7 @@ type StoredVersion = { recipeId: string; number: number; rating?: number; update
 // The version that answers for the recipe: the best-rated one (a tie going to the
 // most recent), or the latest when nothing was ever cooked.
 const reference = (lineage: StoredVersion[]): StoredVersion => {
-  const rated = lineage.filter((version) => typeof version.rating === 'number')
+  const rated = lineage.filter(({ rating }) => typeof rating === 'number')
   return rated.length > 0
     ? rated.reduce((best, version) =>
         (version.rating ?? 0) > (best.rating ?? 0) ||

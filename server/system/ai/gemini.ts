@@ -23,7 +23,7 @@ export const callGemini = async (body: Record<string, unknown>): Promise<string 
     // The quota is recorded after the answer, so giving up costs the cook nothing.
     timeout: GEMINI_TIMEOUT_MS,
   })
-  return response.candidates?.[0]?.content?.parts?.find((p) => p.text)?.text
+  return response.candidates?.[0]?.content?.parts?.find(({ text }) => text)?.text
 }
 
 // The request body of an import: the instructions of the flow that asked for it,
