@@ -26,12 +26,20 @@ the single source for collaboration conventions, replacing any machine-local ass
 ## Conversation vs execution
 
 - In design/architecture discussions, phrases like "je veux faire X" express **design intent**,
-  not a green light to implement. Keep answering with analysis, trees, and trade-offs; writing
-  a plan file to capture a decision is fine, but wait for an explicit implementation request
-  ("vas-y", "implémente", "lance") before touching code.
+  not a green light to implement. Keep answering with analysis, trees, and trade-offs, and wait
+  for an explicit implementation request ("vas-y", "implémente", "lance") before touching code.
 - **Every plan opens with a domain-impact summary**: a "Domaines impactés" block with three
   lines — Créés / Modifiés / Supprimés — listing the affected domains (`server/domain/*`, iOS
-  features), before the detailed body. The blast radius is how plans are scanned.
+  features), before the detailed body. The blast radius is how plans are scanned. List the
+  domains by **name alone** (`recipe`, `Recipe`, `Import`) — never a file path, never a tree:
+  the block answers "what moves", and paths are noise at that stage.
+- **What comes before code is an explanation, not a document.** Do not write a spec file, a
+  design doc or a numbered implementation plan unless the user asks for one — that includes
+  `superpowers:brainstorming`'s `docs/superpowers/specs/…` deliverable and the
+  `superpowers:writing-plans` step it hands over to, both of which are skipped here. What the
+  user wants to read before you touch code is the **Domaines impactés** block followed by a few
+  paragraphs, in your own words, of what you are about to put in place and why. Prose that could
+  be understood without the codebase open, not an artefact to review.
 
 ## Closing a task: surfaces, then diff size
 
