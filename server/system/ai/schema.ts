@@ -15,7 +15,7 @@ export const ingredientsSchemaProperty = {
       quantity: {
         type: 'string',
         description:
-          'Quantity with its unit, in French (e.g. "50 ml", "170 g", "3 pièces"). When the unit is an imprecise kitchen measure (spoon, pinch, glass, cup…), append the estimated gram equivalent for THAT ingredient in parentheses: "1 c. à café (6 g)" for salt, "1 c. à soupe (8 g)" for flour. Metric weights/volumes and countable pieces stay as-is. ≤60 characters',
+          'Quantity with its unit, in French (e.g. "50 ml", "170 g", "3 pièces"). ALWAYS starts with a NUMBER — never "à goût", "selon le goût", "un peu", "quelques" or any other unmeasured wording. When the source leaves a quantity open, estimate one that fits the volume of THIS recipe and write it as a figure ("Sel" → "8 g", "Thym" → "2 brins (1 g)"): the cook resizes the recipe by stepping its quantities, and a line without a number cannot follow. When the unit is an imprecise kitchen measure (spoon, pinch, glass, cup…), append the estimated gram equivalent for THAT ingredient in parentheses: "1 c. à café (6 g)" for salt, "1 c. à soupe (8 g)" for flour. Metric weights/volumes and countable pieces stay as-is. ≤60 characters',
       },
     },
     required: ['name', 'quantity'],
