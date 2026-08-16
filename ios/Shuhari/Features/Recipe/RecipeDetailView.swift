@@ -4,6 +4,9 @@ import SwiftUI
 /// (through the binding owned by `HomeView`), the rename sheet, and deletion.
 struct RecipeDetailView: View {
     let recipeId: String
+    /// The weight this sheet was opened at: 1 from the library, the link's weight when
+    /// it was reached from the recipe that uses it.
+    var openedAt: Double = 1
     /// When set, the recipe sheet focuses this version (the attempt view): orange banner +
     /// per-row change dots. Nil renders the plain recipe sheet.
     let focusVersionNumber: Int?
@@ -45,7 +48,8 @@ struct RecipeDetailView: View {
     /// `versionToOpen`. Picking swaps what this one screen displays instead of pushing
     /// another: browsing a lineage is reading one recipe, not walking into ten of them.
     @State private var selectedVersion: Int?
-    /// The ingredient line whose picker is open — nil when none is.
+    /// The link sheet: present with no `editing` to link a new recipe, or with one to
+    /// correct the weight of a link already posted.
     @State private var linkRequest: LinkRequest?
     /// Whether the shopping-list editor is open.
     @State private var showIngredients = false
@@ -54,19 +58,18 @@ struct RecipeDetailView: View {
     /// Whether the tips editor is open.
     @State private var showTips = false
 
-    /// Which line the component picker was opened on. Identified by its index: the
-    /// picker and the list editor are never open at once, so the list cannot shift
-    /// under the sheet.
+    /// What the link sheet opens on: nothing (pick a recipe, then its weight), or an
+    /// existing link whose weight is being corrected.
     private struct LinkRequest: Identifiable {
-        let index: Int
-        let name: String
-        let componentId: String?
-        var id: Int { index }
+        let editing: LinkRecipeSheet.Editing?
+        var id: String { editing?.recipeId ?? "new" }
     }
     @State private var favoriteError = ErrorPresenter()
+    @State private var linkError = ErrorPresenter()
 
     init(
         recipeId: String,
+        openedAt: Double = 1,
         focusVersionNumber: Int? = nil,
         store: RecipeStore,
         path: Binding<NavigationPath>,
@@ -75,6 +78,7 @@ struct RecipeDetailView: View {
         onDeleteVersion: @escaping (String, Int) -> Void
     ) {
         self.recipeId = recipeId
+        self.openedAt = openedAt
         self.focusVersionNumber = focusVersionNumber
         self.store = store
         self._path = path
@@ -239,20 +243,18 @@ struct RecipeDetailView: View {
                         onReload()
                     }
                 }
-                // Saying which recipe an ingredient line IS: a correction in place on
-                // the displayed version — no version created, its rating untouched.
+                // Saying what this recipe is made of, and at what weight: an aggregate
+                // write — no version created, no date moved.
                 .sheet(item: $linkRequest) { request in
-                    let version = displayedVersion(recipe)
-                    ComponentPickerSheet(
-                        ingredientName: request.name,
-                        linkedId: request.componentId,
-                        excludedId: recipeId
-                    ) { picked in
-                        try await RecipeAPI.updateComponent(
+                    LinkRecipeSheet(
+                        excludedId: recipeId,
+                        linkedIds: Set(recipe.components.map(\.id)),
+                        editing: request.editing
+                    ) { picked, scale in
+                        try await RecipeAPI.linkComponent(
                             recipeId: recipeId,
-                            versionNumber: version.number,
-                            ingredient: request.index,
-                            component: picked
+                            component: picked,
+                            scale: scale
                         )
                         await store.load(recipeId)
                         onReload()
@@ -320,6 +322,7 @@ struct RecipeDetailView: View {
         }
         .errorAlert(favoriteError)
         .errorAlert(copyError)
+        .errorAlert(linkError)
         // Read on every appearance, never only on the first: what the flow already
         // knows is drawn at once — a version picked in a sheet opens on it instead of
         // on a spinner — and this only corrects it.
@@ -354,40 +357,86 @@ struct RecipeDetailView: View {
                 why: focus.why ?? focus.originDetail,
                 onEditOven: openOvenEditor,
                 ovenStart: ovenStart(recipe),
-                onLinkComponent: { openLink(recipe, at: $0) },
+                linkedRecipes: linkedItems(recipe),
+                usedBy: usedByItems(recipe),
+                onOpenRelated: { open(recipe, related: $0) },
+                onEditWeight: { editWeight(recipe, of: $0) },
+                onUnlink: { unlink($0) },
                 onEditIngredients: { showIngredients = true },
                 // A coffee has no method to correct: its dials say everything.
                 onEditSteps: displayedVersion(recipe).content.coffeeParameters == nil
                     ? { showSteps = true }
                     : nil,
-                onEditTips: { showTips = true }
+                onEditTips: { showTips = true },
+                openedAt: openedAt
             )
         } else {
             RecipeDetailPage(
                 recipe: recipe,
                 onEditOven: openOvenEditor,
                 ovenStart: ovenStart(recipe),
-                onLinkComponent: { openLink(recipe, at: $0) },
+                linkedRecipes: linkedItems(recipe),
+                usedBy: usedByItems(recipe),
+                onOpenRelated: { open(recipe, related: $0) },
+                onEditWeight: { editWeight(recipe, of: $0) },
+                onUnlink: { unlink($0) },
                 onEditIngredients: { showIngredients = true },
                 // A coffee has no method to correct: its dials say everything.
                 onEditSteps: displayedVersion(recipe).content.coffeeParameters == nil
                     ? { showSteps = true }
                     : nil,
-                onEditTips: { showTips = true }
+                onEditTips: { showTips = true },
+                openedAt: openedAt
             )
         }
     }
 
-    /// Open the picker on one ingredient line of the displayed version — the version
-    /// the annotation lands on, in both modes.
-    private func openLink(_ recipe: Recipe, at index: Int) {
-        let ingredients = displayedVersion(recipe).ingredients
-        guard index < ingredients.count else { return }
-        linkRequest = LinkRequest(
-            index: index,
-            name: ingredients[index].name,
-            componentId: ingredients[index].component?.id
-        )
+    // MARK: - Linked recipes
+
+    /// The recipes this one is made of, flattened for the section. The summary is the
+    /// first line of the linked recipe that can be resized, written at the weight it
+    /// is used here — "Farine 100 g", what the cook actually puts in.
+    private func linkedItems(_ recipe: Recipe) -> [LinkedRecipesSection.Item] {
+        recipe.components.map { linked in
+            let resized = linked.ingredients
+                .first { IngredientScaling.isScalable($0.quantity) }
+                .map { "\($0.name) \(IngredientScaling.scaled($0.quantity, by: linked.scale))" }
+            return LinkedRecipesSection.Item(
+                id: linked.id,
+                title: linked.title,
+                rating: linked.rating,
+                summary: resized
+            )
+        }
+    }
+
+    private func usedByItems(_ recipe: Recipe) -> [UsedBySection.Item] {
+        recipe.usedBy.map { .init(id: $0.id, title: $0.title, rating: $0.rating) }
+    }
+
+    /// Open a recipe on either side of a link: one this recipe is made of opens at the
+    /// weight it was linked at, one made of this recipe opens at its own quantities.
+    private func open(_ recipe: Recipe, related id: String) {
+        let scale = recipe.components.first { $0.id == id }?.scale ?? 1
+        path.append(RecipeRoute.recipe(id: id, scale: scale))
+    }
+
+    private func editWeight(_ recipe: Recipe, of id: String) {
+        guard let linked = recipe.components.first(where: { $0.id == id }) else { return }
+        linkRequest = LinkRequest(editing: .init(recipeId: id, scale: linked.scale))
+    }
+
+    /// Let go of a link. One-way like the deletions: the row goes, the call runs
+    /// behind it, and a failure surfaces on the alert this screen already owns.
+    private func unlink(_ id: String) {
+        Task {
+            await linkError.run {
+                try await RecipeAPI.unlinkComponent(recipeId: recipeId, component: id)
+                await store.load(recipeId)
+            } onSuccess: {
+                onReload()
+            }
+        }
     }
 
     /// What the oven section offers, or nil when this account owns no oven — the
@@ -495,6 +544,12 @@ struct RecipeDetailView: View {
                     systemImage: "exclamationmark.triangle"
                 ) { showWarnings = true }
                     .accessibilityIdentifier("edit-warnings-button")
+                // What this recipe is made of: another recipe of the notebook, at the
+                // weight it takes of it.
+                Button("Lier une recette", systemImage: "link") {
+                    linkRequest = LinkRequest(editing: nil)
+                }
+                .accessibilityIdentifier("link-recipe-button")
                 // The way out of a lineage: this version has drifted too far to be
                 // one more iteration, so it becomes a recipe on its own.
                 Button("Copier en nouvelle recette", systemImage: "doc.on.doc") {

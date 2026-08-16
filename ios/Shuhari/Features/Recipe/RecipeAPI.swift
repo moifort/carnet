@@ -204,22 +204,27 @@ enum RecipeAPI {
         )
     }
 
-    /// Say which recipe one ingredient line IS — in place, no version created: naming
-    /// the dough already used changes nothing about the plate that was cooked. Passing
-    /// nil unlinks the line, which goes back to being a plain ingredient.
-    static func updateComponent(
-        recipeId: String,
-        versionNumber: Int,
-        ingredient: Int,
-        component: String?
-    ) async throws {
+    /// Say that this recipe is made of another one, at the weight it takes of it. No
+    /// version created — saying what a recipe is made of is not cooking it. Linking a
+    /// recipe already linked rewrites its weight, which is how it is corrected.
+    static func linkComponent(recipeId: String, component: String, scale: Double) async throws {
         _ = try await GraphQLHelpers.perform(
             GraphQLClient.shared.apollo,
-            mutation: ShuhariGraphQL.UpdateComponentMutation(
+            mutation: ShuhariGraphQL.LinkComponentMutation(
                 recipeId: recipeId,
-                versionNumber: versionNumber,
-                ingredient: ingredient,
-                component: component == nil ? .null : .some(component!)
+                component: component,
+                scale: scale
+            )
+        )
+    }
+
+    /// Let go of one linked recipe. The recipe unlinked lives on, untouched.
+    static func unlinkComponent(recipeId: String, component: String) async throws {
+        _ = try await GraphQLHelpers.perform(
+            GraphQLClient.shared.apollo,
+            mutation: ShuhariGraphQL.UnlinkComponentMutation(
+                recipeId: recipeId,
+                component: component
             )
         )
     }
@@ -270,7 +275,11 @@ func mapRecipe(_ r: ShuhariGraphQL.RecipeQuery.Data.Recipe) -> Recipe {
         favorite: r.favorite,
         versions: r.versions.map { mapVersion($0.fragments.versionFields) },
         bestRating: r.bestRating,
-        versionToOpen: mapVersion(r.versionToOpen.fragments.versionFields)
+        versionToOpen: mapVersion(r.versionToOpen.fragments.versionFields),
+        components: r.components.compactMap {
+            mapLinkedRecipe($0.recipe?.fragments.linkedRecipeFields, scale: $0.scale)
+        },
+        usedBy: r.usedBy.map { UsingRecipe(id: $0.id, title: $0.title, rating: $0.bestRating) }
     )
 }
 
@@ -321,28 +330,25 @@ func mapOvenProfile(_ oven: ShuhariGraphQL.OvenProfileFields?) -> OvenProfile? {
     )
 }
 
-/// The recipe an ingredient line IS → the flat `RecipeComponent` the sheet unfolds.
-/// Reads the linked recipe's `versionToOpen`, which is derived server-side: the parent
-/// always shows the dough's best attempt, never a version it pinned down.
-func mapComponent(_ component: ShuhariGraphQL.ComponentFields?) -> RecipeComponent? {
-    guard let component else { return nil }
-    let content = component.versionToOpen.content
+/// One link → the flat `LinkedRecipe` the sheet's top section lists. Reads the linked
+/// recipe's `versionToOpen`, which is derived server-side: the sheet always shows its
+/// best attempt, never a version it pinned down. A link whose recipe has been deleted
+/// resolves to nothing and simply drops out of the list.
+func mapLinkedRecipe(_ linked: ShuhariGraphQL.LinkedRecipeFields?, scale: Double) -> LinkedRecipe? {
+    guard let linked else { return nil }
+    let content = linked.versionToOpen.content
     let ingredients =
         content.asDishContent?.ingredients.map { Ingredient(name: $0.name, quantity: $0.quantity) }
         ?? content.asThermomixContent?.ingredients.map {
             Ingredient(name: $0.name, quantity: $0.quantity)
         }
         ?? []
-    let steps =
-        content.asDishContent?.dishSteps
-        ?? content.asThermomixContent?.thermomixSteps.map(\.text)
-        ?? []
-    return RecipeComponent(
-        id: component.id,
-        title: component.title,
-        rating: component.bestRating,
-        ingredients: ingredients,
-        steps: steps
+    return LinkedRecipe(
+        id: linked.id,
+        title: linked.title,
+        rating: linked.bestRating,
+        scale: scale,
+        ingredients: ingredients
     )
 }
 
@@ -352,13 +358,7 @@ func mapComponent(_ component: ShuhariGraphQL.ComponentFields?) -> RecipeCompone
 func mapVersionContent(_ c: ShuhariGraphQL.VersionContentFields) -> VersionContent {
     if let dish = c.asDishContent {
         return .dish(
-            ingredients: dish.ingredients.map {
-                Ingredient(
-                    name: $0.name,
-                    quantity: $0.quantity,
-                    component: mapComponent($0.component?.fragments.componentFields)
-                )
-            },
+            ingredients: dish.ingredients.map { Ingredient(name: $0.name, quantity: $0.quantity) },
             steps: dish.dishSteps,
             oven: mapOvenProfile(dish.oven?.fragments.ovenProfileFields)
         )
@@ -366,11 +366,7 @@ func mapVersionContent(_ c: ShuhariGraphQL.VersionContentFields) -> VersionConte
     if let thermomix = c.asThermomixContent {
         return .thermomix(
             ingredients: thermomix.ingredients.map {
-                Ingredient(
-                    name: $0.name,
-                    quantity: $0.quantity,
-                    component: mapComponent($0.component?.fragments.componentFields)
-                )
+                Ingredient(name: $0.name, quantity: $0.quantity)
             },
             steps: thermomix.thermomixSteps.map { step in
                 ThermomixStep(

@@ -22,9 +22,18 @@ struct RecipeDetailPage: View {
     /// The connected oven's CTA. nil when this account owns no oven, and the
     /// section then shows the settings alone.
     var ovenStart: OvenProfileSection.Start? = nil
-    /// Opens the picker that says which recipe an ingredient line IS, by its index in
-    /// the displayed version's list. nil (the default) leaves the list read-only.
-    var onLinkComponent: ((Int) -> Void)? = nil
+    /// The recipes this one is made of, and the ones made of it — the two relation
+    /// sections at the top of the sheet. Empty (the default) renders neither.
+    var linkedRecipes: [LinkedRecipesSection.Item] = []
+    var usedBy: [UsedBySection.Item] = []
+    /// Opens a recipe on either side of a link — the coordinator is what knows at
+    /// which weight. nil leaves both sections untappable, which is what the previews
+    /// pass.
+    var onOpenRelated: ((_ id: String) -> Void)? = nil
+    /// Reopens the weight step, and lets go of a link. nil keeps the linked section
+    /// read-only.
+    var onEditWeight: ((_ id: String) -> Void)? = nil
+    var onUnlink: ((_ id: String) -> Void)? = nil
     /// Opens the editor of the displayed version's shopping list. Nil leaves it
     /// read-only.
     var onEditIngredients: (() -> Void)? = nil
@@ -33,6 +42,11 @@ struct RecipeDetailPage: View {
     var onEditSteps: (() -> Void)? = nil
     /// Opens the editor of the displayed version's tips. Nil leaves them read-only.
     var onEditTips: (() -> Void)? = nil
+
+    /// The weight the sheet opens at: 1 on a recipe opened on its own, the link's
+    /// weight on one opened from the recipe that uses it. It is what "Réinitialiser"
+    /// goes back to — landing on the stored quantities would drop what was asked for.
+    var openedAt: Double = 1
 
     /// Ephemeral quantity scaling of the ingredient list — lives only while the
     /// sheet is open, the stored version is never rewritten. Only the plain sheet
@@ -52,6 +66,15 @@ struct RecipeDetailPage: View {
             WarningsBanner(warnings: displayedVersion.warnings)
             header
             changeCard
+            // What this recipe is made of, then what is made of it — both above the
+            // shopping list, because they say what the sheet below is part of.
+            LinkedRecipesSection(
+                items: linkedRecipes,
+                onOpen: { onOpenRelated?($0) },
+                onEditWeight: onEditWeight,
+                onUnlink: onUnlink
+            )
+            UsedBySection(items: usedBy, onOpen: { onOpenRelated?($0) })
 
             // A coffee is set by parameters, everything else by an ingredient list.
             if let parameters = displayedVersion.content.coffeeParameters {
@@ -65,7 +88,7 @@ struct RecipeDetailPage: View {
                     modified: modifiedIngredients,
                     compactHeader: focusVersion == nil,
                     scale: focusVersion == nil ? $scaleFactor : nil,
-                    onLink: onLinkComponent,
+                    resetsTo: openedAt,
                     onEdit: onEditIngredients
                 )
             }
@@ -84,9 +107,12 @@ struct RecipeDetailPage: View {
             TipsSection(tips: displayedVersion.tips, onEdit: onEditTips)
         }
         .listSectionSpacing(5)
+        // The sheet opens at the weight it was reached at — the link's, or the
+        // recipe's own quantities when it was opened on its own.
+        .onAppear { scaleFactor = openedAt }
         // The factor never survives a version switch: the sheet lands back on the
-        // stored quantities of whatever version it now shows.
-        .onChange(of: displayedVersion.number) { scaleFactor = 1 }
+        // quantities it opened at, for whatever version it now shows.
+        .onChange(of: displayedVersion.number) { scaleFactor = openedAt }
         .contentMargins(.top, 0, for: .scrollContent)
         .scrollEdgeEffectStyle(.soft, for: .top)
         .navigationBarTitleDisplayMode(.inline)

@@ -407,6 +407,26 @@ What lands in the cup at the end of a brewing step, e.g. `"36 g"` for a double e
 scalar CoffeeYield
 
 """
+One recipe another one is made of, with how much of it it takes — the poolish of a bread dough, the pasta dough of a ravioli. The link is held by the recipe, so it holds for every version of it.
+"""
+type Component {
+  """
+  The linked recipe, a page of its own with its own versions and ratings. Read its `versionToOpen` to show the best one: the link holds the recipe, never a version, so it follows the dough as it improves. `null` once that recipe is deleted — nothing is cleaned up, the link simply stops answering.
+  """
+  recipe: Recipe
+
+  """
+  How much of it this recipe takes, as a multiplier of the quantities that recipe writes: `0.2` is a fifth of it, `1` is it as written. Multiply its ingredient quantities by this to show them the way they are used here.
+  """
+  scale: ComponentScale!
+}
+
+"""
+How much of a linked recipe another one takes, as a multiplier of the quantities that recipe writes, from `0.01` to `100` — e.g. `0.2` for a fifth of it, `1` for it as written. A real number, unlike a quantity, which is a display string.
+"""
+scalar ComponentScale
+
+"""
 A cooked dish or a Thermomix recipe extracted from an import source (editable preview).
 """
 type CookingImportAnalysis {
@@ -657,11 +677,6 @@ type ImportThermomixSettings {
 One line of the ingredient list: what it is and how much of it. The list keeps its order, e.g. `"Flour — 250 g"`, then `"Butter — 100 g"`, then `"Eggs — 3"`.
 """
 type Ingredient {
-  """
-  The recipe this line IS, when it is one of yours — the pasta dough of a ravioli, a page of its own with its own versions and ratings. Read its `versionToOpen` to show the best one: the link holds the recipe, never a version, so it follows the dough as it improves. `null` on a plain ingredient line, and `null` once the recipe it pointed to is deleted — the line stays readable on its own (`name` + `quantity`).
-  """
-  component: Recipe
-
   """What the ingredient is, e.g. `"Flour"` or `"Fine salt"`"""
   name: IngredientName!
 
@@ -850,6 +865,28 @@ type Mutation {
   ): ImportResult!
 
   """
+  Say that this recipe is made of another one, and how much of it it takes — the poolish of a bread dough, the pasta dough of a ravioli. The link is held by the recipe, so it holds for every version of it and no iteration has to carry it forward. **No version is created** and the recipe is not redated: saying what a recipe is made of is not cooking it. Returns the updated recipe.
+  
+  Linking a recipe already linked **rewrites its `scale`** — that is how you change the weight, and the link keeps its place in the list. The linked recipe must be one of yours: anything else answers `NOT_FOUND`. A recipe cannot be made of itself (`SELF_REFERENCE`), and a recipe holds at most 20 links (`TOO_MANY_COMPONENTS`).
+  
+  ```graphql
+  linkComponent(recipeId: "9f1c-a3b2", component: "3b7e-91cd", scale: 0.2) { title }
+  ```
+  """
+  linkComponent(
+    """The recipe it is made of, e.g. your poolish"""
+    component: RecipeId!
+
+    """The recipe that is made of another one"""
+    recipeId: RecipeId!
+
+    """
+    How much of it this recipe takes, as a multiplier of what that recipe writes, e.g. `0.2` for a fifth of it. Send `1` to take it as written.
+    """
+    scale: ComponentScale!
+  ): Recipe!
+
+  """
   Save what happened when you cooked a version: its rating, optionally a photo. Overwritable — recording again on the same version simply updates it. Fast and does not call the AI. Use this when the cook asks for nothing more. To iterate on what you noticed, ask for a proposal instead (see requestProposal): your remarks then land on the version they produce, and this one is left untouched. Returns the version, now updated with its outcome.
   
   ```graphql
@@ -1020,6 +1057,21 @@ type Mutation {
   ): Entitlement!
 
   """
+  Stop saying this recipe is made of that one. Nothing else changes: the recipe unlinked lives on, with its own versions and its own ratings. Unlinking one that was not linked succeeds and changes nothing. Returns the updated recipe.
+  
+  ```graphql
+  unlinkComponent(recipeId: "9f1c-a3b2", component: "3b7e-91cd") { title }
+  ```
+  """
+  unlinkComponent(
+    """The linked recipe to let go of"""
+    component: RecipeId!
+
+    """The recipe holding the link"""
+    recipeId: RecipeId!
+  ): Recipe!
+
+  """
   Correct one coffee version’s parameters — the roast date you read wrong, the grinder you forgot. Full replacement: no version is created, and the brewing steps and the outcome are left untouched (correcting what you logged is not iterating on the recipe). Every free-text value you send is also remembered for that field’s suggestions — see `coffeeVocabulary`. Returns the updated version.
   
   ```graphql
@@ -1039,33 +1091,6 @@ type Mutation {
     recipeId: RecipeId!
 
     """Which version to correct, e.g. `1`"""
-    versionNumber: VersionNumber!
-  ): Version!
-
-  """
-  Say which recipe one ingredient line IS — the pasta dough of a ravioli, a page of its own with its own versions and ratings. A correction in place: naming the dough you already used changes nothing about the plate you cooked, so **no version is created** and its rating still stands. Changing dough is another matter — that is an attempt, and it goes through a new version. **Send `component: null` to unlink**, which leaves a plain ingredient line behind. Returns the updated version.
-  
-  The linked recipe must be one of yours: anything else answers `NOT_FOUND`. A recipe cannot be its own ingredient (`SELF_REFERENCE`), and a coffee has no ingredient list to link from (`NOT_A_COOKED_RECIPE`).
-  
-  ```graphql
-  updateComponent(
-    recipeId: "9f1c-a3b2", versionNumber: 1, ingredient: 0, component: "3b7e-91cd"
-  ) { number }
-  ```
-  """
-  updateComponent(
-    """The recipe this line is, or `null` to make it a plain ingredient again"""
-    component: RecipeId
-
-    """
-    Which line of the ingredient list, counting from `0` in the order it is shown
-    """
-    ingredient: Int!
-
-    """Which recipe the version belongs to"""
-    recipeId: RecipeId!
-
-    """Which version to annotate, e.g. `1`"""
     versionNumber: VersionNumber!
   ): Version!
 
@@ -1702,6 +1727,11 @@ type Recipe {
   """
   category: DishCategory!
 
+  """
+  The recipes this one is made of, with how much of each it takes — the poolish of a bread dough. In the order they were linked. Empty on a recipe that stands alone, which is most of them.
+  """
+  components: [Component!]!
+
   """When the recipe was first imported, e.g. `"2026-07-18T14:30:00.000Z"`"""
   createdAt: DateTime!
 
@@ -1735,6 +1765,11 @@ type Recipe {
   When you last worked on it — the date of the version it opens on (the best-rated one), e.g. `"2026-07-18T14:30:00.000Z"`. Renaming it or hearting it does not count as working on it. Drives library sort.
   """
   updatedAt: DateTime!
+
+  """
+  The recipes made of this one — what the poolish’s page answers when it asks who uses it. The mirror of `components`, derived, never set: link from the recipe that uses it. Empty when nothing does.
+  """
+  usedBy: [Recipe!]!
 
   """
   How many versions this recipe holds, e.g. `3` after `v1 → v2 → v3`. Deleting a version lowers it, but never renumbers the survivors.

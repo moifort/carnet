@@ -6,9 +6,9 @@ fragment OvenProfileFields on OvenProfile {
   core
 }
 
-# The recipe an ingredient line IS. Resolution stops here: this component's own
-# ingredients are read as plain lines, never unfolded one level further.
-fragment ComponentFields on Recipe {
+# A recipe this one is made of. Resolution stops here: what THAT recipe is made of
+# is not read, so a sheet never unfolds a second level.
+fragment LinkedRecipeFields on Recipe {
   id
   title
   bestRating
@@ -21,15 +21,11 @@ fragment ComponentFields on Recipe {
           name
           quantity
         }
-        dishSteps: steps
       }
       ... on ThermomixContent {
         ingredients {
           name
           quantity
-        }
-        thermomixSteps: steps {
-          text
         }
       }
     }
@@ -42,9 +38,6 @@ fragment VersionContentFields on VersionContent {
     ingredients {
       name
       quantity
-      component {
-        ...ComponentFields
-      }
     }
     dishSteps: steps
     oven {
@@ -55,9 +48,6 @@ fragment VersionContentFields on VersionContent {
     ingredients {
       name
       quantity
-      component {
-        ...ComponentFields
-      }
     }
     thermomixSteps: steps {
       text
@@ -137,6 +127,17 @@ query Recipe($id: RecipeId!) {
     method
     favorite
     bestRating
+    components {
+      scale
+      recipe {
+        ...LinkedRecipeFields
+      }
+    }
+    usedBy {
+      id
+      title
+      bestRating
+    }
     versionToOpen {
       ...VersionFields
     }

@@ -7,29 +7,35 @@ import Foundation
 
 // MARK: - Ingredient
 
-/// A recipe component with its measured quantity ("Riz" / "320 g"). The
-/// shopping-list view of the recipe.
+/// What goes in, with its measured quantity ("Riz" / "320 g"). The shopping-list
+/// view of the recipe.
 struct Ingredient: Identifiable, Sendable, Hashable {
     let name: String
     let quantity: String
-    /// The recipe this line IS, when it is one — the ravioli's pasta dough. Nil on a
-    /// plain ingredient, and nil once the linked recipe is deleted: the line still
-    /// says what goes in and how much, so it stays readable on its own.
-    var component: RecipeComponent? = nil
     var id: String { name }
 }
 
-/// The recipe an ingredient line is, as the parent sheet shows it: its live title,
-/// the best rating it ever earned, and what its best version holds — so the line
-/// unfolds without leaving the sheet. Flattened at the boundary, one level deep: the
-/// ingredients here never carry a component of their own.
-struct RecipeComponent: Identifiable, Sendable, Hashable {
+/// A recipe this one is made of, as the sheet shows it: its live title, the best
+/// rating it ever earned, the weight it is used at here, and the shopping list of its
+/// best version — enough to write the row's summary line without a second call.
+/// Flattened at the boundary, one level deep: what THAT recipe is made of is not read.
+struct LinkedRecipe: Identifiable, Sendable, Hashable {
     let id: String
     let title: String
     /// The best rating it ever earned, nil when it was never cooked.
     let rating: Int?
+    /// How much of it this recipe takes, as a multiplier of what it writes: 0.2 is a
+    /// fifth of it, 1 is it as written.
+    let scale: Double
     let ingredients: [Ingredient]
-    let steps: [String]
+}
+
+/// A recipe that is made of the one being read — the link the other way round. No
+/// weight: the weight belongs to the recipe that posted the link, not to this one.
+struct UsingRecipe: Identifiable, Sendable, Hashable {
+    let id: String
+    let title: String
+    let rating: Int?
 }
 
 // MARK: - Thermomix
@@ -400,6 +406,12 @@ struct Recipe: Identifiable, Sendable {
     /// most recent wins a tie), else the latest when nothing has been cooked. A version
     /// waiting to be cooked never opens. Never nil — a recipe always has at least its v1.
     let versionToOpen: RecipeVersion
+    /// The recipes this one is made of, in the order they were linked. Empty on a
+    /// recipe that stands alone, which is most of them.
+    var components: [LinkedRecipe] = []
+    /// The recipes made of this one — derived, never set here: link from the recipe
+    /// that uses it.
+    var usedBy: [UsingRecipe] = []
 
     /// The version number the next iteration would take.
     var nextVersionNumber: Int { (versions.map(\.number).max() ?? 0) + 1 }
@@ -452,7 +464,7 @@ struct CookingImportAnalysis: Sendable, Hashable {
     var type: RecipeType
     /// The dish course detected by the AI (editable before create).
     var category: DishCategory
-    /// The recipe's components with quantities (empty when none).
+    /// The recipe's ingredients with quantities (empty when none).
     var ingredients: [Ingredient] = []
     /// The extracted steps, each carrying its own Thermomix settings.
     var steps: [ImportStep]

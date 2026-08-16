@@ -15,9 +15,10 @@ struct RecipeRouteView: View {
 
     var body: some View {
         switch route {
-        case .recipe(let id):
+        case .recipe(let id, let scale):
             RecipeDetailView(
                 recipeId: id,
+                openedAt: scale,
                 store: store,
                 path: $path,
                 onReload: onReload,

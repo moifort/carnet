@@ -35,6 +35,18 @@ enum IngredientScaling {
         return (resized - 1).magnitude < 1e-9 ? 1 : resized
     }
 
+    /// The factor that makes `quantity` read as `target` — "500 g" wanted at "100 g"
+    /// gives 0,2, and the whole list follows. The other way in, next to the −/+: a
+    /// weight is typed as a quantity, never as a multiplier. Nil when either side is
+    /// not a quantity, when they are not the same kind of thing (grams asked of a
+    /// volume), or when the target is zero.
+    static func factor(from quantity: String, to target: String) -> Double? {
+        guard let written = parse(quantity), let wanted = parse(target),
+              written.family == wanted.family, wanted.value > 0
+        else { return nil }
+        return wanted.value / written.value
+    }
+
     /// The header's factor badge, e.g. "×0,75".
     static func factorLabel(_ factor: Double) -> String {
         "×\(number(factor, maxFraction: 2))"

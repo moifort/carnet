@@ -54,15 +54,20 @@ struct DebugGallery: View {
             RecipeDetailGalleryScreen(recipe: Fixtures.bourguignon)
         case "recipe-component":
             RecipeDetailGalleryScreen(recipe: Fixtures.ravioli)
-        case "component-picker":
+        case "link-recipe":
             Color.clear
                 .sheet(isPresented: .constant(true)) {
-                    ComponentPickerSheet(
-                        ingredientName: "Pâte à ravioles",
-                        linkedId: Fixtures.doughComponent.id,
-                        excludedId: Fixtures.ravioli.id
-                    ) { _ in }
+                    LinkRecipeSheet(excludedId: Fixtures.ravioli.id) { _, _ in }
                 }
+        case "link-weight":
+            NavigationStack {
+                LinkWeightForm(
+                    title: Fixtures.doughComponent.title,
+                    ingredients: Fixtures.doughComponent.ingredients.map { ($0.name, $0.quantity) },
+                    initialScale: Fixtures.doughComponent.scale,
+                    onConfirm: { _ in }
+                )
+            }
         case "recipe-oven":
             RecipeDetailGalleryScreen(recipe: Fixtures.quiche)
         case "recipe-oven-probe":

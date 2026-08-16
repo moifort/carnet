@@ -174,31 +174,25 @@ enum Fixtures {
         versionToOpen: bourguignonV3
     )
 
-    // MARK: - Ravioles (a recipe one of whose ingredients IS a recipe)
+    // MARK: - Ravioles (a recipe made of another recipe)
 
     /// The pasta dough, as the ravioli sheet reads it: its live title, the best rating
-    /// it ever earned, and what its best version holds — resolved server-side, so this
-    /// follows the dough as it improves.
-    static let doughComponent = RecipeComponent(
+    /// it ever earned, the weight the ravioli takes of it, and the shopping list of its
+    /// best version — all resolved server-side, so this follows the dough as it improves.
+    static let doughComponent = LinkedRecipe(
         id: "pate-a-pates",
         title: "Pâte à pâtes fraîches",
         rating: 5,
+        scale: 0.8,
         ingredients: [
             Ingredient(name: "Farine T55", quantity: "300 g"),
             Ingredient(name: "Œufs", quantity: "3"),
             Ingredient(name: "Huile d’olive", quantity: "1 c. à s."),
             Ingredient(name: "Sel fin", quantity: "1 pincée"),
-        ],
-        steps: [
-            "Mélanger la farine et les œufs jusqu’à obtenir une boule.",
-            "Pétrir 10 min, filmer et laisser reposer 1 h au frais.",
-            "Abaisser au laminoir jusqu’au cran 6.",
         ]
     )
 
     static let ravioliIngredients = [
-        // The name is the ROLE the dough plays here, not the title of the recipe it is.
-        Ingredient(name: "Pâte à ravioles", quantity: "400 g", component: doughComponent),
         Ingredient(name: "Champignons de Paris", quantity: "250 g"),
         Ingredient(name: "Ricotta", quantity: "150 g"),
         Ingredient(name: "Parmesan râpé", quantity: "40 g"),
@@ -242,7 +236,9 @@ enum Fixtures {
         favorite: false,
         versions: [ravioliV1],
         bestRating: 4,
-        versionToOpen: ravioliV1
+        versionToOpen: ravioliV1,
+        components: [doughComponent],
+        usedBy: [UsingRecipe(id: "menu-dimanche", title: "Menu du dimanche", rating: 5)]
     )
 
     // MARK: - Quiche (dish that bakes — the oven profile)
