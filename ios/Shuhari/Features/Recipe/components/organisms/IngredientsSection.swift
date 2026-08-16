@@ -20,9 +20,6 @@ struct IngredientsSection: View {
     /// nothing. 1 on a recipe opened on its own; the link's weight on one opened from
     /// the recipe that uses it — there, the stored quantities are not what was asked for.
     var resetsTo: Double = 1
-    /// Opens the shopping-list editor. Nil (the default) keeps the list read-only —
-    /// the execution mode and the previews.
-    var onEdit: (() -> Void)? = nil
 
     /// Rows whose quantity leads with a number — the ones a stepper can move.
     private var scalableRows: Set<Int> {
@@ -30,16 +27,11 @@ struct IngredientsSection: View {
     }
 
     var body: some View {
-        // The section survives an empty list as soon as it is editable: otherwise the
-        // first ingredient of a recipe imported without one could never be added.
-        if !ingredients.isEmpty || onEdit != nil {
+        // Nothing to read, nothing to render: a recipe imported without a shopping
+        // list shows no empty section, it is filled from the edit sheet.
+        if !ingredients.isEmpty {
             Section {
-                if ingredients.isEmpty {
-                    Text("Aucun ingrédient")
-                        .foregroundStyle(.secondary)
-                } else {
-                    grid
-                }
+                grid
             } header: {
                 header
             }
@@ -85,12 +77,6 @@ struct IngredientsSection: View {
                 }
                 .font(.footnote)
                 .accessibilityIdentifier("ingredients-reset")
-            }
-            if let onEdit {
-                Button("Modifier", action: onEdit)
-                    .font(.caption)
-                    .textCase(nil)
-                    .accessibilityIdentifier("ingredients-edit")
             }
         }
         .padding(.top, compactHeader ? -14 : 0)

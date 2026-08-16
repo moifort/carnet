@@ -24,9 +24,6 @@ struct OvenProfileSection: View {
 
     let item: Item
     var big: Bool = false
-    /// Shown as the section's trailing action when the sheet can edit the profile —
-    /// left out in the read-only execution mode.
-    var onEdit: (() -> Void)?
     /// The connected oven's CTA. nil when this account owns no oven, and the section
     /// then shows the settings alone — which is all it ever showed before an oven
     /// was connected.
@@ -88,15 +85,7 @@ struct OvenProfileSection: View {
                     .accessibilityIdentifier("oven-start-on-appliance")
             }
         } header: {
-            HStack {
-                Text("Four")
-                if let onEdit {
-                    Spacer()
-                    Button("Modifier", action: onEdit)
-                        .font(.caption)
-                        .textCase(nil)
-                }
-            }
+            Text("Four")
         }
     }
 
@@ -129,8 +118,7 @@ struct OvenProfileSection: View {
                 programIcon: "fan",
                 temperature: "180 °C",
                 duration: "25 min"
-            ),
-            onEdit: {}
+            )
         )
     }
 }
@@ -144,8 +132,7 @@ struct OvenProfileSection: View {
                 temperature: "160 °C",
                 duration: nil,
                 core: "63 °C"
-            ),
-            onEdit: {}
+            )
         )
     }
 }
@@ -159,7 +146,6 @@ struct OvenProfileSection: View {
                 temperature: "180 °C",
                 duration: "35 min"
             ),
-            onEdit: {},
             onAppliance: "Sélectionne « Quiche et tarte fine » sur l’écran du four."
         )
     }
@@ -174,7 +160,6 @@ struct OvenProfileSection: View {
                 temperature: "180 °C",
                 duration: "45 min"
             ),
-            onEdit: {},
             onAppliance: "Cette cuisson assistée se lance sur l’écran du four."
         )
     }
@@ -189,7 +174,6 @@ struct OvenProfileSection: View {
                 temperature: "180 °C",
                 duration: "30 min"
             ),
-            onEdit: {},
             start: .init(running: nil, isStarting: false, onStart: {})
         )
     }
@@ -204,7 +188,6 @@ struct OvenProfileSection: View {
                 temperature: "180 °C",
                 duration: "30 min"
             ),
-            onEdit: {},
             start: .init(running: "Cuisson en cours · 12 min", isStarting: false, onStart: {})
         )
     }

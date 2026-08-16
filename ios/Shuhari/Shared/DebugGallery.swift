@@ -72,41 +72,6 @@ struct DebugGallery: View {
             RecipeDetailGalleryScreen(recipe: Fixtures.quiche)
         case "recipe-oven-probe":
             RecipeDetailGalleryScreen(recipe: Fixtures.gigot)
-        case "oven-edit":
-            Color.clear
-                .sheet(isPresented: .constant(true)) {
-                    OvenProfileEditSheet(
-                        initial: OvenProfile(program: .convection, temperature: 180, duration: 30)
-                    ) { _ in }
-                }
-        case "oven-copy":
-            Color.clear
-                .sheet(isPresented: .constant(true)) {
-                    OvenProfileEditSheet(
-                        initial: nil,
-                        applianceSettings: OvenSettings(
-                            program: .steamCombi,
-                            temperature: 180,
-                            duration: 25,
-                            core: nil
-                        )
-                    ) { _ in }
-                }
-        // The oven gives its dials but not its mode — a heating function whose code
-        // the notebook has no word for. The copy is offered all the same.
-        case "oven-copy-partial":
-            Color.clear
-                .sheet(isPresented: .constant(true)) {
-                    OvenProfileEditSheet(
-                        initial: nil,
-                        applianceSettings: OvenSettings(temperature: 230, duration: 60)
-                    ) { _ in }
-                }
-        case "oven-edit-empty":
-            Color.clear
-                .sheet(isPresented: .constant(true)) {
-                    OvenProfileEditSheet(initial: nil) { _ in }
-                }
         case "oven-start":
             OvenSectionGalleryScreen(running: nil)
         case "oven-assisted":
@@ -121,11 +86,6 @@ struct DebugGallery: View {
             RecipeDetailGalleryScreen(recipe: Fixtures.espresso)
         case "recipe-coffee-v60":
             RecipeDetailGalleryScreen(recipe: Fixtures.v60)
-        case "warnings-edit":
-            Color.clear
-                .sheet(isPresented: .constant(true)) {
-                    WarningsEditSheet(initialWarnings: Fixtures.risottoV2.warnings) { _ in }
-                }
         case "recipe-fresh":
             RecipeDetailGalleryScreen(recipe: Fixtures.freshImport)
         case "recipe-delete":
@@ -201,9 +161,9 @@ struct DebugGallery: View {
             // The recipe sheet's closing section on its own — it sits below the steps,
             // too far down the sheet to be seen without scrolling.
             List {
-                TipsSection(tips: Fixtures.bourguignonV3.tips, onEdit: {})
-                // Empty and editable: the state that lets a first tip be written.
-                TipsSection(tips: [], onEdit: {})
+                TipsSection(tips: Fixtures.bourguignonV3.tips)
+                // A version with no tips renders no section at all.
+                TipsSection(tips: [])
             }
         case "tips-proposal":
             NavigationStack {
@@ -225,72 +185,35 @@ struct DebugGallery: View {
                 .sheet(isPresented: .constant(true)) {
                     ToTestSheet(versions: [], onSelect: { _ in })
                 }
+        // The one edit surface, in the states worth looking at: a dish, a Thermomix
+        // recipe and its machine settings, a bake, a coffee, and a version fresh out
+        // of an import with nothing filled in yet.
         case "recipe-edit":
-            Color.clear
-                .sheet(isPresented: .constant(true)) {
-                    RecipeEditSheet(
-                        initialTitle: Fixtures.bourguignon.title,
-                        initialCategory: Fixtures.bourguignon.category,
-                        versionNumber: Fixtures.bourguignon.versionToOpen.number,
-                        initialRating: Fixtures.bourguignon.versionToOpen.rating
-                    ) { _, _, _, _ in }
-                }
-        case "ingredients-edit":
-            Color.clear
-                .sheet(isPresented: .constant(true)) {
-                    IngredientsEditSheet(initial: Fixtures.bourguignonV3.ingredients) { _ in }
-                }
-        case "ingredients-edit-bread":
-            Color.clear
-                .sheet(isPresented: .constant(true)) {
-                    IngredientsEditSheet(initial: Fixtures.breadIngredients) { _ in }
-                }
-        case "ingredients-edit-empty":
-            Color.clear
-                .sheet(isPresented: .constant(true)) {
-                    IngredientsEditSheet(initial: []) { _ in }
-                }
-        case "tips-edit":
-            Color.clear
-                .sheet(isPresented: .constant(true)) {
-                    TipsEditSheet(initial: Fixtures.bourguignonV3.tips) { _ in }
-                }
-        case "steps-edit":
-            Color.clear
-                .sheet(isPresented: .constant(true)) {
-                    StepsEditSheet(initial: Fixtures.bourguignonV3.editableSteps) { _ in }
-                }
-        case "steps-edit-thermomix":
-            Color.clear
-                .sheet(isPresented: .constant(true)) {
-                    StepsEditSheet(
-                        initial: Fixtures.risottoV2.editableSteps,
-                        showsSettings: true
-                    ) { _ in }
-                }
-        case "coffee-parameters-edit":
-            CoffeeParametersEditSheet(
-                initial: Fixtures.espressoParameters,
-                vocabulary: Fixtures.coffeeVocabulary,
-                previousGear: CoffeeGear(machine: "Rancilio Silvia", grinder: "Niche Zero")
-            ) { _ in }
-        case "coffee-parameters-edit-empty":
-            CoffeeParametersEditSheet(
-                initial: .empty,
-                vocabulary: Fixtures.coffeeVocabulary,
-                previousGear: CoffeeGear(machine: "Rancilio Silvia", grinder: "Niche Zero")
-            ) { _ in }
+            RecipeEditGalleryScreen(recipe: Fixtures.bourguignon, version: Fixtures.bourguignonV3)
+        case "recipe-edit-thermomix":
+            RecipeEditGalleryScreen(recipe: Fixtures.risotto, version: Fixtures.risottoV2)
+        case "recipe-edit-oven":
+            RecipeEditGalleryScreen(recipe: Fixtures.quiche, version: Fixtures.quicheV1)
+        // The connected oven is set right now: the section offers to copy its dials.
+        case "recipe-edit-oven-copy":
+            RecipeEditGalleryScreen(
+                recipe: Fixtures.bourguignon,
+                version: Fixtures.bourguignonV3,
+                applianceSettings: OvenSettings(
+                    program: .steamCombi,
+                    temperature: 180,
+                    duration: 25,
+                    core: nil
+                )
+            )
         case "recipe-edit-coffee":
-            Color.clear
-                .sheet(isPresented: .constant(true)) {
-                    RecipeEditSheet(
-                        initialTitle: Fixtures.v60.title,
-                        initialCategory: Fixtures.v60.category,
-                        initialMethod: Fixtures.v60.method,
-                        versionNumber: Fixtures.v60.versionToOpen.number,
-                        initialRating: Fixtures.v60.versionToOpen.rating
-                    ) { _, _, _, _ in }
-                }
+            RecipeEditGalleryScreen(recipe: Fixtures.v60, version: Fixtures.v60V2)
+        case "recipe-edit-fresh":
+            RecipeEditGalleryScreen(recipe: Fixtures.freshImport, version: Fixtures.freshImportV1)
+        // Every section empty at once: the import recognised nothing, and this sheet
+        // is the only place any of it can be written.
+        case "recipe-edit-blank":
+            RecipeEditGalleryScreen(recipe: Fixtures.blankImport, version: Fixtures.blankImportV1)
         case "viewfinder":
             ZStack {
                 Color(white: 0.35).ignoresSafeArea()
@@ -376,7 +299,7 @@ struct DebugGallery: View {
             ContentUnavailableView(
                 "Écran inconnu : \(screen)",
                 systemImage: "questionmark.square.dashed",
-                description: Text("Écrans : cuisine, cuisine-course, cuisine-favorites, cuisine-thermomix, cuisine-loading, recipe, recipe-thermomix, recipe-fresh, history, attempt, attempt-pending, execute, execute-thermomix, capture, proposal, proposal-thermomix, to-test, to-test-empty, recipe-edit, improve, viewfinder, import-preview, import-preview-thermomix, ai-thinking, import-nothing-found, login, settings-data, quota, quota-premium, premium, premium-live, import-quota-exhausted, import-premium-required, import-resumed")
+                description: Text("Écrans : cuisine, cuisine-course, cuisine-favorites, cuisine-thermomix, cuisine-loading, recipe, recipe-thermomix, recipe-fresh, history, attempt, attempt-pending, execute, execute-thermomix, capture, proposal, proposal-thermomix, to-test, to-test-empty, recipe-edit, recipe-edit-thermomix, recipe-edit-oven, recipe-edit-oven-copy, recipe-edit-coffee, recipe-edit-fresh, improve, viewfinder, import-preview, import-preview-thermomix, ai-thinking, import-nothing-found, login, settings-data, quota, quota-premium, premium, premium-live, import-quota-exhausted, import-premium-required, import-resumed")
             )
         }
     }
@@ -444,7 +367,6 @@ private struct OvenSectionGalleryScreen: View {
                             temperature: "180 °C",
                             duration: "30 min"
                         ),
-                    onEdit: {},
                     start: assisted
                         ? nil
                         : .init(running: running, isStarting: isStarting, onStart: {}),
@@ -456,6 +378,28 @@ private struct OvenSectionGalleryScreen: View {
             .navigationTitle("Quiche fine")
             .navigationBarTitleDisplayMode(.inline)
         }
+    }
+}
+
+/// The edit sheet over a fixture recipe, presented the way the menu presents it —
+/// the sheet IS the screen here, so nothing is rendered under it.
+private struct RecipeEditGalleryScreen: View {
+    let recipe: Recipe
+    let version: RecipeVersion
+    /// What the connected oven is set to right now. nil is the ordinary case: no
+    /// oven, no copy row.
+    var applianceSettings: OvenSettings?
+
+    var body: some View {
+        Color.clear
+            .sheet(isPresented: .constant(true)) {
+                RecipeEditSheet(
+                    initial: RecipeDraft(recipe: recipe, version: version),
+                    versionNumber: version.number,
+                    vocabulary: Fixtures.coffeeVocabulary,
+                    applianceSettings: applianceSettings
+                ) { _ in }
+            }
     }
 }
 

@@ -540,6 +540,33 @@ enum Fixtures {
         versionToOpen: freshImportV1
     )
 
+    /// An import that recognised nothing: no ingredient, no step, no tip, no caution.
+    /// The recipe sheet shows almost nothing of it — which is exactly why every
+    /// section of the edit sheet has to be fillable from empty.
+    static let blankImportV1 = RecipeVersion(
+        number: 1, basedOn: nil, change: nil, why: nil, originKind: .import,
+        originDetail: "Importée par photo",
+        content: .dish(ingredients: [], steps: []),
+        recipeId: "blank-import",
+        rating: nil,
+        remarks: nil,
+        executedAt: nil,
+        photoUrl: nil,
+        createdAt: date,
+        updatedAt: date
+    )
+
+    static let blankImport = Recipe(
+        id: "blank-import",
+        title: "Tarte aux pommes",
+        type: .dish,
+        category: .dessert,
+        favorite: false,
+        versions: [blankImportV1],
+        bestRating: nil,
+        versionToOpen: blankImportV1
+    )
+
     // MARK: - Transient models
 
     /// The full proposal of v5: the base v4 lists with a longer cooking time and

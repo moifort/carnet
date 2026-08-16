@@ -23,16 +23,15 @@ struct RecipeDetailView: View {
     /// reports its failure) while the recipe flow closes without waiting.
     let onDeleteVersion: (String, Int) -> Void
 
+    /// Whether the edit sheet is open — the one and only way this recipe is written
+    /// to. The sheet behind it reads.
     @State private var showEdit = false
-    /// The coffee-parameters form, and the suggestions it offers — loaded when the
-    /// sheet opens, so the sheet is not what waits on the network.
-    @State private var showCoffeeParameters = false
-    @State private var showOvenProfile = false
     /// The connected oven. Loaded once with the recipe; nil state means this
     /// account owns none, and no oven CTA is rendered at all.
     @State private var oven = OvenViewModel()
+    /// What each free-text coffee field suggests — asked when the edit sheet is
+    /// summoned on a coffee, so the sheet is not what waits on the network.
     @State private var coffeeVocabulary = CoffeeVocabulary.empty
-    @State private var showWarnings = false
     @State private var showHistory = false
     @State private var showToTest = false
     @State private var recordRequest: ExecutionRequest?
@@ -51,12 +50,6 @@ struct RecipeDetailView: View {
     /// The link sheet: present with no `editing` to link a new recipe, or with one to
     /// correct the weight of a link already posted.
     @State private var linkRequest: LinkRequest?
-    /// Whether the shopping-list editor is open.
-    @State private var showIngredients = false
-    /// Whether the method editor is open.
-    @State private var showSteps = false
-    /// Whether the tips editor is open.
-    @State private var showTips = false
 
     /// What the link sheet opens on: nothing (pick a recipe, then its weight), or an
     /// existing link whose weight is being corrected.
@@ -147,102 +140,6 @@ struct RecipeDetailView: View {
                         showToTest = false
                     }
                 }
-                // The warnings sheet: rewrite the displayed version's cautions in
-                // place — no version is created, and an emptied list clears the
-                // banner. The next iteration carries them over on its own.
-                .sheet(isPresented: $showWarnings) {
-                    let version = displayedVersion(recipe)
-                    WarningsEditSheet(initialWarnings: version.warnings) { warnings in
-                        try await RecipeAPI.updateWarnings(
-                            id: recipeId,
-                            versionNumber: version.number,
-                            warnings: warnings
-                        )
-                        await store.load(recipeId)
-                        onReload()
-                    }
-                }
-                // Correcting the parameters of the displayed coffee version: in
-                // place, no version created, the steps untouched.
-                .sheet(isPresented: $showCoffeeParameters) {
-                    let version = displayedVersion(recipe)
-                    CoffeeParametersEditSheet(
-                        initial: version.content.coffeeParameters ?? .empty,
-                        vocabulary: coffeeVocabulary,
-                        previousGear: previousGear(recipe, before: version)
-                    ) { parameters in
-                        try await RecipeAPI.updateCoffeeParameters(
-                            recipeId: recipeId,
-                            versionNumber: version.number,
-                            parameters: parameters
-                        )
-                        await store.load(recipeId)
-                        onReload()
-                    }
-                }
-                // Correcting the oven settings of the displayed version: in place,
-                // no version created, the steps untouched — and turning the toggle
-                // off says the dish never bakes, which clears the profile.
-                .sheet(isPresented: $showOvenProfile) {
-                    let version = displayedVersion(recipe)
-                    OvenProfileEditSheet(
-                        initial: version.content.oven,
-                        applianceSettings: oven.state?.settings
-                    ) { profile in
-                        try await RecipeAPI.updateOvenProfile(
-                            recipeId: recipeId,
-                            versionNumber: version.number,
-                            oven: profile
-                        )
-                        await store.load(recipeId)
-                        onReload()
-                    }
-                }
-                // Correcting the shopping list of the displayed version: in place, no
-                // version created, the steps and the rating untouched.
-                .sheet(isPresented: $showIngredients) {
-                    let version = displayedVersion(recipe)
-                    IngredientsEditSheet(initial: version.ingredients) { ingredients in
-                        try await RecipeAPI.updateIngredients(
-                            recipeId: recipeId,
-                            versionNumber: version.number,
-                            ingredients: ingredients
-                        )
-                        await store.load(recipeId)
-                        onReload()
-                    }
-                }
-                // Correcting the method of the displayed version: in place, no version
-                // created, the ingredients and the rating untouched.
-                .sheet(isPresented: $showSteps) {
-                    let version = displayedVersion(recipe)
-                    StepsEditSheet(
-                        initial: version.editableSteps,
-                        showsSettings: version.isThermomix
-                    ) { steps in
-                        try await RecipeAPI.updateSteps(
-                            recipeId: recipeId,
-                            versionNumber: version.number,
-                            steps: steps
-                        )
-                        await store.load(recipeId)
-                        onReload()
-                    }
-                }
-                // Rewriting the displayed version's tips by hand — the same in-place
-                // write the AI proposal ends on, without the model.
-                .sheet(isPresented: $showTips) {
-                    let version = displayedVersion(recipe)
-                    TipsEditSheet(initial: version.tips) { tips in
-                        try await ProposalAPI.updateTips(
-                            recipeId: recipeId,
-                            versionNumber: version.number,
-                            tips: tips
-                        )
-                        await store.load(recipeId)
-                        onReload()
-                    }
-                }
                 // Saying what this recipe is made of, and at what weight: an aggregate
                 // write — no version created, no date moved.
                 .sheet(item: $linkRequest) { request in
@@ -260,30 +157,29 @@ struct RecipeDetailView: View {
                         onReload()
                     }
                 }
+                // The whole sheet, correctable in one place: title, course, note,
+                // content, oven, cautions and tips. Nothing here creates a version —
+                // correcting what the recipe always said is not iterating on it — and
+                // only what the cook moved is written back.
                 .sheet(isPresented: $showEdit) {
                     let version = displayedVersion(recipe)
+                    let initial = RecipeDraft(
+                        recipe: recipe,
+                        version: version,
+                        previousGear: previousGear(recipe, before: version)
+                    )
                     RecipeEditSheet(
-                        initialTitle: recipe.title,
-                        initialCategory: recipe.category,
-                        initialMethod: recipe.method,
+                        initial: initial,
                         versionNumber: version.number,
-                        initialRating: version.rating
-                    ) { title, category, method, rating in
-                        try await RecipeAPI.updateRecipe(
-                            id: recipeId,
-                            title: title,
-                            category: category,
-                            method: method
+                        vocabulary: coffeeVocabulary,
+                        applianceSettings: oven.state?.settings
+                    ) { edited in
+                        try await RecipeAPI.correct(
+                            recipeId: recipeId,
+                            versionNumber: version.number,
+                            from: initial,
+                            to: edited
                         )
-                        // The note lives on the version, not on the recipe, so it
-                        // travels in its own call — and only when the cook moved it.
-                        if let rating, rating != version.rating {
-                            try await RecipeAPI.updateRating(
-                                recipeId: recipeId,
-                                versionNumber: version.number,
-                                rating: rating
-                            )
-                        }
                         await store.load(recipeId)
                         // The library behind carries the new name and re-files the row
                         // under its new course.
@@ -355,37 +251,23 @@ struct RecipeDetailView: View {
                 modifiedSteps: modifiedSteps(focus, previous: previous),
                 change: focus.change,
                 why: focus.why ?? focus.originDetail,
-                onEditOven: openOvenEditor,
                 ovenStart: ovenStart(recipe),
                 linkedRecipes: linkedItems(recipe),
                 usedBy: usedByItems(recipe),
                 onOpenRelated: { open(recipe, related: $0) },
                 onEditWeight: { editWeight(recipe, of: $0) },
                 onUnlink: { unlink($0) },
-                onEditIngredients: { showIngredients = true },
-                // A coffee has no method to correct: its dials say everything.
-                onEditSteps: displayedVersion(recipe).content.coffeeParameters == nil
-                    ? { showSteps = true }
-                    : nil,
-                onEditTips: { showTips = true },
                 openedAt: openedAt
             )
         } else {
             RecipeDetailPage(
                 recipe: recipe,
-                onEditOven: openOvenEditor,
                 ovenStart: ovenStart(recipe),
                 linkedRecipes: linkedItems(recipe),
                 usedBy: usedByItems(recipe),
                 onOpenRelated: { open(recipe, related: $0) },
                 onEditWeight: { editWeight(recipe, of: $0) },
                 onUnlink: { unlink($0) },
-                onEditIngredients: { showIngredients = true },
-                // A coffee has no method to correct: its dials say everything.
-                onEditSteps: displayedVersion(recipe).content.coffeeParameters == nil
-                    ? { showSteps = true }
-                    : nil,
-                onEditTips: { showTips = true },
                 openedAt: openedAt
             )
         }
@@ -462,11 +344,16 @@ struct RecipeDetailView: View {
         return "Cuisson en cours · \(remaining) min"
     }
 
-    /// Open the oven-profile editor. Nothing is fetched: the Electrolux API exposes
-    /// heating functions and dials, never the dishes the oven's own screen offers,
-    /// so there is no catalogue to prefill from.
-    private func openOvenEditor() {
-        showOvenProfile = true
+    /// Open the edit sheet. A coffee asks for its vocabulary on the way in — the
+    /// suggestions each free-text field offers — and the sheet opens without waiting
+    /// for it: an answer that lands late simply fills the menus behind. Nothing else
+    /// is fetched, the oven included: the Electrolux API exposes heating functions
+    /// and dials, never the dishes the oven's own screen offers.
+    private func openEditor(_ recipe: Recipe) {
+        if recipe.type == .coffee {
+            Task { coffeeVocabulary = (try? await RecipeAPI.coffeeVocabulary()) ?? .empty }
+        }
+        showEdit = true
     }
 
     /// Ingredient names present in `version` but absent (by name + quantity) from
@@ -520,30 +407,13 @@ struct RecipeDetailView: View {
         }
         ToolbarSpacer(.fixed, placement: .topBarTrailing)
 
-        // Top-right: the more menu (edit / warnings / delete).
+        // Top-right: the more menu (edit / link / copy / delete).
         ToolbarItem(placement: .topBarTrailing) {
             Menu {
-                Button("Modifier", systemImage: "pencil") { showEdit = true }
-                if recipe.type == .coffee {
-                    Button("Modifier les paramètres", systemImage: "slider.horizontal.3") {
-                        Task { coffeeVocabulary = (try? await RecipeAPI.coffeeVocabulary()) ?? .empty }
-                        showCoffeeParameters = true
-                    }
-                    .accessibilityIdentifier("edit-coffee-parameters-button")
-                }
-                // Cooking only — a coffee is brewed. In the menu as well as on the
-                // section, because a dish that bakes for the first time has no
-                // section yet to edit from.
-                if recipe.type != .coffee {
-                    Button("Réglages du four", systemImage: "oven") { openOvenEditor() }
-                        .accessibilityIdentifier("edit-oven-profile-button")
-                }
-                Button(
-                    displayedVersion(recipe).warnings.isEmpty
-                        ? "Ajouter un avertissement" : "Modifier les avertissements",
-                    systemImage: "exclamationmark.triangle"
-                ) { showWarnings = true }
-                    .accessibilityIdentifier("edit-warnings-button")
+                // The one way in: everything the sheet shows is corrected there, and
+                // nowhere else.
+                Button("Modifier", systemImage: "pencil") { openEditor(recipe) }
+                    .accessibilityIdentifier("edit-recipe-button")
                 // What this recipe is made of: another recipe of the notebook, at the
                 // weight it takes of it.
                 Button("Lier une recette", systemImage: "link") {

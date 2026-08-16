@@ -3,6 +3,12 @@ import SwiftUI
 /// The recipe sheet, iOS Photos style: header badges (type + version), the
 /// ingredients and the best-rated version step by step. Attempts live in the
 /// history. Navigation and mutations are owned by `RecipeDetailView`.
+///
+/// It is a page to read: nothing on it corrects the recipe, and a section the
+/// version carries nothing for is not rendered at all. Writing goes through
+/// `RecipeEditSheet`, which the menu opens — one door in, so the sheet stays a
+/// recipe and not a form. The one exception is the ephemeral resizing of the
+/// quantities, a lens on what is stored rather than a write.
 struct RecipeDetailPage: View {
     let recipe: Recipe
     /// When set, the recipe sheet renders THIS version instead of the best-rated one —
@@ -16,9 +22,6 @@ struct RecipeDetailPage: View {
     /// change card atop an attempt recipe sheet.
     var change: String? = nil
     var why: String? = nil
-    /// Opens the oven-profile editor. nil hides the section's edit action — the
-    /// execution mode reads the settings, it does not rewrite them.
-    var onEditOven: (() -> Void)? = nil
     /// The connected oven's CTA. nil when this account owns no oven, and the
     /// section then shows the settings alone.
     var ovenStart: OvenProfileSection.Start? = nil
@@ -34,14 +37,6 @@ struct RecipeDetailPage: View {
     /// read-only.
     var onEditWeight: ((_ id: String) -> Void)? = nil
     var onUnlink: ((_ id: String) -> Void)? = nil
-    /// Opens the editor of the displayed version's shopping list. Nil leaves it
-    /// read-only.
-    var onEditIngredients: (() -> Void)? = nil
-    /// Opens the editor of the displayed version's method. Nil leaves it read-only —
-    /// and a coffee, which has no steps, never gets it.
-    var onEditSteps: (() -> Void)? = nil
-    /// Opens the editor of the displayed version's tips. Nil leaves them read-only.
-    var onEditTips: (() -> Void)? = nil
 
     /// The weight the sheet opens at: 1 on a recipe opened on its own, the link's
     /// weight on one opened from the recipe that uses it. It is what "Réinitialiser"
@@ -88,23 +83,16 @@ struct RecipeDetailPage: View {
                     modified: modifiedIngredients,
                     compactHeader: focusVersion == nil,
                     scale: focusVersion == nil ? $scaleFactor : nil,
-                    resetsTo: openedAt,
-                    onEdit: onEditIngredients
+                    resetsTo: openedAt
                 )
             }
             // An espresso is wholly described by its parameters: no empty "steps"
             // section is rendered for it.
-            if !displayedVersion.content.stepTexts.isEmpty || onEditSteps != nil {
-                ReferenceVersionSection(
-                    version: displayedVersion,
-                    modified: modifiedSteps,
-                    onEdit: onEditSteps
-                )
-            }
+            ReferenceVersionSection(version: displayedVersion, modified: modifiedSteps)
             // The oven the version bakes in — absent entirely on a dish that never
             // sees one, which is most of them.
             ovenSection
-            TipsSection(tips: displayedVersion.tips, onEdit: onEditTips)
+            TipsSection(tips: displayedVersion.tips)
         }
         .listSectionSpacing(5)
         // The sheet opens at the weight it was reached at — the link's, or the
@@ -152,7 +140,6 @@ struct RecipeDetailPage: View {
                     duration: oven.duration.map { "\($0) min" },
                     core: oven.core.map { "\($0) °C" }
                 ),
-                onEdit: onEditOven,
                 // The oven refuses its own programmes as a command, so this cooking
                 // is never started from here — the CTA gives way to the programme to
                 // select on the appliance.

@@ -261,6 +261,82 @@ enum RecipeAPI {
             )
         )
     }
+
+    /// Write back a corrected recipe sheet: what the cook moved in the edit sheet,
+    /// and nothing else. Each concern keeps the mutation it always had — the
+    /// aggregate's title and course, the version's note, its content, its oven, its
+    /// cautions and its tips — so a sheet closed on one retouched quantity costs one
+    /// write, not eight. None of them creates a version: correcting what the recipe
+    /// always said is not iterating on it.
+    static func correct(
+        recipeId: String,
+        versionNumber: Int,
+        from: RecipeDraft,
+        to: RecipeDraft
+    ) async throws {
+        if to.title != from.title || to.category != from.category || to.method != from.method {
+            try await updateRecipe(
+                id: recipeId,
+                title: to.title,
+                category: to.category,
+                method: to.method
+            )
+        }
+        // The note lives on the version, not on the recipe, so it travels in its own
+        // call. Taking a note back is not a gesture the server has: an emptied rating
+        // leaves the one already given.
+        if let rating = to.rating, rating != from.rating {
+            try await updateRating(
+                recipeId: recipeId,
+                versionNumber: versionNumber,
+                rating: rating
+            )
+        }
+        if to.ingredients.ingredients != from.ingredients.ingredients {
+            try await updateIngredients(
+                recipeId: recipeId,
+                versionNumber: versionNumber,
+                ingredients: to.ingredients.ingredients
+            )
+        }
+        if to.steps.steps != from.steps.steps {
+            try await updateSteps(
+                recipeId: recipeId,
+                versionNumber: versionNumber,
+                steps: to.steps.steps
+            )
+        }
+        if to.oven.profile != from.oven.profile {
+            try await updateOvenProfile(
+                recipeId: recipeId,
+                versionNumber: versionNumber,
+                oven: to.oven.profile
+            )
+        }
+        if let parameters = to.coffee?.parameters, parameters != from.coffee?.parameters {
+            try await updateCoffeeParameters(
+                recipeId: recipeId,
+                versionNumber: versionNumber,
+                parameters: parameters
+            )
+        }
+        if to.warnings.lines != from.warnings.lines {
+            try await updateWarnings(
+                id: recipeId,
+                versionNumber: versionNumber,
+                warnings: to.warnings.lines
+            )
+        }
+        // The tips are written by the mutation the AI proposal ends on — the same
+        // in-place write, without the model.
+        if to.tips.lines != from.tips.lines {
+            try await ProposalAPI.updateTips(
+                recipeId: recipeId,
+                versionNumber: versionNumber,
+                tips: to.tips.lines
+            )
+        }
+    }
 }
 
 // MARK: - Mapping

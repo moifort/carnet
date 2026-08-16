@@ -388,6 +388,48 @@ content — the cooking import preview (Ingrédients), recipe display (`CurrentV
 Hide, don't stub. A **form** is the exception: `CoffeeParametersForm` shows every field, filled or
 not, because there what is missing is exactly what the cook has to see.
 
+The rule has no "unless the section is editable" clause. It used to: a read section survived empty
+so a first ingredient could be added from it. That crutch is gone with the edit CTAs — see below.
+
+## Correcting a recipe — one door in
+
+**The recipe sheet reads. `RecipeEditSheet` writes.** The sheet has exactly one way in, the more
+menu's « Modifier », and it carries the whole recipe: title, the axis it is filed on, the note of
+the version on screen, that version's content (shopping list + method, or a coffee's parameters),
+its oven settings, its cautions and its tips. Nothing on `RecipeDetailPage` corrects anything —
+no "Modifier" in a section header, no menu entry per concern. A page that both reads and writes
+grows one entry point per field, and the same gesture ends up reachable three ways.
+
+The one thing the read sheet still moves is the **ephemeral resizing** of the quantities: a lens
+on what is stored, not a write.
+
+Three consequences worth holding on to:
+
+- **`RecipeDraft` is the whole sheet, in one value** (`Features/Recipe/RecipeDraft.swift`): the
+  aggregate's fields plus the version's, each list held as rows with an identity of their own
+  (`IngredientRow`, `StepRow`, `TextRow`) because a name cannot identify a row while it is being
+  typed. Each list draft exposes the domain value under its domain noun — `ingredients`, `steps`,
+  `lines` — like `OvenProfileDraft.profile` and `CoffeeParametersDraft.parameters` already did.
+- **`RecipeAPI.correct(from:to:)` writes back only what moved.** Each concern keeps the mutation it
+  always had (`updateRecipe`, `updateRating`, `updateIngredients`, `updateSteps`,
+  `updateOvenProfile`, `updateCoffeeParameters`, `updateWarnings`, `updateTips`), and the diff is
+  what decides which ones run: a sheet closed on one retouched quantity costs one write, not eight.
+  None of them creates a version — correcting what the recipe always said is not iterating on it.
+- **Every list edits the same way**: type on a line, swipe it away, add one at the end
+  («  Ajouter un ingrédient », « Ajouter une étape », « Ajouter un avertissement », « Ajouter un
+  conseil »). Reordering and multi-deletion need the edit mode, behind a « Réorganiser » button —
+  never SwiftUI's `EditButton`, whose label is "Modifier", the name of the sheet itself.
+
+The sections are organisms of their own so each previews offline: `IngredientsEditSection`,
+`StepsEditSection`, and `TextLinesEditSection`, which serves both the cautions and the tips (it is
+told what it writes, it does not know which). The oven and the coffee reuse the forms they already
+had, `OvenProfileForm` and `CoffeeParametersForm`.
+
+Gallery: `-gallery recipe-edit`, `recipe-edit-thermomix`, `recipe-edit-oven`,
+`recipe-edit-oven-copy`, `recipe-edit-coffee`, `recipe-edit-fresh`, and `recipe-edit-blank` — an
+import that recognised nothing, where every section is empty at once. That last one is the reason
+the read sheet may drop its empty sections: the first ingredient of a recipe is written here.
+
 ## The recipes a recipe is made of
 
 `Recipe.components` carries them — the bread's poolish, each with the weight it goes in at
@@ -432,12 +474,12 @@ in the same file (`init(parameters:restDays:big:)`), so no two screens word a da
 
 **Writing a coffee goes through one form.** `CoffeeParametersForm` (+ its `CoffeeParametersDraft`)
 is the single shape of a coffee being typed, used by the three moments one is written: the
-correction sheet (`CoffeeParametersEditSheet`), the import preview (`CoffeeImportPreviewPage`) and
+correction sheet (`RecipeEditSheet`), the import preview (`CoffeeImportPreviewPage`) and
 the AI proposal (`CoffeeProposalPage`). It always shows every field; it pre-fills machine and
 grinder from what was used most recently; it opens the milk block on a milk drink; and given a
 `changedFrom`, it marks each moved value with the proposal's changed dot. DebugGallery:
 `import-preview-coffee`, `import-preview-coffee-empty`, `import-preview-coffee-milk`,
-`proposal-coffee`, `coffee-parameters-edit`.
+`proposal-coffee`, `recipe-edit-coffee`.
 
 Every row goes through the form's own `row(_:alignment:)`, which owns the changed dot's gutter:
 present on all rows of a proposal, absent from all rows everywhere else, per
@@ -453,21 +495,25 @@ dose is an edit of the parameters.
 
 ### Correcting the note
 
-`RecipeEditSheet` (recipe menu → « Modifier ») edits the recipe's title and the axis it is filed
-on, plus one thing that belongs to the *version* on screen: its note, section-titled « Note de la
-version *n* » so it is clear which one is being re-rated. The stars are the same `StarRating` the
-capture page uses. The sheet's single Save runs `updateRecipe`, then `updateRating` only when the
-cook moved the note — a rating that did not change costs no call.
+The note belongs to the *version* on screen, so its row in `RecipeEditSheet` is labelled « Note de
+la version *n* » — it must be clear which verdict is being moved — and it sits in a block of its
+own, apart from the title and the course, which belong to the recipe.
+
+The stars are the same `StarRating` the capture page uses, in its `compact` size: a form row's
+value closes the line the way the course picker does, so the note reads as one more row instead of
+floating on the background. The big stars stay where the note is the question being asked.
 
 A version never rated shows empty stars: rating it there is the one way to log a cook after the
 fact, and the server then treats it as cooked (see
-[business-rules](business-rules.md#lineage-and-attempts)).
+[business-rules](business-rules.md#lineage-and-attempts)). Taking a note back is not a gesture the
+server has — an emptied rating leaves the one already given.
 
 ### Correcting the parameters
 
-`CoffeeParametersEditSheet` (recipe menu → « Modifier les paramètres », coffee only) rewrites the
-displayed version's parameters **in place**: no version is created and the brewing steps are
-untouched — correcting what was logged is not iterating.
+A coffee's parameters are a section of the edit sheet like any other (`CoffeeParametersForm` in
+place of the shopping list, the method in place of the course). They are rewritten **in place**:
+no version is created and nothing else on the version is touched — correcting what was logged is
+not iterating.
 
 Every field is labelled with `LabeledContent`, value on the trailing edge, mirroring the read-only
 sheet: a placeholder disappears exactly when a form of fifteen fields needs it. Two facts get a
@@ -513,14 +559,15 @@ of a profile is the information, the same rule the coffee blocks follow.
 
 ### Editing it
 
-`OvenProfileEditSheet` wraps `OvenProfileForm` and saves through `updateOvenProfile` — **in
-place, no version created**, exactly as `updateCoffeeParameters` corrects a coffee. Correcting a
-temperature you read wrong is not an iteration on the recipe.
+`OvenProfileForm` is a section of the [edit sheet](#correcting-a-recipe--one-door-in), saved
+through `updateOvenProfile` — **in place, no version created**, exactly as
+`updateCoffeeParameters` corrects a coffee. Correcting a temperature you read wrong is not an
+iteration on the recipe.
 
 The form's first row is a **"Cuisson au four" toggle**, and turning it off is a real answer: it
-saves `nil`, which clears the profile. That is why the editor is also reachable from the more menu
-and not only from the section's "Modifier" — a dish that bakes for the first time has no section
-to edit from yet.
+saves `nil`, which clears the profile. It is also how a dish that bakes for the first time gets a
+profile at all: the read sheet shows no oven section on a dish that has none, and the toggle is
+where one starts existing.
 
 **"Copier les réglages du four" is how a profile gets filled in fast.** The API exposes no dish
 catalogue — heating functions and dials only, never the "Quiche" the appliance's screen offers —
@@ -537,9 +584,9 @@ is missing the footer says so, because an untouched "Mode" row otherwise reads a
 answer. The timer and the probe keep clearing themselves: an oven reporting no timer is an oven
 cooking without one, and that silence is an answer rather than a gap.
 
-**The copy lives in the editor and nowhere else.** The recipe sheet's oven section carries the
-settings, "Modifier" and the start CTA — writing a profile is what the editor is for, and a second
-entry point on the sheet only made the same gesture reachable twice.
+**The copy lives in the edit sheet and nowhere else.** The recipe sheet's oven section carries the
+settings and the start CTA — writing a profile is what the edit sheet is for, and a second entry
+point on the read sheet only made the same gesture reachable twice.
 
 `assisted` is never offered by the picker (`OvenProgram.selectable` drops it): it is not a dial
 anyone turns, it only ever arrives by copying what the oven is set to. Picking it by hand would
