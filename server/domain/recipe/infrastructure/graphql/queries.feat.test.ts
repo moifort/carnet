@@ -246,51 +246,30 @@ describe('recipes query', () => {
   })
 })
 
-describe('an ingredient that is a recipe', () => {
-  // The ravioli, whose first line IS the dough recipe seeded beside it.
+describe('a recipe made of other recipes', () => {
+  // The bread, linked to the recipes seeded beside it, each at its own weight.
   const seedComposed = (parentId: string, ...componentIds: string[]) => {
-    seedRecipe(parentId, { category: 'main', updatedAt: 1000 })
-    fake.seed('recipe-versions', `${parentId}_1`, {
-      userId,
-      recipeId: parentId as RecipeId,
-      number: 1 as VersionNumber,
-      createdAt: new Date(1000),
-      origin: { kind: 'import' },
-      content: {
-        kind: 'dish',
-        ingredients: [
-          ...componentIds.map((component, i) => ({
-            name: `Composant ${i}`,
-            quantity: '400 g',
-            component,
-          })),
-          { name: 'Champignons', quantity: '250 g' },
-        ],
-        steps: ['Garnir'],
-      },
-      tips: [],
+    seedRecipe(parentId, { category: 'baking', updatedAt: 1000 })
+    seedVersion(parentId, 1)
+    fake.seed('recipes', parentId, {
+      ...(fake.snapshot('recipes').get(parentId) as Record<string, unknown>),
+      components: componentIds.map((recipe, i) => ({ recipe, scale: (i + 1) / 5 })),
+      componentIds,
     })
   }
 
   const COMPOSED_SHEET = (id: string) => `
     query {
       recipe(id: "${id}") {
-        versionToOpen {
-          content {
-            ... on DishContent {
-              ingredients {
-                name
-                quantity
-                component { title bestRating versionToOpen { number } }
-              }
-            }
-          }
+        components {
+          scale
+          recipe { title bestRating versionToOpen { number } }
         }
       }
     }
   `
 
-  test('serves the linked recipe’s live title and best rating, and nothing on a plain line', async () => {
+  test('serves each link’s weight and the linked recipe’s live title and best rating', async () => {
     seedComposed(r1, r2)
     seedRecipe(r2, { category: 'main', updatedAt: 2000 })
     seedVersion(r2, 1, 3)
@@ -299,31 +278,26 @@ describe('an ingredient that is a recipe', () => {
     const result = await execute(COMPOSED_SHEET(r1))
 
     expect(result.errors).toBeUndefined()
-    const { ingredients } = (
-      result.data as { recipe: { versionToOpen: { content: { ingredients: unknown[] } } } }
-    ).recipe.versionToOpen.content
-    expect(ingredients[0]).toEqual({
-      name: 'Composant 0',
-      quantity: '400 g',
-      // The title comes from the link, live; the version shown is derived, so the
-      // dough's best attempt is what the ravioli displays.
-      component: { title: `Recette ${r2}`, bestRating: 5, versionToOpen: { number: 2 } },
-    })
-    expect(ingredients[1]).toEqual({ name: 'Champignons', quantity: '250 g', component: null })
+    expect((result.data as { recipe: { components: unknown[] } }).recipe.components).toEqual([
+      {
+        scale: 0.2,
+        // The title comes from the link, live; the version shown is derived, so the
+        // poolish's best attempt is what the bread displays.
+        recipe: { title: `Recette ${r2}`, bestRating: 5, versionToOpen: { number: 2 } },
+      },
+    ])
   })
 
-  test('answers null once the linked recipe is gone, the line staying readable', async () => {
-    // The dough was thrown away on purpose: nothing to repair, nothing to clean up —
-    // the immutable content still names what goes in and how much of it.
+  test('answers null once the linked recipe is gone, the link staying harmless', async () => {
+    // The poolish was thrown away on purpose: nothing to repair, nothing to clean up.
     seedComposed(r1, unknownId)
 
     const result = await execute(COMPOSED_SHEET(r1))
 
     expect(result.errors).toBeUndefined()
-    const { ingredients } = (
-      result.data as { recipe: { versionToOpen: { content: { ingredients: unknown[] } } } }
-    ).recipe.versionToOpen.content
-    expect(ingredients[0]).toEqual({ name: 'Composant 0', quantity: '400 g', component: null })
+    expect((result.data as { recipe: { components: unknown[] } }).recipe.components).toEqual([
+      { scale: 0.2, recipe: null },
+    ])
   })
 
   test('answers null for another cook’s recipe, never their title', async () => {
@@ -346,7 +320,7 @@ describe('an ingredient that is a recipe', () => {
     expect(JSON.stringify(result.data)).not.toContain('voisin')
   })
 
-  test('costs one lineage scan for every component, never one per line', async () => {
+  test('costs one lineage scan for every link, never one per link', async () => {
     seedComposed(r1, r2, r3)
     seedRecipe(r2, { category: 'main', updatedAt: 2000 })
     seedVersion(r2, 1, 3)
@@ -356,15 +330,34 @@ describe('an ingredient that is a recipe', () => {
     const result = await execute(COMPOSED_SHEET(r1))
 
     expect(result.errors).toBeUndefined()
-    // The parent by key, then its two components — a keyed read per document is
+    // The parent by key, then its two linked recipes — a keyed read per document is
     // Firestore's price for reading them, and the batch makes it one round trip.
     expect(fake.docReads).toBe(3)
-    // What this locks: the parent's lineage, then ONE scan shared by both components.
-    // Never a scan per linked line.
-    expect(fake.queryReads).toBe(2)
+    // What this locks: ONE scan for the ratings of both linked recipes — never a
+    // scan per linked recipe. The parent's own lineage is not even read: this query
+    // asks nothing derived from it.
+    expect(fake.queryReads).toBe(1)
   })
 
-  test('leaves the library budget untouched — it asks for no component', async () => {
+  test('reads the link backwards in one query, whoever uses it', async () => {
+    seedRecipe(r1, { category: 'baking', updatedAt: 1000 })
+    seedVersion(r1, 1, 4)
+    seedComposed(r2, r1)
+    seedComposed(r3, r1)
+    const before = fake.queryReads
+
+    const result = await execute(`
+      query { recipe(id: "${r1}") { usedBy { title bestRating } } }
+    `)
+
+    expect(result.errors).toBeUndefined()
+    const { usedBy } = (result.data as { recipe: { usedBy: { title: string }[] } }).recipe
+    expect(usedBy.map(({ title }) => title).sort()).toEqual([`Recette ${r2}`, `Recette ${r3}`])
+    // One query for the two of them, plus the single lineage scan their ratings share.
+    expect(fake.queryReads - before).toBe(2)
+  })
+
+  test('leaves the library budget untouched — it asks for no link', async () => {
     seedComposed(r1, r2)
     seedRecipe(r2, { category: 'main', updatedAt: 2000 })
     seedVersion(r2, 1, 3)

@@ -24,16 +24,12 @@ const responseSchema = {
 // is the entire job — anything invented would be attributed to a plate that was
 // actually made.
 const APPLY_RULE =
-  'Apply EXACTLY what the cook describes, and NOTHING else. This is a transcription, not an iteration: the cook already made this version and already ate it, so you are writing down what they did, never improving on it. Everything the change does not mention stays strictly identical — the same ingredients in the same order with the same quantities, the same steps with the same wording and the same settings. Never add, remove, reorder or reword anything the change does not touch, never round a value, never "fix" a recipe you find odd. Return the COMPLETE ingredient and step list with the change applied, plus changeSummary, which records every change as "old → new" with the arrow character U+2192 between the two, whether the change is a new value or one ingredient replacing another. Put each change in its right structured field — a Thermomix time/temperature/speed in the step settings, a duration in the dish step text, a quantity on the ingredient. When the sentence is ambiguous, take the most literal reading and change the least. When it describes something no ingredient and no step can carry (a remark about the result, a comment on the taste), return the lists untouched and say so in changeSummary. NEVER touch the oven: its programme, temperature, duration and probe are set by hand, on the appliance or in the app. An ingredient marked "[recipe of its own]" is a separate recipe of the cook — the pasta dough of a ravioli, with its own page: keep it as ONE line under EXACTLY the same name, never unfold it into its own ingredients, and change at most its quantity.'
+  'Apply EXACTLY what the cook describes, and NOTHING else. This is a transcription, not an iteration: the cook already made this version and already ate it, so you are writing down what they did, never improving on it. Everything the change does not mention stays strictly identical — the same ingredients in the same order with the same quantities, the same steps with the same wording and the same settings. Never add, remove, reorder or reword anything the change does not touch, never round a value, never "fix" a recipe you find odd. Return the COMPLETE ingredient and step list with the change applied, plus changeSummary, which records every change as "old → new" with the arrow character U+2192 between the two, whether the change is a new value or one ingredient replacing another. Put each change in its right structured field — a Thermomix time/temperature/speed in the step settings, a duration in the dish step text, a quantity on the ingredient. When the sentence is ambiguous, take the most literal reading and change the least. When it describes something no ingredient and no step can carry (a remark about the result, a comment on the taste), return the lists untouched and say so in changeSummary. NEVER touch the oven: its programme, temperature, duration and probe are set by hand, on the appliance or in the app.'
 
 const prompt = (context: CookingChangeContext): string => {
   const ingredients =
-    context.currentIngredients
-      .map(
-        ({ name, quantity, component }) =>
-          `- ${name} : ${quantity}${component ? ' [recipe of its own]' : ''}`,
-      )
-      .join('\n') || '—'
+    context.currentIngredients.map(({ name, quantity }) => `- ${name} : ${quantity}`).join('\n') ||
+    '—'
   const steps =
     context.currentSteps
       .map((s, i) => `${i + 1}. ${s.text}${formatThermomix(s.thermomix)}`)

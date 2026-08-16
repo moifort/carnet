@@ -115,20 +115,11 @@ export type OvenCoreTemperature = Brand<number, 'OvenCoreTemperature'> // intege
 // nor curates the catalogue, it copies the code and hands it back.
 export type AssistedProgram = Brand<string, 'AssistedProgram'>
 
-// A recipe component with its measured quantity ("Gin" → "50 ml", "Beurre" →
-// "170 g"). The shopping-list view of the recipe. Ordered list, never a map.
+// What goes in, with its measured quantity ("Gin" → "50 ml", "Beurre" → "170 g").
+// The shopping-list view of the recipe. Ordered list, never a map.
 export type Ingredient = {
-  // What goes in, as this recipe calls it. On a linked line it is the ROLE the
-  // component plays here ("Pâte à ravioles"), never the linked recipe's title — the
-  // content is immutable, and a stored title would rot the day it is renamed.
   name: IngredientName
   quantity: IngredientQuantity
-  // This line IS a recipe of its own — the pasta dough of a ravioli, the sauce of a
-  // gratin. Deliberately NOT a version number: which version answers for the linked
-  // recipe is derived at read time (`versionToOpen`), so it keeps improving on its own
-  // and this one follows without a write. Absent, never `null`, and only
-  // `updateComponent` ever sets it.
-  component?: RecipeId
 }
 
 // Thermomix settings for one step, display-oriented strings (no computation is
@@ -140,6 +131,23 @@ export type ThermomixSettings = {
   temperature?: ThermomixTemperature // "100°C", "Varoma"
   speed?: ThermomixSpeed // "5", "3,5", "pétrin", "mijotage", "turbo"
   reverse?: boolean // reverse rotation
+}
+
+// How much of a linked recipe this one takes, as a multiplier of what that recipe
+// writes: 0.2 is a fifth of it, 1 is it as written. A real number, not a display
+// string — it is one of the very few recipe values something is computed on, like
+// the oven's dials. Derived at link time from a target quantity the cook types on
+// one of the linked recipe's lines ("my flour is 100 g", where it writes 500 g);
+// the factor is what is stored, so the link keeps holding as that recipe changes.
+export type ComponentScale = Brand<number, 'ComponentScale'>
+
+// A recipe this one is made of, at the quantity it takes of it — the poolish of a
+// bread dough, the pasta dough of a ravioli. It holds the RECIPE, never a version:
+// which version answers for it is derived at read time (`versionToOpen`), so the
+// poolish keeps improving on its own and the bread follows without a single write.
+export type Component = {
+  recipe: RecipeId
+  scale: ComponentScale
 }
 
 export type VersionOriginKind = 'import' | 'ai-proposal' | 'manual'
@@ -173,6 +181,18 @@ export type Recipe = {
   // lineage restamps this. Absent rather than false, so presence is the single
   // spelling the query matches on.
   favorite?: true
+  // The recipes this one is made of, with the quantity it takes of each. Aggregate
+  // level, deliberately: the cook links from the recipe sheet, the link holds for
+  // every version of it, and no iteration has to carry it forward. Ordered by when
+  // they were linked, one entry per recipe (`linkComponent` upserts). Absent rather
+  // than empty, like every other absence in the domain.
+  components?: Component[]
+  // The same links, ids alone. Denormalized for one reason: `array-contains` cannot
+  // query an array of objects, and this is what makes the link readable the OTHER
+  // way round — `usedBy`, the recipes a given one is used by. Derived, never a value
+  // of its own: `withComponents` writes the two together and nothing else writes
+  // either. Same denormalization as `categoryRank` or `favorite`.
+  componentIds?: RecipeId[]
   // Highest version number ever allocated — a monotonic allocator, never decremented
   // when a version is deleted, so a number is never reused by a later iteration.
   lastVersionNumber: VersionNumber

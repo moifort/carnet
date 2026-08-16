@@ -17,6 +17,7 @@ import {
   CoffeeWater,
   CoffeeWaterKind,
   CoffeeYield,
+  ComponentScale,
   IngredientName,
   IngredientQuantity,
   OvenCoreTemperature,
@@ -98,6 +99,15 @@ builder.scalarType('AssistedProgram', {
     'parsed. Paired with `OvenProgram.ASSISTED`.',
   serialize: (value) => value as string,
   parseValue: validatedParse('AssistedProgram', AssistedProgram),
+})
+
+builder.scalarType('ComponentScale', {
+  description:
+    'How much of a linked recipe another one takes, as a multiplier of the quantities that ' +
+    'recipe writes, from `0.01` to `100` — e.g. `0.2` for a fifth of it, `1` for it as written. ' +
+    'A real number, unlike a quantity, which is a display string.',
+  serialize: (value) => value as number,
+  parseValue: validatedParse('ComponentScale', ComponentScale),
 })
 
 builder.scalarType('OvenTemperature', {

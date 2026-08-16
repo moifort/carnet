@@ -1,19 +1,21 @@
 import type { WriteBatch } from 'firebase-admin/firestore'
 import {
-  carriedComponents,
   favorited,
   lastWorkedOn,
   methodMatchesType,
   nextVersionNumber,
+  withComponents,
 } from '~/domain/recipe/business-rules'
 import type { CoffeeParameters } from '~/domain/recipe/content/coffee'
 import type { OvenProfile } from '~/domain/recipe/content/oven'
 import { thermomixSteps } from '~/domain/recipe/content/thermomix'
 import type { VersionContent } from '~/domain/recipe/content/types'
 import * as repository from '~/domain/recipe/infrastructure/repository'
+import { COMPONENT_LIMITS } from '~/domain/recipe/limits'
 import { type LooseVersionStep, randomRecipeId, VersionNumber } from '~/domain/recipe/primitives'
 import type {
   BrewMethod,
+  ComponentScale,
   DishCategory,
   Ingredient,
   Rating,
@@ -233,8 +235,7 @@ export namespace RecipeCommand {
     const lineage = await repository.findVersionsOf(recipeId)
     const number = nextVersionNumber(recipe.lastVersionNumber)
     const now = new Date()
-    // The version this one iterates on — read before the new one is built, because it
-    // is what its components are carried over from.
+    // The version this one iterates on — what its cautions and its heart ride from.
     const base =
       input.basedOn === undefined
         ? undefined
@@ -252,15 +253,14 @@ export namespace RecipeCommand {
       change: input.change,
       ...(input.basedOn !== undefined ? { basedOn: input.basedOn } : {}),
       ...(input.why ? { why: input.why } : {}),
-      // The linked recipes of the version this one iterates on ride along: the model
-      // regenerated the list and knows nothing of them (see `carriedComponents`).
-      content: carriedComponents(input.content, base?.content),
+      content: input.content,
       tips: input.tips,
-      // The cautions of the version this one iterates on ride along, like its linked
-      // recipes: they are the cook's own, written about a gesture rather than about
-      // one seasoning, and nobody would think to write them down again after saying
-      // yes to a proposal. Unlike `tips`, which the model regenerates with the
-      // content it just rewrote.
+      // The cautions of the version this one iterates on ride along: they are the
+      // cook's own, written about a gesture rather than about one seasoning, and
+      // nobody would think to write them down again after saying yes to a proposal.
+      // Unlike `tips`, which the model regenerates with the content it just rewrote.
+      // The linked recipes need no such carrying — they are held by the recipe, not
+      // by the version, so an iteration never leaves them behind.
       warnings: base?.warnings ?? [],
       // The heart rides along too: the cook hearted this line of work, and the
       // iteration they just accepted is where it continues.
@@ -425,9 +425,7 @@ export namespace RecipeCommand {
     // A coffee has no shopping list — its dose, its water and its milk are parameters.
     if (version.content.kind === 'coffee') return 'not-a-cooked-recipe' as const
 
-    // The links survive the rewrite, matched on the name they were set on: correcting
-    // a quantity must not unlink the dough. Same rule an iteration applies, same code.
-    const content = carriedComponents({ ...version.content, ingredients }, version.content)
+    const content: VersionContent = { ...version.content, ingredients }
     const updated: RecipeVersion = { ...version, content, updatedAt: new Date() }
     const updatedRecipe = restamped(recipe, written(lineage, updated))
     return atomically(async (batch) => {
@@ -507,51 +505,59 @@ export namespace RecipeCommand {
     })
   }
 
-  // Say which recipe one ingredient line IS — the ravioli's pasta dough, a page of
-  // its own with its own versions and its own ratings. A correction in place, like
-  // `updateOvenProfile`: naming the dough that was already used changes nothing about
-  // the plate that was cooked, so it creates no version and the rating still stands.
-  // *Changing* dough is another matter — that is a new attempt, and it goes through
-  // `addVersion` with another component in its content.
-  // `component: undefined` unlinks, the same way `oven: undefined` clears a profile.
-  export const updateComponent = async (
+  // Say that this recipe is made of another one — the bread's poolish, the ravioli's
+  // pasta dough — and how much of it it takes (`scale`: 0.2 is a fifth of what that
+  // recipe writes). Held by the RECIPE, so it holds for every version of it and no
+  // iteration has to carry it forward.
+  // Idempotent per linked recipe: linking one already linked rewrites its scale, which
+  // is how the cook changes the weight. Nothing is versioned and nothing is redated —
+  // saying what a recipe is made of is not cooking it, the same border `update` draws.
+  export const linkComponent = async (
     userId: UserId,
     recipeId: RecipeId,
-    versionNumber: VersionNumberT,
-    ingredient: number,
-    component: RecipeId | undefined,
-  ): Promise<
-    RecipeVersion | 'not-found' | 'not-a-cooked-recipe' | 'ingredient-not-found' | 'self-reference'
-  > => {
+    component: RecipeId,
+    scale: ComponentScale,
+  ): Promise<Recipe | 'not-found' | 'self-reference' | 'too-many-components'> => {
     const recipe = await repository.findBy(userId, recipeId)
     if (!recipe) return 'not-found' as const
-    // A recipe that is its own ingredient is nonsense, and refused outright. Longer
-    // cycles (A → B → A) are deliberately left alone: nothing resolves past one level,
-    // so they are a navigation the cook can walk out of, not a loop.
+    // A recipe made of itself is nonsense, and refused outright. Longer cycles
+    // (A → B → A) are deliberately left alone: nothing resolves past one level, so
+    // they are a navigation the cook can walk out of, not a loop.
     if (component === recipeId) return 'self-reference' as const
     // The linked recipe must be the cook's own. A stranger's answers 'not-found' like
     // any other — a code of its own would tell them it exists.
-    if (component && !(await repository.findBy(userId, component))) return 'not-found' as const
-    const lineage = await repository.findVersionsOf(recipeId)
-    const version = lineage.find(({ number }) => number === versionNumber)
-    if (!version) return 'not-found' as const
-    // A coffee has no ingredient list to link from — its dose and its water are dials.
-    if (version.content.kind === 'coffee') return 'not-a-cooked-recipe' as const
-    const line = version.content.ingredients[ingredient]
-    if (!line) return 'ingredient-not-found' as const
-    const ingredients = version.content.ingredients.with(ingredient, {
-      // Rebuilt rather than spread, so unlinking drops the field instead of storing a
-      // hollow one: absence IS the plain ingredient.
-      name: line.name,
-      quantity: line.quantity,
-      ...(component ? { component } : {}),
-    })
-    const content: VersionContent = { ...version.content, ingredients }
-    const updated: RecipeVersion = { ...version, content, updatedAt: new Date() }
-    const updatedRecipe = restamped(recipe, written(lineage, updated))
+    if (!(await repository.findBy(userId, component))) return 'not-found' as const
+    const current = recipe.components ?? []
+    const known = current.some(({ recipe: linked }) => linked === component)
+    if (!known && current.length >= COMPONENT_LIMITS.perRecipe)
+      return 'too-many-components' as const
+    // Relinking keeps its place in the list: the cook is correcting a weight, not
+    // linking something new, and a row that jumped to the bottom would say otherwise.
+    const components = known
+      ? current.map((c) => (c.recipe === component ? { recipe: component, scale } : c))
+      : [...current, { recipe: component, scale }]
+    const updated = withComponents(recipe, components)
     return atomically(async (batch) => {
-      await repository.saveVersion(updated, batch)
-      await repository.save(updatedRecipe, batch)
+      await repository.save(updated, batch)
+      return updated
+    })
+  }
+
+  // Unlink one recipe from this one. Unlinking what was never linked succeeds on the
+  // same list it was already in — there is nothing to report, and nothing changed.
+  export const unlinkComponent = async (
+    userId: UserId,
+    recipeId: RecipeId,
+    component: RecipeId,
+  ): Promise<Recipe | 'not-found'> => {
+    const recipe = await repository.findBy(userId, recipeId)
+    if (!recipe) return 'not-found' as const
+    const updated = withComponents(
+      recipe,
+      (recipe.components ?? []).filter(({ recipe: linked }) => linked !== component),
+    )
+    return atomically(async (batch) => {
+      await repository.save(updated, batch)
       return updated
     })
   }

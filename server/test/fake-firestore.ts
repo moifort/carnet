@@ -123,7 +123,15 @@ export const createFakeFirestore = () => {
     if (op === '==') return data[field] === value
     if (op === '!=') return data[field] !== undefined && data[field] !== value
     if (op === 'in') return Array.isArray(value) && value.includes(data[field])
-    throw new Error(`fake-firestore only supports '==', '!=' and 'in' queries, got '${op}'`)
+    // The stored field is the array here, not the argument — `componentIds` holding
+    // the recipe asked for.
+    if (op === 'array-contains') {
+      const stored = data[field]
+      return Array.isArray(stored) && stored.includes(value)
+    }
+    throw new Error(
+      `fake-firestore only supports '==', '!=', 'in' and 'array-contains' queries, got '${op}'`,
+    )
   }
 
   const makeQuery = (collection: string, state: QueryState): FakeQuery => ({

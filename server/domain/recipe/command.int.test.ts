@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, mock, setSystemTime, test } fr
 import { type CoffeeContent, emptyCoffeeParameters } from '~/domain/recipe/content/coffee'
 import type { DishContent } from '~/domain/recipe/content/dish'
 import type { LooseThermomixSettings, ThermomixContent } from '~/domain/recipe/content/thermomix'
+import { COMPONENT_LIMITS } from '~/domain/recipe/limits'
 import type {
   CoffeeBeanName,
   CoffeeDose,
@@ -9,6 +10,7 @@ import type {
   CoffeeMachine,
   CoffeeWater,
   CoffeeWaterKind,
+  ComponentScale,
   Ingredient,
   IngredientName,
   IngredientQuantity,
@@ -356,7 +358,7 @@ describe('RecipeCommand.addVersion', () => {
     expect(fake.directWrites).toEqual([])
   })
 
-  test('carries the components of the version it iterates on, matched by name', async () => {
+  test('needs no carrying for the linked recipes — they are held by the recipe', async () => {
     const parent = await RecipeCommand.create(
       userId,
       newInput(dishContent({ ingredients: [ingredient('Pâte à ravioles', '400 g')] })),
@@ -364,10 +366,10 @@ describe('RecipeCommand.addVersion', () => {
     const linked = await RecipeCommand.create(userId, newInput())
     if (typeof parent === 'string' || typeof linked === 'string')
       throw new Error('expected recipes')
-    await RecipeCommand.updateComponent(userId, parent.id, 1 as VersionNumber, 0, linked.id)
+    await RecipeCommand.linkComponent(userId, parent.id, linked.id, 1 as ComponentScale)
 
     // What the model answers: the whole list regenerated, and it knows nothing of the
-    // link — the same line, one quantity moved.
+    // link — which costs nothing, since the link is not in the list.
     await RecipeCommand.addVersion(userId, parent.id, {
       change: 'Pâte 400 → 450 g',
       basedOn: 1 as VersionNumber,
@@ -375,33 +377,9 @@ describe('RecipeCommand.addVersion', () => {
       tips: [],
     })
 
-    const v2 = fake.snapshot('recipe-versions').get(`${parent.id}_2`)?.content as DishContent
-    expect(v2.ingredients[0]?.component).toBe(linked.id)
-    expect(v2.ingredients[0]?.quantity).toBe('450 g' as IngredientQuantity)
-  })
-
-  test('loses the link when the model renamed the line, and keeps the rest intact', async () => {
-    const parent = await RecipeCommand.create(
-      userId,
-      newInput(dishContent({ ingredients: [ingredient('Pâte à ravioles', '400 g')] })),
-    )
-    const linked = await RecipeCommand.create(userId, newInput())
-    if (typeof parent === 'string' || typeof linked === 'string')
-      throw new Error('expected recipes')
-    await RecipeCommand.updateComponent(userId, parent.id, 1 as VersionNumber, 0, linked.id)
-
-    await RecipeCommand.addVersion(userId, parent.id, {
-      change: 'Pâte maison',
-      basedOn: 1 as VersionNumber,
-      content: dishContent({ ingredients: [ingredient('Pâte à ravioles maison', '400 g')] }),
-      tips: [],
-    })
-
-    const v2 = fake.snapshot('recipe-versions').get(`${parent.id}_2`)?.content as DishContent
-    expect(v2.ingredients[0]).not.toHaveProperty('component')
-    // The version it iterates on keeps its own link — nothing was rewritten there.
-    const v1 = fake.snapshot('recipe-versions').get(`${parent.id}_1`)?.content as DishContent
-    expect(v1.ingredients[0]?.component).toBe(linked.id)
+    expect(fake.snapshot('recipes').get(parent.id)?.components).toEqual([
+      { recipe: linked.id, scale: 1 as ComponentScale },
+    ])
   })
 
   test('an improvement-born version is one to test, and v1 never was', async () => {
@@ -1163,149 +1141,185 @@ describe('updateCoffeeParameters', () => {
   })
 })
 
-describe('updateComponent', () => {
-  const V1 = 1 as VersionNumber
-  // What Firestore actually holds for the parent's v1 — the assertions are about the
-  // stored line, not only the returned one.
-  const storedIngredients = (recipeId: RecipeId) => {
-    const stored = fake.snapshot('recipe-versions').get(`${recipeId}_1`)
-    return (stored?.content as DishContent | undefined)?.ingredients ?? []
-  }
-  const ravioli = () =>
+describe('linkComponent / unlinkComponent', () => {
+  const scale = (n: number) => n as ComponentScale
+  // What Firestore actually holds for the parent — the assertions are about the
+  // stored links, not only the returned ones.
+  const storedComponents = (recipeId: RecipeId) =>
+    (fake.snapshot('recipes').get(recipeId as string) as Recipe | undefined)?.components ?? []
+  const bread = () =>
     RecipeCommand.create(
       userId,
       newInput(
         dishContent({
-          ingredients: [ingredient('Pâte à ravioles', '400 g'), ingredient('Champignons', '250 g')],
+          ingredients: [ingredient('Farine', '500 g'), ingredient('Sel', '10 g')],
         }),
       ),
     )
-  const dough = () =>
+  const poolish = () =>
     RecipeCommand.create(userId, {
       type: 'dish' as const,
       category: 'main' as const,
-      title: 'Pâte à pâtes' as RecipeTitle,
-      content: dishContent({ ingredients: [ingredient('Farine', '250 g')] }),
+      title: 'Poolish' as RecipeTitle,
+      content: dishContent({ ingredients: [ingredient('Farine', '500 g')] }),
       tips: [],
     })
 
-  test('links one ingredient line to a recipe of its own, in a single batch', async () => {
-    const parent = await ravioli()
-    const linked = await dough()
+  test('links a recipe at the weight it is used here, in a single batch', async () => {
+    const parent = await bread()
+    const linked = await poolish()
     if (typeof parent === 'string' || typeof linked === 'string')
       throw new Error('expected recipes')
     const batchesBefore = fake.batches.length
 
-    const updated = await RecipeCommand.updateComponent(userId, parent.id, V1, 0, linked.id)
-    if (typeof updated === 'string') throw new Error(`expected a version, got ${updated}`)
+    const updated = await RecipeCommand.linkComponent(userId, parent.id, linked.id, scale(0.2))
+    if (typeof updated === 'string') throw new Error(`expected a recipe, got ${updated}`)
 
-    if (updated.content.kind === 'coffee') throw new Error('expected a dish')
-    expect(updated.content.ingredients[0]?.component).toBe(linked.id)
-    // The line keeps what it always said: the name is its ROLE here, the quantity is
-    // still what goes in — the link adds, it never replaces.
-    expect(updated.content.ingredients[0]?.name).toBe('Pâte à ravioles' as IngredientName)
-    expect(updated.content.ingredients[0]?.quantity).toBe('400 g' as IngredientQuantity)
-    // Its neighbours are plain ingredients and stay untouched.
-    expect(updated.content.ingredients[1]).not.toHaveProperty('component')
-    expect(fake.snapshot('recipe-versions').get(`${parent.id}_1`)?.content).toEqual(updated.content)
+    expect(updated.components).toEqual([{ recipe: linked.id, scale: scale(0.2) }])
+    // The flat ids ride along, or `usedBy` would answer nothing.
+    expect(updated.componentIds).toEqual([linked.id])
+    expect(storedComponents(parent.id)).toEqual([{ recipe: linked.id, scale: scale(0.2) }])
     expect(fake.batches.length).toBe(batchesBefore + 1)
     expect(fake.directWrites).toEqual([])
   })
 
-  test('replaces a link, and clears it with undefined — absent, never null', async () => {
-    const parent = await ravioli()
-    const first = await dough()
-    const second = await dough()
+  test('holds several recipes, in the order they were linked', async () => {
+    const parent = await bread()
+    const first = await poolish()
+    const second = await poolish()
     if (typeof parent === 'string' || typeof first === 'string' || typeof second === 'string')
       throw new Error('expected recipes')
 
-    await RecipeCommand.updateComponent(userId, parent.id, V1, 0, first.id)
-    await RecipeCommand.updateComponent(userId, parent.id, V1, 0, second.id)
-    expect(storedIngredients(parent.id)[0]?.component).toBe(second.id)
+    await RecipeCommand.linkComponent(userId, parent.id, first.id, scale(0.2))
+    await RecipeCommand.linkComponent(userId, parent.id, second.id, scale(1))
 
-    await RecipeCommand.updateComponent(userId, parent.id, V1, 0, undefined)
-    expect(storedIngredients(parent.id)[0]).not.toHaveProperty('component')
-    expect(storedIngredients(parent.id)[0]?.quantity).toBe('400 g' as IngredientQuantity)
+    expect(storedComponents(parent.id)).toEqual([
+      { recipe: first.id, scale: scale(0.2) },
+      { recipe: second.id, scale: scale(1) },
+    ])
   })
 
-  test('dates the recipe by the version it just annotated', async () => {
-    const parent = await ravioli()
-    const linked = await dough()
+  test('relinking one already linked rewrites its weight, in place', async () => {
+    const parent = await bread()
+    const first = await poolish()
+    const second = await poolish()
+    if (typeof parent === 'string' || typeof first === 'string' || typeof second === 'string')
+      throw new Error('expected recipes')
+
+    await RecipeCommand.linkComponent(userId, parent.id, first.id, scale(0.2))
+    await RecipeCommand.linkComponent(userId, parent.id, second.id, scale(1))
+    await RecipeCommand.linkComponent(userId, parent.id, first.id, scale(0.5))
+
+    // One entry, not two — and it kept its place: the cook corrected a weight.
+    expect(storedComponents(parent.id)).toEqual([
+      { recipe: first.id, scale: scale(0.5) },
+      { recipe: second.id, scale: scale(1) },
+    ])
+  })
+
+  test('creates no version and leaves the recipe’s date alone', async () => {
+    const parent = await bread()
+    const linked = await poolish()
+    if (typeof parent === 'string' || typeof linked === 'string')
+      throw new Error('expected recipes')
+    const versionsBefore = fake.snapshot('recipe-versions').size
+
+    await RecipeCommand.linkComponent(userId, parent.id, linked.id, scale(0.2))
+
+    // Saying what a recipe is made of is not cooking it.
+    expect(fake.snapshot('recipe-versions').size).toBe(versionsBefore)
+    expect(fake.snapshot('recipes').get(parent.id as string)?.updatedAt).toEqual(parent.updatedAt)
+  })
+
+  test('unlinks, and leaves neither field behind once the last link goes', async () => {
+    const parent = await bread()
+    const first = await poolish()
+    const second = await poolish()
+    if (typeof parent === 'string' || typeof first === 'string' || typeof second === 'string')
+      throw new Error('expected recipes')
+    await RecipeCommand.linkComponent(userId, parent.id, first.id, scale(0.2))
+    await RecipeCommand.linkComponent(userId, parent.id, second.id, scale(1))
+
+    await RecipeCommand.unlinkComponent(userId, parent.id, first.id)
+    expect(storedComponents(parent.id)).toEqual([{ recipe: second.id, scale: scale(1) }])
+
+    await RecipeCommand.unlinkComponent(userId, parent.id, second.id)
+    const stored = fake.snapshot('recipes').get(parent.id as string)
+    expect(stored).not.toHaveProperty('components')
+    expect(stored).not.toHaveProperty('componentIds')
+  })
+
+  test('unlinking what was never linked changes nothing', async () => {
+    const parent = await bread()
+    const linked = await poolish()
     if (typeof parent === 'string' || typeof linked === 'string')
       throw new Error('expected recipes')
 
-    const updated = await RecipeCommand.updateComponent(userId, parent.id, V1, 0, linked.id)
-    if (typeof updated === 'string') throw new Error('expected a version')
+    const updated = await RecipeCommand.unlinkComponent(userId, parent.id, linked.id)
+    if (typeof updated === 'string') throw new Error('expected a recipe')
 
-    expect(fake.snapshot('recipes').get(parent.id as string)?.updatedAt).toEqual(updated.updatedAt)
+    expect(updated).not.toHaveProperty('components')
   })
 
-  test('refuses a coffee, which has no ingredient list', async () => {
-    const coffee = await RecipeCommand.create(userId, {
-      type: 'coffee' as const,
-      category: 'drink' as const,
-      method: 'espresso' as const,
-      title: 'Espresso du matin' as RecipeTitle,
-      content: coffeeContent(),
-      tips: [],
-    })
-    const linked = await dough()
-    if (typeof coffee === 'string' || typeof linked === 'string')
-      throw new Error('expected recipes')
-
-    expect(await RecipeCommand.updateComponent(userId, coffee.id, V1, 0, linked.id)).toBe(
-      'not-a-cooked-recipe',
-    )
-  })
-
-  test('refuses an ingredient index outside the list', async () => {
-    const parent = await ravioli()
-    const linked = await dough()
-    if (typeof parent === 'string' || typeof linked === 'string')
-      throw new Error('expected recipes')
-
-    expect(await RecipeCommand.updateComponent(userId, parent.id, V1, 7, linked.id)).toBe(
-      'ingredient-not-found',
-    )
-  })
-
-  test('refuses a recipe that is its own ingredient', async () => {
-    const parent = await ravioli()
+  test('refuses a recipe made of itself', async () => {
+    const parent = await bread()
     if (typeof parent === 'string') throw new Error('expected a recipe')
 
-    expect(await RecipeCommand.updateComponent(userId, parent.id, V1, 0, parent.id)).toBe(
+    expect(await RecipeCommand.linkComponent(userId, parent.id, parent.id, scale(1))).toBe(
       'self-reference',
     )
   })
 
-  test('answers not-found for an unknown recipe, an unknown version, or another cook’s', async () => {
-    const parent = await ravioli()
-    const linked = await dough()
+  test('refuses more links than a recipe may hold', async () => {
+    const parent = await bread()
+    if (typeof parent === 'string') throw new Error('expected a recipe')
+    for (let i = 0; i < COMPONENT_LIMITS.perRecipe; i++) {
+      const linked = await poolish()
+      if (typeof linked === 'string') throw new Error('expected a recipe')
+      await RecipeCommand.linkComponent(userId, parent.id, linked.id, scale(1))
+    }
+    const extra = await poolish()
+    if (typeof extra === 'string') throw new Error('expected a recipe')
+
+    expect(await RecipeCommand.linkComponent(userId, parent.id, extra.id, scale(1))).toBe(
+      'too-many-components',
+    )
+    // A weight is still correctable at the cap: the list does not grow.
+    const known = storedComponents(parent.id)[0]
+    if (!known) throw new Error('expected a link')
+    expect(
+      typeof (await RecipeCommand.linkComponent(userId, parent.id, known.recipe, scale(0.5))),
+    ).not.toBe('string')
+  })
+
+  test('answers not-found for an unknown recipe, or another cook’s', async () => {
+    const parent = await bread()
+    const linked = await poolish()
     if (typeof parent === 'string' || typeof linked === 'string')
       throw new Error('expected recipes')
 
-    expect(await RecipeCommand.updateComponent(userId, 'nope' as RecipeId, V1, 0, linked.id)).toBe(
+    expect(await RecipeCommand.linkComponent(userId, 'nope' as RecipeId, linked.id, scale(1))).toBe(
       'not-found',
     )
     expect(
-      await RecipeCommand.updateComponent(userId, parent.id, 9 as VersionNumber, 0, linked.id),
+      await RecipeCommand.linkComponent('user-2' as UserId, parent.id, linked.id, scale(1)),
     ).toBe('not-found')
-    expect(
-      await RecipeCommand.updateComponent('user-2' as UserId, parent.id, V1, 0, linked.id),
-    ).toBe('not-found')
+    expect(await RecipeCommand.unlinkComponent('user-2' as UserId, parent.id, linked.id)).toBe(
+      'not-found',
+    )
   })
 
   test('answers not-found when the linked recipe is another cook’s — never a code of its own', async () => {
-    const parent = await ravioli()
+    const parent = await bread()
     const stranger = await RecipeCommand.create('user-2' as UserId, newInput())
     if (typeof parent === 'string' || typeof stranger === 'string')
       throw new Error('expected recipes')
 
     // A code that said "it exists but is not yours" would tell them it exists.
-    expect(await RecipeCommand.updateComponent(userId, parent.id, V1, 0, stranger.id)).toBe(
+    expect(await RecipeCommand.linkComponent(userId, parent.id, stranger.id, scale(1))).toBe(
       'not-found',
     )
-    expect(storedIngredients(parent.id)[0]).not.toHaveProperty('component')
+    expect(storedComponents(parent.id)).toEqual([])
   })
 })
 
@@ -1606,29 +1620,6 @@ describe('RecipeCommand.updateIngredients', () => {
     expect(updated.rating).toBe(4 as Rating)
     expect(updated.executedAt).toBeDefined()
     expect((updated.content as DishContent).steps).toEqual(steps('Saisir', 'Mijoter'))
-  })
-
-  test('carries a component by name, and loses it on a rename', async () => {
-    const dough = await RecipeCommand.create(userId, {
-      ...newInput(),
-      title: 'Pâte à ravioles' as RecipeTitle,
-    })
-    const recipe = await RecipeCommand.create(userId, withFlour())
-    if (typeof dough === 'string' || typeof recipe === 'string') throw new Error('expected recipes')
-    await RecipeCommand.updateComponent(userId, recipe.id, V1, 0, dough.id)
-
-    const kept = await RecipeCommand.updateIngredients(userId, recipe.id, V1, [
-      ingredient('Farine', '999 g'),
-    ])
-    if (typeof kept === 'string') throw new Error(`expected a version, got ${kept}`)
-    expect((kept.content as DishContent).ingredients[0]?.component).toBe(dough.id)
-
-    const renamed = await RecipeCommand.updateIngredients(userId, recipe.id, V1, [
-      ingredient('Farine bio', '999 g'),
-    ])
-    if (typeof renamed === 'string') throw new Error(`expected a version, got ${renamed}`)
-    // A lost link costs nothing, a wrong one costs a recipe: one tap puts it back.
-    expect((renamed.content as DishContent).ingredients[0]?.component).toBeUndefined()
   })
 
   test('restamps the version and the recipe, in one batch', async () => {

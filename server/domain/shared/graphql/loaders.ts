@@ -62,12 +62,12 @@ export const recipeSatelliteLoaders = (userId: UserId): RecipeSatelliteLoaders =
       return grouped
     },
   ),
-  // The recipes an ingredient line IS — the ravioli's pasta dough. Batched into a
-  // single keyed read of exactly the lines the sheet holds, and scoped to the cook, so
-  // an id that is not theirs (or a recipe they deleted) simply resolves to nothing
-  // rather than answering with someone else's page. The lineage each linked recipe
-  // needs for its rating goes through `versionsByRecipe`, which batches them all into
-  // the same scan: a sheet never pays a scan per linked line.
+  // The recipes this one is made of — the bread's poolish, the ravioli's pasta dough.
+  // Batched into a single keyed read of exactly the links the sheet holds, and scoped
+  // to the cook, so an id that is not theirs (or a recipe they deleted) simply resolves
+  // to nothing rather than answering with someone else's page. The lineage each linked
+  // recipe needs for its rating goes through `versionsByRecipe`, which batches them all
+  // into the same scan: a sheet never pays a scan per linked recipe.
   recipesById: batchedBy(
     (recipeId) => recipeId,
     async (recipeIds) => {

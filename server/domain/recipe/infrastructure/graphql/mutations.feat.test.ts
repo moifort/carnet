@@ -734,122 +734,109 @@ describe('updateOvenProfile mutation', () => {
   })
 })
 
-describe('updateComponent mutation', () => {
-  const ravioli = `
+describe('linkComponent / unlinkComponent mutations', () => {
+  const bread = `
     mutation {
       createRecipe(input: {
         type: DISH
-        category: MAIN
-        title: "Ravioles aux champignons"
+        category: BAKING
+        title: "Pain de campagne"
         content: { dish: {
           ingredients: [
-            { name: "Pâte à ravioles", quantity: "400 g" }
-            { name: "Champignons", quantity: "250 g" }
+            { name: "Farine", quantity: "500 g" }
+            { name: "Sel", quantity: "10 g" }
           ]
-          steps: ["Garnir"]
+          steps: ["Pétrir"]
         } }
       }) { id }
     }
   `
 
-  const raviolId = async () => {
-    const result = await execute(ravioli)
+  const breadId = async () => {
+    const result = await execute(bread)
     expect(result.errors).toBeUndefined()
     return (result.data as { createRecipe: { id: string } }).createRecipe.id
   }
 
-  const link = (recipeId: string, ingredient: number, component: string | null) => `
+  const link = (recipeId: string, component: string, scale: number) => `
     mutation {
-      updateComponent(
-        recipeId: "${recipeId}"
-        versionNumber: 1
-        ingredient: ${ingredient}
-        component: ${component === null ? 'null' : `"${component}"`}
-      ) {
-        number
-        content { ... on DishContent { ingredients { name quantity component { title } } } }
+      linkComponent(recipeId: "${recipeId}", component: "${component}", scale: ${scale}) {
+        title
+        components { scale recipe { title bestRating } }
       }
     }
   `
 
-  test('says which recipe a line is, creating no version', async () => {
-    const parent = await raviolId()
-    const dough = await createdId()
+  const unlink = (recipeId: string, component: string) => `
+    mutation {
+      unlinkComponent(recipeId: "${recipeId}", component: "${component}") {
+        components { scale recipe { title } }
+      }
+    }
+  `
 
-    const result = await execute(link(parent, 0, dough))
+  test('links a recipe at the weight it is used here, creating no version', async () => {
+    const parent = await breadId()
+    const poolish = await createdId()
+
+    const result = await execute(link(parent, poolish, 0.2))
 
     expect(result.errors).toBeUndefined()
-    expect(result.data?.updateComponent).toMatchObject({
-      number: 1,
-      content: {
-        ingredients: [
-          // The line keeps its own name — the role the dough plays here — and gains
-          // the live title of the recipe it is.
-          { name: 'Pâte à ravioles', quantity: '400 g', component: { title: 'Lasagnes de mamie' } },
-          { name: 'Champignons', quantity: '250 g', component: null },
-        ],
-      },
+    expect(result.data?.linkComponent).toMatchObject({
+      title: 'Pain de campagne',
+      // The live title of the linked recipe — never a copy stored on the link.
+      components: [{ scale: 0.2, recipe: { title: 'Lasagnes de mamie', bestRating: null } }],
     })
-    // Naming the dough that was already used is a correction, not an attempt.
+    // Saying what a recipe is made of is not cooking it.
     expect(fake.snapshot('recipes').get(parent)?.lastVersionNumber).toBe(1)
   })
 
-  test('a null component unlinks the line, which stays a plain ingredient', async () => {
-    const parent = await raviolId()
-    const dough = await createdId()
-    await execute(link(parent, 0, dough))
+  test('relinking the same recipe rewrites its weight, in place', async () => {
+    const parent = await breadId()
+    const poolish = await createdId()
+    await execute(link(parent, poolish, 0.2))
 
-    const result = await execute(link(parent, 0, null))
+    const result = await execute(link(parent, poolish, 0.5))
 
     expect(result.errors).toBeUndefined()
-    expect(result.data?.updateComponent).toMatchObject({
-      content: { ingredients: [{ name: 'Pâte à ravioles', component: null }, { component: null }] },
-    })
+    expect(result.data?.linkComponent).toMatchObject({ components: [{ scale: 0.5 }] })
   })
 
-  test('answers INGREDIENT_NOT_FOUND past the end of the list', async () => {
-    const parent = await raviolId()
-    const dough = await createdId()
+  test('unlinks, leaving the recipe that was linked untouched', async () => {
+    const parent = await breadId()
+    const poolish = await createdId()
+    await execute(link(parent, poolish, 0.2))
 
-    const result = await execute(link(parent, 7, dough))
+    const result = await execute(unlink(parent, poolish))
 
-    expect(result.errors?.[0]?.extensions?.code).toBe('INGREDIENT_NOT_FOUND')
+    expect(result.errors).toBeUndefined()
+    expect(result.data?.unlinkComponent).toMatchObject({ components: [] })
+    expect(fake.snapshot('recipes').get(poolish)).toBeDefined()
   })
 
-  test('answers SELF_REFERENCE on a recipe that is its own ingredient', async () => {
-    const parent = await raviolId()
+  test('answers SELF_REFERENCE on a recipe made of itself', async () => {
+    const parent = await breadId()
 
-    const result = await execute(link(parent, 0, parent))
+    const result = await execute(link(parent, parent, 1))
 
     expect(result.errors?.[0]?.extensions?.code).toBe('SELF_REFERENCE')
   })
 
   test('answers NOT_FOUND on an unknown linked recipe — never that it exists', async () => {
-    const parent = await raviolId()
+    const parent = await breadId()
 
-    const result = await execute(link(parent, 0, '11111111-1111-4111-8111-111111111111'))
+    const result = await execute(link(parent, '11111111-1111-4111-8111-111111111111', 1))
 
     expect(result.errors?.[0]?.extensions?.code).toBe('NOT_FOUND')
   })
 
-  test('answers NOT_A_COOKED_RECIPE on a coffee, which has no ingredients', async () => {
-    const created = await execute(`
-      mutation {
-        createRecipe(input: {
-          type: COFFEE
-          category: DRINK
-          method: ESPRESSO
-          title: "Espresso"
-          content: { coffee: { extraction: { grind: "Niveau 12" } } }
-        }) { id }
-      }
-    `)
-    const id = (created.data as { createRecipe: { id: string } }).createRecipe.id
-    const dough = await createdId()
+  test('refuses a weight outside the range a link may hold', async () => {
+    const parent = await breadId()
+    const poolish = await createdId()
 
-    const result = await execute(link(id, 0, dough))
+    const result = await execute(link(parent, poolish, 0))
 
-    expect(result.errors?.[0]?.extensions?.code).toBe('NOT_A_COOKED_RECIPE')
+    expect(result.errors?.[0]?.extensions?.code).toBe('BAD_USER_INPUT')
   })
 })
 

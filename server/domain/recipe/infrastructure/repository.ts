@@ -86,6 +86,19 @@ export const findManyByIds = async (userId: UserId, ids: RecipeId[]) => {
     .filter((recipe): recipe is Recipe => recipe !== undefined && recipe.userId === userId)
 }
 
+// The composition link read the other way round: the recipes that are made of this
+// one. `componentIds` is what makes it one query — `array-contains` cannot look
+// inside `components`, whose entries are objects. Memoized per request, like every
+// other read a single sheet can ask for twice.
+export const findUsersOf = (userId: UserId, id: RecipeId) =>
+  memoizedPerRequest(`recipes:used-by:${userId}:${id}`, async () => {
+    const snap = await recipes()
+      .where('userId', '==', userId)
+      .where('componentIds', 'array-contains', id)
+      .get()
+    return snap.docs.map((doc) => doc.data())
+  })
+
 export const save = async (recipe: Recipe, batch?: WriteBatch) => {
   const ref = recipes().doc(recipe.id)
   // `categoryRank` and `methodRank` are storage-only, derived sort keys (never on

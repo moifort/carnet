@@ -18,6 +18,7 @@ import type {
   CoffeeWater,
   CoffeeWaterKind,
   CoffeeYield,
+  ComponentScale,
   IngredientName,
   IngredientQuantity,
   OvenCoreTemperature,
@@ -63,6 +64,7 @@ export const builder = new SchemaBuilder<{
     RecipeTitle: { Input: RecipeTitle; Output: RecipeTitle }
     VersionNumber: { Input: VersionNumber; Output: VersionNumber }
     Rating: { Input: Rating; Output: Rating }
+    ComponentScale: { Input: ComponentScale; Output: ComponentScale }
     AssistedProgram: { Input: AssistedProgram; Output: AssistedProgram }
     OvenTemperature: { Input: OvenTemperature; Output: OvenTemperature }
     OvenDuration: { Input: OvenDuration; Output: OvenDuration }

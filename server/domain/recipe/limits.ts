@@ -24,3 +24,12 @@ export const OVEN_RANGE = {
   duration: { min: 1, max: 720 }, // 12 h — a low-and-slow shoulder, not a typo
   core: { min: 30, max: 100 },
 } as const
+
+/** What a composition link may hold. `scale` is the closed range the branded
+ *  constructor enforces — a hundredth of a poolish or a hundred times it, past which
+ *  it is a typo and not a recipe; `perRecipe` is how many recipes one can be made of,
+ *  the cap `linkComponent` refuses on. */
+export const COMPONENT_LIMITS = {
+  scale: { min: 0.01, max: 100 },
+  perRecipe: 20,
+} as const

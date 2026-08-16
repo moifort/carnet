@@ -62,15 +62,12 @@ const brandCoffeeProposal = (proposal: CoffeeProposal): VersionContent =>
 
 // Rebuild the AI context ingredients from a stored version's content. A coffee has
 // none — its dose, its water and its milk are parameters, handed over separately.
-// A line that is a recipe of its own travels as a flag, so the model keeps it whole
-// instead of unfolding it into the components of a recipe it was never shown.
 const contextIngredients = (content: VersionContent) =>
   content.kind === 'coffee'
     ? []
-    : content.ingredients.map(({ name, quantity, component }) => ({
+    : content.ingredients.map(({ name, quantity }) => ({
         name: name as string,
         quantity: quantity as string,
-        component: component !== undefined,
       }))
 
 // The coffee parameters the iteration starts from, as the model reads them: plain

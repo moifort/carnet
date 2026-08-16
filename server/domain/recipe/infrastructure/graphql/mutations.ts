@@ -508,63 +508,85 @@ builder.mutationField('updateOvenProfile', (t) =>
   }),
 )
 
-builder.mutationField('updateComponent', (t) =>
+builder.mutationField('linkComponent', (t) =>
   t.field({
-    type: VersionType,
+    type: RecipeType,
     description: [
-      'Say which recipe one ingredient line IS — the pasta dough of a ravioli, a page of its own ' +
-        'with its own versions and ratings. A correction in place: naming the dough you already ' +
-        'used changes nothing about the plate you cooked, so **no version is created** and its ' +
-        'rating still stands. Changing dough is another matter — that is an attempt, and it goes ' +
-        'through a new version. **Send `component: null` to unlink**, which leaves a plain ' +
-        'ingredient line behind. Returns the updated version.',
+      'Say that this recipe is made of another one, and how much of it it takes — the poolish of ' +
+        'a bread dough, the pasta dough of a ravioli. The link is held by the recipe, so it holds ' +
+        'for every version of it and no iteration has to carry it forward. **No version is ' +
+        'created** and the recipe is not redated: saying what a recipe is made of is not cooking ' +
+        'it. Returns the updated recipe.',
       '',
-      'The linked recipe must be one of yours: anything else answers `NOT_FOUND`. A recipe cannot ' +
-        'be its own ingredient (`SELF_REFERENCE`), and a coffee has no ingredient list to link ' +
-        'from (`NOT_A_COOKED_RECIPE`).',
+      'Linking a recipe already linked **rewrites its `scale`** — that is how you change the ' +
+        'weight, and the link keeps its place in the list. The linked recipe must be one of ' +
+        'yours: anything else answers `NOT_FOUND`. A recipe cannot be made of itself ' +
+        '(`SELF_REFERENCE`), and a recipe holds at most 20 links (`TOO_MANY_COMPONENTS`).',
       '',
       '```graphql',
-      'updateComponent(',
-      '  recipeId: "9f1c-a3b2", versionNumber: 1, ingredient: 0, component: "3b7e-91cd"',
-      ') { number }',
+      'linkComponent(recipeId: "9f1c-a3b2", component: "3b7e-91cd", scale: 0.2) { title }',
       '```',
     ].join('\n'),
     args: {
       recipeId: t.arg({
         type: 'RecipeId',
         required: true,
-        description: 'Which recipe the version belongs to',
-      }),
-      versionNumber: t.arg({
-        type: 'VersionNumber',
-        required: true,
-        description: 'Which version to annotate, e.g. `1`',
-      }),
-      ingredient: t.arg.int({
-        required: true,
-        description:
-          'Which line of the ingredient list, counting from `0` in the order it is shown',
+        description: 'The recipe that is made of another one',
       }),
       component: t.arg({
         type: 'RecipeId',
-        required: false,
-        description: 'The recipe this line is, or `null` to make it a plain ingredient again',
+        required: true,
+        description: 'The recipe it is made of, e.g. your poolish',
+      }),
+      scale: t.arg({
+        type: 'ComponentScale',
+        required: true,
+        description:
+          'How much of it this recipe takes, as a multiplier of what that recipe writes, e.g. ' +
+          '`0.2` for a fifth of it. Send `1` to take it as written.',
       }),
     },
-    resolve: async (_root, { recipeId, versionNumber, ingredient, component }, { userId }) => {
-      const result = await RecipeCommand.updateComponent(
-        userId,
-        recipeId,
-        versionNumber,
-        ingredient,
-        component ?? undefined,
-      )
+    resolve: async (_root, { recipeId, component, scale }, { userId }) => {
+      const result = await RecipeCommand.linkComponent(userId, recipeId, component, scale)
       return match(result)
         .with('not-found', domainError)
-        .with('not-a-cooked-recipe', domainError)
-        .with('ingredient-not-found', domainError)
         .with('self-reference', domainError)
-        .with(P.not(P.string), (version) => version)
+        .with('too-many-components', domainError)
+        .with(P.not(P.string), (recipe) => recipe)
+        .exhaustive()
+    },
+  }),
+)
+
+builder.mutationField('unlinkComponent', (t) =>
+  t.field({
+    type: RecipeType,
+    description: [
+      'Stop saying this recipe is made of that one. Nothing else changes: the recipe unlinked ' +
+        'lives on, with its own versions and its own ratings. Unlinking one that was not linked ' +
+        'succeeds and changes nothing. Returns the updated recipe.',
+      '',
+      '```graphql',
+      'unlinkComponent(recipeId: "9f1c-a3b2", component: "3b7e-91cd") { title }',
+      '```',
+    ].join('\n'),
+    args: {
+      recipeId: t.arg({
+        type: 'RecipeId',
+        required: true,
+        description: 'The recipe holding the link',
+      }),
+      component: t.arg({
+        type: 'RecipeId',
+        required: true,
+        description: 'The linked recipe to let go of',
+      }),
+    },
+    resolve: async (_root, { recipeId, component }, { userId }) => {
+      const result = await RecipeCommand.unlinkComponent(userId, recipeId, component)
+      return match(result)
+        .with('not-found', domainError)
+        .with(P.not(P.string), (recipe) => recipe)
         .exhaustive()
     },
   }),

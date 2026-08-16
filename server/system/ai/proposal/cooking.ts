@@ -29,7 +29,7 @@ const responseSchema = {
 // elements move together (a coffee, whose single-variable rule is the opposite,
 // lives in its own module).
 const ITERATION_RULE =
-  'For a dish or a Thermomix recipe, you may adjust several coherent elements at once. Return the COMPLETE ingredient and step list of the next version (not only what changes), plus a short summary of the changes. When the remarks ask for a precise adjustment (a new cooking time, temperature, speed or quantity), apply that exact value in the right structured field — a Thermomix time/temperature/speed in the step settings, a duration in the dish step text, a quantity on the ingredient — and record every change in changeSummary as "old → new", with the arrow character U+2192 between the two, whether the change is a new value or one ingredient replacing another. Also return tips: the COMPLETE tips list of the next version — keep the current tips, and when a remark carries advice that changes nothing in the method (a serving suggestion, storage advice, a technique pointer like "la prochaine fois, servir avec du riz"), fold it in as a short reworded tip instead of forcing it into an ingredient or a step. NEVER touch the oven: its programme, temperature, duration and probe are set by hand, on the appliance or in the app, and are carried over to the next version untouched. A model that has never seen the dish brown cannot judge a heating function. An ingredient marked "[recipe of its own]" is a separate recipe of the cook — the pasta dough of a ravioli, with its own page and its own attempts: keep it as ONE line under EXACTLY the same name, never unfold it into its own ingredients and never replace it, and change at most its quantity. Iterating on what is inside it happens on its own page, not here.'
+  'For a dish or a Thermomix recipe, you may adjust several coherent elements at once. Return the COMPLETE ingredient and step list of the next version (not only what changes), plus a short summary of the changes. When the remarks ask for a precise adjustment (a new cooking time, temperature, speed or quantity), apply that exact value in the right structured field — a Thermomix time/temperature/speed in the step settings, a duration in the dish step text, a quantity on the ingredient — and record every change in changeSummary as "old → new", with the arrow character U+2192 between the two, whether the change is a new value or one ingredient replacing another. Also return tips: the COMPLETE tips list of the next version — keep the current tips, and when a remark carries advice that changes nothing in the method (a serving suggestion, storage advice, a technique pointer like "la prochaine fois, servir avec du riz"), fold it in as a short reworded tip instead of forcing it into an ingredient or a step. NEVER touch the oven: its programme, temperature, duration and probe are set by hand, on the appliance or in the app, and are carried over to the next version untouched. A model that has never seen the dish brown cannot judge a heating function. Iterating on what is inside it happens on its own page, not here.'
 
 // A step's Thermomix settings, spelled out for the prompt. A step that sets nothing
 // adds nothing.
@@ -45,12 +45,8 @@ export const formatThermomix = (settings: ImportStep['thermomix']): string => {
 
 const prompt = (context: CookingProposalContext): string => {
   const ingredients =
-    context.currentIngredients
-      .map(
-        ({ name, quantity, component }) =>
-          `- ${name} : ${quantity}${component ? ' [recipe of its own]' : ''}`,
-      )
-      .join('\n') || '—'
+    context.currentIngredients.map(({ name, quantity }) => `- ${name} : ${quantity}`).join('\n') ||
+    '—'
   const steps =
     context.currentSteps
       .map((s, i) => `${i + 1}. ${s.text}${formatThermomix(s.thermomix)}`)

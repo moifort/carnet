@@ -12,10 +12,11 @@ import type { DishContent } from '~/domain/recipe/content/dish'
 import type { OvenProfile } from '~/domain/recipe/content/oven'
 import type { ThermomixContent, ThermomixStep } from '~/domain/recipe/content/thermomix'
 import type { VersionContent } from '~/domain/recipe/content/types'
-import type { RecipeLibraryPage } from '~/domain/recipe/query'
+import { type RecipeLibraryPage, RecipeQuery } from '~/domain/recipe/query'
 import type { CoffeeVocabulary } from '~/domain/recipe/vocabulary'
 import { builder } from '~/domain/shared/graphql/builder'
 import type {
+  Component,
   Ingredient,
   Recipe,
   RecipeVersion,
@@ -43,20 +44,35 @@ export const IngredientType = builder.objectRef<Ingredient>('Ingredient').implem
       type: 'IngredientQuantity',
       description: 'How much of it, unit included, e.g. `"250 g"`, `"2 tbsp"`, `"1 pinch"`',
     }),
-    // Satellite: the linked recipe, through a batched loader — a sheet with ten linked
-    // lines costs one keyed read of exactly those ten, and their ratings share the
-    // single lineage scan `versionsByRecipe` already pays for.
-    component: t.field({
+  }),
+})
+
+export const ComponentType = builder.objectRef<Component>('Component').implement({
+  description:
+    'One recipe another one is made of, with how much of it it takes — the poolish of a bread ' +
+    'dough, the pasta dough of a ravioli. The link is held by the recipe, so it holds for every ' +
+    'version of it.',
+  fields: (t) => ({
+    // Satellite: the linked recipe, through a batched loader — a sheet with ten links
+    // costs one keyed read of exactly those ten, and their ratings share the single
+    // lineage scan `versionsByRecipe` already pays for.
+    recipe: t.field({
       type: RecipeType,
       nullable: true,
       description:
-        'The recipe this line IS, when it is one of yours — the pasta dough of a ravioli, a page ' +
-        'of its own with its own versions and ratings. Read its `versionToOpen` to show the best ' +
-        'one: the link holds the recipe, never a version, so it follows the dough as it improves. ' +
-        '`null` on a plain ingredient line, and `null` once the recipe it pointed to is deleted — ' +
-        'the line stays readable on its own (`name` + `quantity`).',
-      resolve: async (i, _a, { loaders }) =>
-        i.component ? ((await loaders.recipesById.load(i.component)) ?? null) : null,
+        'The linked recipe, a page of its own with its own versions and ratings. Read its ' +
+        '`versionToOpen` to show the best one: the link holds the recipe, never a version, so it ' +
+        'follows the dough as it improves. `null` once that recipe is deleted — nothing is ' +
+        'cleaned up, the link simply stops answering.',
+      resolve: async ({ recipe }, _a, { loaders }) =>
+        (await loaders.recipesById.load(recipe)) ?? null,
+    }),
+    scale: t.expose('scale', {
+      type: 'ComponentScale',
+      description:
+        'How much of it this recipe takes, as a multiplier of the quantities that recipe writes: ' +
+        '`0.2` is a fifth of it, `1` is it as written. Multiply its ingredient quantities by this ' +
+        'to show them the way they are used here.',
     }),
   }),
 })
@@ -666,6 +682,25 @@ RecipeType.implement({
         const versions = (await loaders.versionsByRecipe.load(r.id)) ?? []
         return versionToOpen(versions)
       },
+    }),
+    components: t.field({
+      type: [ComponentType],
+      description:
+        'The recipes this one is made of, with how much of each it takes — the poolish of a ' +
+        'bread dough. In the order they were linked. Empty on a recipe that stands alone, which ' +
+        'is most of them.',
+      resolve: ({ components }) => components ?? [],
+    }),
+    // Satellite: the composition link read backwards, one query per sheet — never one
+    // per row. The ratings of the recipes it returns ride the lineage scan
+    // `versionsByRecipe` already pays for.
+    usedBy: t.field({
+      type: [RecipeType],
+      description:
+        'The recipes made of this one — what the poolish’s page answers when it asks who uses ' +
+        'it. The mirror of `components`, derived, never set: link from the recipe that uses it. ' +
+        'Empty when nothing does.',
+      resolve: async ({ id }, _a, { userId }) => RecipeQuery.usedBy(userId, id),
     }),
     // Satellite: the recipe's best attempt rating across its cooked versions, from
     // the batched loader that groups the full lineage by recipe (no extra reads).

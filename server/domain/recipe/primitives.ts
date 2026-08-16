@@ -7,7 +7,7 @@ import {
 import { type OvenProfile as OvenProfileType, toOvenProfile } from '~/domain/recipe/content/oven'
 import { type LooseThermomixSettings, thermomixSteps } from '~/domain/recipe/content/thermomix'
 import type { VersionContent as VersionContentType } from '~/domain/recipe/content/types'
-import { OVEN_RANGE, RECIPE_MAX } from '~/domain/recipe/limits'
+import { COMPONENT_LIMITS, OVEN_RANGE, RECIPE_MAX } from '~/domain/recipe/limits'
 import {
   type AssistedProgram as AssistedProgramType,
   BREW_METHOD_VALUES,
@@ -27,6 +27,7 @@ import {
   type CoffeeWaterKind as CoffeeWaterKindType,
   type CoffeeWater as CoffeeWaterType,
   type CoffeeYield as CoffeeYieldType,
+  type ComponentScale as ComponentScaleType,
   DISH_CATEGORY_VALUES,
   type DishCategory as DishCategoryType,
   type IngredientName as IngredientNameType,
@@ -95,6 +96,19 @@ export const OvenDuration = (value: unknown) =>
 
 export const OvenCoreTemperature = (value: unknown) =>
   make<OvenCoreTemperatureType>()(ovenDial(OVEN_RANGE.core)(value))
+
+// A link's scale is a real number, unlike every quantity in the domain: it is what
+// the app multiplies the linked recipe's quantities by. Refused at zero and below —
+// a recipe taken zero times is a recipe that is not linked.
+export const ComponentScale = (value: unknown) => {
+  const v = z
+    .preprocess(
+      (n) => (typeof n === 'string' ? Number(n) : n),
+      z.number().min(COMPONENT_LIMITS.scale.min).max(COMPONENT_LIMITS.scale.max),
+    )
+    .parse(value)
+  return make<ComponentScaleType>()(v)
+}
 
 export const RecipeTitle = (value: unknown) => {
   const v = z.string().trim().min(1).max(RECIPE_MAX.title).parse(value)

@@ -67,6 +67,11 @@ export namespace RecipeQuery {
   export const byIds = async (userId: UserId, ids: RecipeId[]) =>
     repository.findManyByIds(userId, ids)
 
+  // The recipes made of this one — the composition link read backwards, what the
+  // poolish's sheet answers when it asks who uses it. One query per sheet opened,
+  // never one per row.
+  export const usedBy = async (userId: UserId, id: RecipeId) => repository.findUsersOf(userId, id)
+
   export const allVersions = async (userId: UserId) => repository.findAllVersionsByUser(userId)
 
   // The lineages of the recipes being read, for the satellite loader to group. Takes
