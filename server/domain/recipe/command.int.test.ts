@@ -186,7 +186,9 @@ describe('RecipeCommand.copyVersion', () => {
       tips: ['Servir avec du riz' as Tip],
     })
     if (typeof source === 'string') throw new Error('expected a recipe')
-    await RecipeCommand.updateWarnings(userId, source.id, ['Fouet dès le début' as Warning])
+    await RecipeCommand.updateWarnings(userId, source.id, 1 as VersionNumber, [
+      'Fouet dès le début' as Warning,
+    ])
     await RecipeCommand.recordAttempt(userId, {
       recipeId: source.id,
       versionNumber: 1 as VersionNumber,
@@ -211,12 +213,13 @@ describe('RecipeCommand.copyVersion', () => {
     // The identity of the recipe copied, cautions included.
     expect(copy.type).toBe('dish')
     expect(copy.category).toBe('main')
-    expect(copy.warnings).toEqual(['Fouet dès le début' as Warning])
     expect(copy.lastVersionNumber).toBe(1 as VersionNumber)
 
     const v1 = fake.snapshot('recipe-versions').get(`${copy.id}_1`)
     expect(v1?.content).toEqual(dishContent())
     expect(v1?.tips).toEqual(['Servir avec du riz' as Tip])
+    // The cautions travel with the plate, under the copy's own name.
+    expect(v1?.warnings).toEqual(['Fouet dès le début' as Warning])
     // Where it came from survives as a label and nothing else.
     expect(v1?.origin).toEqual({ kind: 'import', detail: 'Blanquette v1' })
     // The verdict travels with the plate…
@@ -913,48 +916,78 @@ describe('RecipeCommand.updateRating', () => {
 })
 
 describe('RecipeCommand.updateWarnings', () => {
+  const V1 = 1 as VersionNumber
   const warnings = (...w: string[]) => w.map((x) => x as Warning)
 
-  test('replaces the warnings in place — no version touched, date left alone', async () => {
+  test('replaces the version’s warnings in place — no version created', async () => {
     const recipe = await RecipeCommand.create(userId, newInput())
     if (typeof recipe === 'string') throw new Error('expected a recipe')
 
     const result = await RecipeCommand.updateWarnings(
       userId,
       recipe.id,
+      V1,
       warnings('Mettre le fouet dès le début'),
     )
-    if (typeof result === 'string') throw new Error(`expected a recipe, got ${result}`)
+    if (typeof result === 'string') throw new Error(`expected a version, got ${result}`)
 
     expect(result.warnings).toEqual(warnings('Mettre le fouet dès le début'))
-    // Pinning a caution is not cooking: the recipe keeps the date of the version it
-    // opens on, and stays where it was in the library.
-    expect(result.updatedAt).toEqual(recipe.updatedAt)
+    expect(fake.snapshot('recipe-versions').get(`${recipe.id}_1`)?.warnings).toEqual(
+      warnings('Mettre le fouet dès le début'),
+    )
+    // Pinning a caution never touches the lineage, the content or the outcome.
     const stored = fake.snapshot('recipes').get(recipe.id)
-    expect(stored?.warnings).toEqual(warnings('Mettre le fouet dès le début'))
-    // Pinning a caution never touches the lineage.
-    expect(stored?.lastVersionNumber).toBe(1 as VersionNumber)
+    expect(stored?.lastVersionNumber).toBe(V1)
     expect(fake.snapshot('recipe-versions').get(`${recipe.id}_1`)?.tips).toEqual([])
   })
 
   test('full-replacement: [] clears the banner', async () => {
     const recipe = await RecipeCommand.create(userId, newInput())
     if (typeof recipe === 'string') throw new Error('expected a recipe')
-    await RecipeCommand.updateWarnings(userId, recipe.id, warnings('Sortir le beurre 1 h avant'))
+    await RecipeCommand.updateWarnings(
+      userId,
+      recipe.id,
+      V1,
+      warnings('Sortir le beurre 1 h avant'),
+    )
 
-    const cleared = await RecipeCommand.updateWarnings(userId, recipe.id, [])
-    if (typeof cleared === 'string') throw new Error(`expected a recipe, got ${cleared}`)
+    const cleared = await RecipeCommand.updateWarnings(userId, recipe.id, V1, [])
+    if (typeof cleared === 'string') throw new Error(`expected a version, got ${cleared}`)
 
     expect(cleared.warnings).toEqual([])
-    expect(fake.snapshot('recipes').get(recipe.id)?.warnings).toEqual([])
+    expect(fake.snapshot('recipe-versions').get(`${recipe.id}_1`)?.warnings).toEqual([])
   })
 
-  test('returns not-found for an unknown recipe or another cook’s recipe', async () => {
-    expect(await RecipeCommand.updateWarnings(userId, 'nope' as RecipeId, [])).toBe('not-found')
+  test('the next iteration carries the warnings over', async () => {
+    const recipe = await RecipeCommand.create(userId, newInput())
+    if (typeof recipe === 'string') throw new Error('expected a recipe')
+    await RecipeCommand.updateWarnings(userId, recipe.id, V1, warnings('Fouet dès le début'))
+
+    await RecipeCommand.addVersion(userId, recipe.id, {
+      change: 'Moins de sel',
+      basedOn: V1,
+      content: dishContent(),
+      tips: [],
+    })
+
+    // The cook wrote the caution about a gesture, not about the seasoning that
+    // changed: saying yes to a proposal must not drop it.
+    expect(fake.snapshot('recipe-versions').get(`${recipe.id}_2`)?.warnings).toEqual(
+      warnings('Fouet dès le début'),
+    )
+  })
+
+  test('returns not-found for an unknown recipe, version, or another cook’s recipe', async () => {
+    expect(await RecipeCommand.updateWarnings(userId, 'nope' as RecipeId, V1, [])).toBe('not-found')
 
     const recipe = await RecipeCommand.create(userId, newInput())
     if (typeof recipe === 'string') throw new Error('expected a recipe')
-    expect(await RecipeCommand.updateWarnings('user-2' as UserId, recipe.id, [])).toBe('not-found')
+    expect(await RecipeCommand.updateWarnings(userId, recipe.id, 9 as VersionNumber, [])).toBe(
+      'not-found',
+    )
+    expect(await RecipeCommand.updateWarnings('user-2' as UserId, recipe.id, V1, [])).toBe(
+      'not-found',
+    )
   })
 })
 
@@ -1239,6 +1272,13 @@ describe('a version’s updatedAt', () => {
     if (typeof retipped === 'string') throw new Error(`expected a version, got ${retipped}`)
     expect(retipped.updatedAt).toEqual(new Date('2026-03-13T10:00:00.000Z'))
 
+    at('2026-03-13T16:00:00.000Z')
+    const warned = await RecipeCommand.updateWarnings(userId, recipe.id, V1, [
+      'Sortir le beurre' as Warning,
+    ])
+    if (typeof warned === 'string') throw new Error(`expected a version, got ${warned}`)
+    expect(warned.updatedAt).toEqual(new Date('2026-03-13T16:00:00.000Z'))
+
     at('2026-03-14T11:00:00.000Z')
     const corrected = await RecipeCommand.updateCoffeeParameters(userId, recipe.id, V1, {
       ...emptyCoffeeParameters,
@@ -1313,7 +1353,7 @@ describe('a recipe’s date — the version it opens on', () => {
     expect(storedDate(recipe.id)).toEqual(new Date('2026-04-02T19:00:00.000Z'))
   })
 
-  test('a favourite, a rename and a caution never move it', async () => {
+  test('a favourite and a rename never move it', async () => {
     at('2026-03-11T08:00:00.000Z')
     const recipe = await RecipeCommand.create(userId, newInput())
     if (typeof recipe === 'string') throw new Error('expected a recipe')
@@ -1321,7 +1361,6 @@ describe('a recipe’s date — the version it opens on', () => {
     at('2026-08-06T10:00:00.000Z')
     await RecipeCommand.update(userId, recipe.id, { favorite: true })
     await RecipeCommand.update(userId, recipe.id, { title: 'Blanquette de mamie' as RecipeTitle })
-    await RecipeCommand.updateWarnings(userId, recipe.id, ['Sortir le beurre' as Warning])
 
     // Housekeeping, not cooking: the recipe stays filed under March.
     expect(storedDate(recipe.id)).toEqual(new Date('2026-03-11T08:00:00.000Z'))

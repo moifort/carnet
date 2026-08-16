@@ -20,10 +20,13 @@ mutation UpdateRecipe($id: RecipeId!, $input: UpdateRecipeInput!) {
   }
 }
 
-mutation UpdateWarnings($recipeId: RecipeId!, $warnings: [Warning!]!) {
-  updateWarnings(recipeId: $recipeId, warnings: $warnings) {
-    id
-    warnings
+mutation UpdateWarnings(
+  $recipeId: RecipeId!
+  $versionNumber: VersionNumber!
+  $warnings: [Warning!]!
+) {
+  updateWarnings(recipeId: $recipeId, versionNumber: $versionNumber, warnings: $warnings) {
+    ...VersionFields
   }
 }
 

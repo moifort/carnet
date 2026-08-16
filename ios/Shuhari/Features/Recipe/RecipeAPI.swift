@@ -233,12 +233,16 @@ enum RecipeAPI {
         )
     }
 
-    /// Replace the recipe's cautions with the complete list — rewritten in place,
+    /// Replace the version's cautions with the complete list — rewritten in place,
     /// no version created. An empty list clears the banner.
-    static func updateWarnings(id: String, warnings: [String]) async throws {
+    static func updateWarnings(id: String, versionNumber: Int, warnings: [String]) async throws {
         _ = try await GraphQLHelpers.perform(
             GraphQLClient.shared.apollo,
-            mutation: ShuhariGraphQL.UpdateWarningsMutation(recipeId: id, warnings: warnings)
+            mutation: ShuhariGraphQL.UpdateWarningsMutation(
+                recipeId: id,
+                versionNumber: versionNumber,
+                warnings: warnings
+            )
         )
     }
 }
@@ -253,7 +257,6 @@ func mapRecipe(_ r: ShuhariGraphQL.RecipeQuery.Data.Recipe) -> Recipe {
         category: DishCategory(graphql: r.category),
         method: BrewMethod(graphql: r.method),
         favorite: r.favorite,
-        warnings: r.warnings,
         versions: r.versions.map { mapVersion($0.fragments.versionFields) },
         bestRating: r.bestRating,
         versionToOpen: mapVersion(r.versionToOpen.fragments.versionFields)
@@ -271,6 +274,7 @@ func mapVersion(_ v: ShuhariGraphQL.VersionFields) -> RecipeVersion {
         originDetail: v.originDetail,
         content: mapVersionContent(v.content.fragments.versionContentFields),
         tips: v.tips,
+        warnings: v.warnings,
         recipeId: v.recipeId,
         toTest: v.toTest,
         rating: v.rating,

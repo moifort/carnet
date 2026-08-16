@@ -1199,22 +1199,25 @@ type Mutation {
   ): Version!
 
   """
-  Replace a recipe’s cautions with this complete list — what the banner atop its sheet shows before anything else, e.g. `"The whisk must go in from the very start"`. Recipe-level, so the cautions outlive every version; rewritten in place, no version is created. Returns the updated recipe.
+  Replace one version’s cautions with this complete list — what the banner atop the recipe sheet shows before anything else, e.g. `"The whisk must go in from the very start"`. Rewritten in place: no version is created, and the content and outcome are left untouched. The next iteration carries them over on its own. Returns the updated version.
   
   ```graphql
-  updateWarnings(recipeId: "9f1c-a3b2", warnings: ["The whisk must go in from the very start"]) {
-    id
+  updateWarnings(recipeId: "9f1c-a3b2", versionNumber: 2, warnings: ["The whisk must go in from the very start"]) {
+    number
     warnings
   }
   ```
   """
   updateWarnings(
-    """Which recipe to pin the cautions on"""
+    """Which recipe the version belongs to"""
     recipeId: RecipeId!
+
+    """Which version’s cautions to replace, e.g. `2`"""
+    versionNumber: VersionNumber!
 
     """The complete new cautions list (send `[]` to clear the banner)"""
     warnings: [Warning!]!
-  ): Recipe!
+  ): Version!
 }
 
 """
@@ -1725,11 +1728,6 @@ type Recipe {
 
   """The whole history, oldest first, e.g. `v1 → v2 → v3`"""
   versions: [Version!]!
-
-  """
-  The cautions you pinned on this recipe, shown as a banner atop its sheet before anything else, e.g. `"The whisk must go in from the very start"`. Recipe-level — a caution outlives every version. Empty list when it has none. Rewritable in place (see updateWarnings).
-  """
-  warnings: [Warning!]!
 }
 
 """
@@ -2087,6 +2085,11 @@ type Version {
   When this version was last edited — its attempt re-recorded, its tips or its coffee parameters corrected. Same as createdAt until something is changed on it, e.g. `"2026-07-20T09:05:00.000Z"`
   """
   updatedAt: DateTime!
+
+  """
+  The cautions you pinned on this version, shown as a banner atop the recipe sheet before anything else, e.g. `"The whisk must go in from the very start"`. Carried onto the next iteration, so a caution never evaporates. Empty list when it has none. Rewritable in place (see updateWarnings).
+  """
+  warnings: [Warning!]!
 
   """
   The reason behind that change, e.g. `"The top was burning at 200°C"`. `null` when not given.

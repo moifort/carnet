@@ -336,6 +336,9 @@ enum Fixtures {
         originKind: .aiProposal,
         originDetail: nil,
         content: .thermomix(ingredients: risottoIngredients, steps: risottoSteps),
+        // The banner atop the recipe sheet — the whisk caution the feature was
+        // born from, carried here from the version it was written on.
+        warnings: ["Le fouet doit être mis dès le début."],
         recipeId: "risotto",
         rating: 4,
         remarks: "Bonne texture, manque un peu de sel.",
@@ -351,9 +354,6 @@ enum Fixtures {
         type: .thermomix,
         category: .main,
         favorite: true,
-        // The banner atop the recipe sheet — the whisk caution the feature was
-        // born from.
-        warnings: ["Le fouet doit être mis dès le début."],
         versions: [risottoV2],
         bestRating: 4,
         versionToOpen: risottoV2

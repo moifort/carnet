@@ -6,6 +6,7 @@ import type {
   Tip,
   VersionNumber,
   VersionOrigin,
+  Warning,
 } from '~/domain/recipe/types'
 import type { UserId } from '~/domain/shared/types'
 
@@ -14,8 +15,9 @@ import type { UserId } from '~/domain/shared/types'
 // (the discriminated recipe body) are immutable, but a version *is* an attempt —
 // it is a planned attempt while `executedAt` is absent, then carries its outcome
 // (rating/remarks/photo). The outcome is overwritable — recording again re-cooks
-// the same version in place rather than forcing a new one — and so are the `tips`,
-// the only two parts of a version that can be rewritten without creating one.
+// the same version in place rather than forcing a new one — and so are the `tips`
+// and the `warnings`, the only three parts of a version that can be rewritten
+// without creating one.
 export type RecipeVersion = {
   userId: UserId
   recipeId: RecipeId
@@ -43,6 +45,13 @@ export type RecipeVersion = {
   // envelope, not in `content`; and unlike the content it is overwritable in place
   // (`updateTips` rewrites the whole list without creating a version). `[]` = none.
   tips: Tip[]
+  // The cook's cautions on this attempt ("Le fouet doit être mis dès le début") —
+  // the banner atop the recipe sheet, so a critical gesture is read before cooking
+  // starts. Versioned like everything that describes the plate, and carried onto the
+  // next iteration by `addVersion`: a caution the cook wrote must not evaporate
+  // because they said yes to a change of seasoning. Overwritable in place
+  // (`updateWarnings`), like `tips`. `[]` = none.
+  warnings: Warning[]
   // Waiting to be cooked, and listed as such. Only an improvement raises it — the
   // cook asked for this version, so it owes it a try; it drops as soon as the version
   // is cooked (a rating, a photo, remarks). Absent rather than false.

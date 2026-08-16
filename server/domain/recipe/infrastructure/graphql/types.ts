@@ -498,6 +498,15 @@ export const VersionType = builder.objectRef<RecipeVersion>('Version').implement
         'the advice never creates a version.',
       resolve: ({ tips }) => tips,
     }),
+    warnings: t.field({
+      type: ['Warning'],
+      description:
+        'The cautions you pinned on this version, shown as a banner atop the recipe sheet ' +
+        'before anything else, e.g. `"The whisk must go in from the very start"`. Carried onto ' +
+        'the next iteration, so a caution never evaporates. Empty list when it has none. ' +
+        'Rewritable in place (see updateWarnings).',
+      resolve: ({ warnings }) => warnings,
+    }),
     executedAt: t.field({
       type: 'DateTime',
       nullable: true,
@@ -601,15 +610,6 @@ RecipeType.implement({
         'Whether you marked it as a favourite, e.g. `true` for the risotto you keep coming back ' +
         'to. Drives the library’s favourites lens (see the `favorite` argument on `recipes`).',
       resolve: ({ favorite }) => favorite === true,
-    }),
-    warnings: t.field({
-      type: ['Warning'],
-      description:
-        'The cautions you pinned on this recipe, shown as a banner atop its sheet before ' +
-        'anything else, e.g. `"The whisk must go in from the very start"`. Recipe-level — a ' +
-        'caution outlives every version. Empty list when it has none. Rewritable in place ' +
-        '(see updateWarnings).',
-      resolve: ({ warnings }) => warnings,
     }),
     // Satellite: a real count of the remaining versions, not the highest number — a
     // deleted version leaves a numbering hole the aggregate's allocator never refills.

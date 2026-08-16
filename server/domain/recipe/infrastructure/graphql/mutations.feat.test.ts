@@ -163,7 +163,9 @@ describe('copyVersion mutation', () => {
     const id = await createdId()
     await execute(`
       mutation {
-        updateWarnings(recipeId: "${id}", warnings: ["Le fouet dès le début"]) { id }
+        updateWarnings(recipeId: "${id}", versionNumber: 1, warnings: ["Le fouet dès le début"]) {
+          number
+        }
       }
     `)
     await execute(`
@@ -178,23 +180,28 @@ describe('copyVersion mutation', () => {
           id
           title
           category
-          warnings
           versionCount
           bestRating
-          versionToOpen { number tried rating originDetail }
+          versionToOpen { number tried rating originDetail warnings }
         }
       }
     `)
     expect(result.errors).toBeUndefined()
     expect(result.data?.copyVersion).toMatchObject({
       title: 'Lasagnes de nonna',
-      // The course of the recipe copied, and its cautions.
+      // The course of the recipe copied.
       category: 'MAIN',
-      warnings: ['Le fouet dès le début'],
-      // A lineage of one, opening on the plate it was copied from — rating and all.
+      // A lineage of one, opening on the plate it was copied from — rating,
+      // cautions and all.
       versionCount: 1,
       bestRating: 4,
-      versionToOpen: { number: 1, tried: true, rating: 4, originDetail: 'Lasagnes de mamie v1' },
+      versionToOpen: {
+        number: 1,
+        tried: true,
+        rating: 4,
+        originDetail: 'Lasagnes de mamie v1',
+        warnings: ['Le fouet dès le début'],
+      },
     })
 
     const copyId = (result.data as { copyVersion: { id: string } }).copyVersion.id
@@ -352,17 +359,19 @@ describe('updateTips mutation', () => {
 })
 
 describe('updateWarnings mutation', () => {
-  test('rewrites the cautions in place, without touching the lineage', async () => {
+  test('rewrites the version’s cautions in place, without touching the lineage', async () => {
     const id = await createdId()
     const result = await execute(`
       mutation {
-        updateWarnings(recipeId: "${id}", warnings: ["Mettre le fouet dès le début"]) {
+        updateWarnings(recipeId: "${id}", versionNumber: 1, warnings: ["Mettre le fouet dès le début"]) {
+          number
           warnings
         }
       }
     `)
     expect(result.errors).toBeUndefined()
     expect(result.data?.updateWarnings).toMatchObject({
+      number: 1,
       warnings: ['Mettre le fouet dès le début'],
     })
     expect([...fake.snapshot('recipe-versions').keys()]).toEqual([`${id}_1`])
@@ -371,20 +380,26 @@ describe('updateWarnings mutation', () => {
   test('full-replacement: [] clears the banner', async () => {
     const id = await createdId()
     await execute(
-      `mutation { updateWarnings(recipeId: "${id}", warnings: ["Sortir le beurre avant"]) { warnings } }`,
+      `mutation { updateWarnings(recipeId: "${id}", versionNumber: 1, warnings: ["Sortir le beurre avant"]) { warnings } }`,
     )
     const result = await execute(
-      `mutation { updateWarnings(recipeId: "${id}", warnings: []) { warnings } }`,
+      `mutation { updateWarnings(recipeId: "${id}", versionNumber: 1, warnings: []) { warnings } }`,
     )
     expect(result.errors).toBeUndefined()
     expect(result.data?.updateWarnings).toMatchObject({ warnings: [] })
   })
 
-  test('surfaces an unknown recipe as NOT_FOUND', async () => {
-    const result = await execute(`
-      mutation { updateWarnings(recipeId: "11111111-1111-4111-8111-111111111111", warnings: []) { warnings } }
+  test('surfaces an unknown recipe or version as NOT_FOUND', async () => {
+    const unknown = await execute(`
+      mutation { updateWarnings(recipeId: "11111111-1111-4111-8111-111111111111", versionNumber: 1, warnings: []) { warnings } }
     `)
-    expect(result.errors?.[0]?.extensions?.code).toBe('NOT_FOUND')
+    expect(unknown.errors?.[0]?.extensions?.code).toBe('NOT_FOUND')
+
+    const id = await createdId()
+    const missingVersion = await execute(
+      `mutation { updateWarnings(recipeId: "${id}", versionNumber: 9, warnings: []) { warnings } }`,
+    )
+    expect(missingVersion.errors?.[0]?.extensions?.code).toBe('NOT_FOUND')
   })
 })
 

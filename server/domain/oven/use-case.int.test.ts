@@ -55,7 +55,6 @@ const seedRecipe = (id: RecipeId, content: Record<string, unknown>) => {
     type: 'dish',
     category: 'main',
     title: 'Quiche fine',
-    warnings: [],
     lastVersionNumber: 1,
     createdAt: new Date(),
     updatedAt: new Date(),

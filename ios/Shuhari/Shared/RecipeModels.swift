@@ -277,6 +277,11 @@ struct RecipeVersion: Identifiable, Sendable {
     /// nor a step. Empty when it has none (the section is then not rendered).
     /// Unlike the content they are rewritable in place, without creating a version.
     var tips: [String] = []
+    /// The cook's cautions on this attempt ("Le fouet doit être mis dès le début") —
+    /// the banner atop the recipe sheet, read before cooking starts. Carried onto the
+    /// next iteration by the server, and rewritable in place like the tips. Empty when
+    /// there are none (the banner is then not rendered).
+    var warnings: [String] = []
     /// The recipe this version belongs to.
     let recipeId: String
     /// On the to-cook list: an improvement asked for this version, and it has not
@@ -382,11 +387,6 @@ struct Recipe: Identifiable, Sendable {
     var method: BrewMethod? = nil
     /// Marked as a favourite by the cook — what the library's favourites lens lists.
     let favorite: Bool
-    /// The cook's recipe-level cautions ("Le fouet doit être mis dès le début") —
-    /// the banner atop the recipe sheet, read before cooking starts. They outlive
-    /// every version, and are rewritten in place (never a new version). Empty when
-    /// there are none (the banner is then not rendered).
-    var warnings: [String] = []
     /// The full lineage, oldest first.
     let versions: [RecipeVersion]
     /// The best rating across every executed version, computed server-side. nil

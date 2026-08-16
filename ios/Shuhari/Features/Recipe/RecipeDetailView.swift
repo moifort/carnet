@@ -143,12 +143,17 @@ struct RecipeDetailView: View {
                         showToTest = false
                     }
                 }
-                // The warnings sheet: rewrite the recipe's cautions in place —
-                // recipe-level, so no version is created; an emptied list clears
-                // the banner.
+                // The warnings sheet: rewrite the displayed version's cautions in
+                // place — no version is created, and an emptied list clears the
+                // banner. The next iteration carries them over on its own.
                 .sheet(isPresented: $showWarnings) {
-                    WarningsEditSheet(initialWarnings: recipe.warnings) { warnings in
-                        try await RecipeAPI.updateWarnings(id: recipeId, warnings: warnings)
+                    let version = displayedVersion(recipe)
+                    WarningsEditSheet(initialWarnings: version.warnings) { warnings in
+                        try await RecipeAPI.updateWarnings(
+                            id: recipeId,
+                            versionNumber: version.number,
+                            warnings: warnings
+                        )
                         await store.load(recipeId)
                         onReload()
                     }
@@ -482,7 +487,8 @@ struct RecipeDetailView: View {
                         .accessibilityIdentifier("edit-oven-profile-button")
                 }
                 Button(
-                    recipe.warnings.isEmpty ? "Ajouter un avertissement" : "Modifier les avertissements",
+                    displayedVersion(recipe).warnings.isEmpty
+                        ? "Ajouter un avertissement" : "Modifier les avertissements",
                     systemImage: "exclamationmark.triangle"
                 ) { showWarnings = true }
                     .accessibilityIdentifier("edit-warnings-button")

@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test'
-import type { BrewMethod, DishCategory, RecipeId, RecipeType } from '~/domain/recipe/types'
+import type {
+  BrewMethod,
+  DishCategory,
+  RecipeId,
+  RecipeType,
+  VersionNumber,
+} from '~/domain/recipe/types'
 import type { UserId } from '~/domain/shared/types'
 import { fakeFirebase, resetFakeFirestore } from '~/test/fake-firestore'
 
@@ -377,15 +383,23 @@ describe('RecipeQuery.versionsOfMany — the satellite loader’s read', () => {
 })
 
 describe('RecipeQuery — warnings storage boundary', () => {
-  test('a recipe written before the field existed reads as the empty list', async () => {
+  test('a version written before the field existed reads as the empty list', async () => {
     // Seeded raw, without `warnings` — the shape every pre-feature document has.
-    seedRecipe('legacy', { category: 'main', updatedAt: 1000 })
+    fake.seed('recipe-versions', 'legacy_1', {
+      userId,
+      recipeId: 'legacy',
+      number: 1,
+      createdAt: new Date(1000),
+      origin: { kind: 'import' },
+      content: { kind: 'dish', ingredients: [], steps: [] },
+      tips: [],
+    })
 
-    const byId = await RecipeQuery.byId(userId, 'legacy' as RecipeId)
-    if (byId === 'not-found') throw new Error('expected a recipe')
-    expect(byId.warnings).toEqual([])
+    const version = await RecipeQuery.versionBy('legacy' as RecipeId, 1 as VersionNumber)
+    if (version === 'not-found') throw new Error('expected a version')
+    expect(version.warnings).toEqual([])
 
-    const page = await RecipeQuery.library(userId, { sort: 'updatedAt', order: 'desc', limit: 10 })
-    expect(page.items[0]?.warnings).toEqual([])
+    const lineage = await RecipeQuery.allVersions(userId)
+    expect(lineage[0]?.warnings).toEqual([])
   })
 })

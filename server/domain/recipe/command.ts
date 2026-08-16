@@ -130,7 +130,6 @@ export namespace RecipeCommand {
       category: input.type === 'coffee' ? 'drink' : input.category,
       ...(input.method ? { method: input.method } : {}),
       title: input.title,
-      warnings: [],
       lastVersionNumber: FIRST_VERSION,
       createdAt: now,
       // `lastWorkedOn` of a lineage of one: the v1 born with it, this instant. No
@@ -177,9 +176,6 @@ export namespace RecipeCommand {
       category: source.category,
       ...(source.method ? { method: source.method } : {}),
       title: input.title,
-      // The cautions outlive every iteration on the recipe they were pinned on;
-      // they outlive the copy too — a gesture that ruins the dish ruins it here.
-      warnings: source.warnings,
       lastVersionNumber: FIRST_VERSION,
       createdAt: now,
       // `lastWorkedOn` of a lineage of one, born this instant — whatever the age of
@@ -195,6 +191,9 @@ export namespace RecipeCommand {
       origin: { kind: 'import', detail: `${source.title} v${version.number}` },
       content: version.content,
       tips: version.tips,
+      // The cautions travel with the plate: a gesture that ruins the dish ruins it
+      // here too, under whatever name the copy was given.
+      warnings: version.warnings,
       // The verdict travels with the plate: a rating is about what came out of the
       // oven, not about the page it was written on, and the copy starts from
       // something known to work. A version never cooked copies as one never cooked
@@ -253,6 +252,12 @@ export namespace RecipeCommand {
       // regenerated the list and knows nothing of them (see `carriedComponents`).
       content: carriedComponents(input.content, base?.content),
       tips: input.tips,
+      // The cautions of the version this one iterates on ride along, like its linked
+      // recipes: they are the cook's own, written about a gesture rather than about
+      // one seasoning, and nobody would think to write them down again after saying
+      // yes to a proposal. Unlike `tips`, which the model regenerates with the
+      // content it just rewrote.
+      warnings: base?.warnings ?? [],
     }
     // A version already eaten is born executed — rated too, when the cook gave a
     // verdict; a version the AI suggests owes a try until someone makes it.
@@ -548,19 +553,29 @@ export namespace RecipeCommand {
     })
   }
 
-  // Rewrite the recipe's warnings in place — the aggregate-level counterpart of
-  // `updateTips`: the cook is pinning cautions on the recipe, not iterating on it,
-  // so no version is created and no batch is needed (a single document).
-  // Full-replacement (the edited list is the complete one), `[]` clears the banner.
-  // The recipe's date does not move: no version was worked on.
+  // Rewrite a version's warnings in place — the third overwritable part of the
+  // envelope, next to `updateTips`: pinning a caution on the plate is not iterating
+  // on it, so no version is created. Full-replacement (the edited list is the
+  // complete one), `[]` clears the banner, and the recipe's date is restamped like
+  // any other touch the cook makes to a version.
   export const updateWarnings = async (
     userId: UserId,
     recipeId: RecipeId,
+    versionNumber: VersionNumberT,
     warnings: Warning[],
-  ): Promise<Recipe | 'not-found'> => {
+  ): Promise<RecipeVersion | 'not-found'> => {
     const recipe = await repository.findBy(userId, recipeId)
     if (!recipe) return 'not-found' as const
-    return repository.save({ ...recipe, warnings })
+    const lineage = await repository.findVersionsOf(recipeId)
+    const version = lineage.find(({ number }) => number === versionNumber)
+    if (!version) return 'not-found' as const
+    const updated: RecipeVersion = { ...version, warnings, updatedAt: new Date() }
+    const updatedRecipe: Recipe = { ...recipe, updatedAt: lastWorkedOn(written(lineage, updated)) }
+    return atomically(async (batch) => {
+      await repository.saveVersion(updated, batch)
+      await repository.save(updatedRecipe, batch)
+      return updated
+    })
   }
 
   // The touches a cook can make to the aggregate itself: its name, its course or its
@@ -700,5 +715,7 @@ export namespace RecipeCommand {
     // changes nothing. No outcome either — it awaits its first cook.
     content: input.content,
     tips: input.tips,
+    // Nothing was ever cooked here, so nothing was learned to warn about yet.
+    warnings: [],
   })
 }

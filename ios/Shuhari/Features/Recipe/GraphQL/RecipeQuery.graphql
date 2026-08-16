@@ -115,6 +115,7 @@ fragment VersionFields on Version {
     ...VersionContentFields
   }
   tips
+  warnings
   recipeId
   rating
   remarks
@@ -134,7 +135,6 @@ query Recipe($id: RecipeId!) {
     category
     method
     favorite
-    warnings
     bestRating
     versionToOpen {
       ...VersionFields

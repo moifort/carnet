@@ -127,9 +127,9 @@ launched it from — never guessed from the source.
 - **Copying a version out is the only way to leave a lineage**, through
   `RecipeCommand.copyVersion(userId, { recipeId, number, title })`: the variant that has drifted
   too far to be one more iteration becomes a recipe of its own, under a name the cook types (the
-  same name twice is two library rows nobody can tell apart). The new recipe keeps the type, the
-  course or brew method and the `warnings` of the one copied; its `v1` carries that version's
-  `content`, its `tips` and its attempt outcome (`executedAt`/`rating`/`remarks`/`photoPath`) — a
+  same name twice is two library rows nobody can tell apart). The new recipe keeps the type and the
+  course or brew method of the one copied; its `v1` carries that version's `content`, its `tips`,
+  its `warnings` and its attempt outcome (`executedAt`/`rating`/`remarks`/`photoPath`) — a
   rating is a verdict on the plate, and the plate is what was copied. It carries **nothing of the
   lineage**: no `change`, no `basedOn`, no `toTest` (nobody asked for this version). And nothing
   links the two sides — no pointer either way, so "no forks" still holds on both: where it came
@@ -301,6 +301,28 @@ no section). Three ways in:
 
 That in-place rewrite is what keeps `tips` out of `content`: everything in `content` is frozen
 for the life of a version.
+
+## Warnings — the caution the version carries
+
+**Warnings** (`RecipeVersion.warnings: Warning[]`): the cook's cautions on this attempt ("Le fouet
+doit être mis dès le début") — the banner atop the recipe sheet, so a critical gesture is read
+before cooking starts. Like `tips` it sits on the versioning *envelope*, is type-agnostic, and is
+total (`[]` = none, and the app renders no banner). It is written by the cook alone: no import, no
+proposal and no prompt ever produces one.
+
+- **Versioned, like everything that describes the plate.** A caution is about the gesture this
+  attempt needs, and the app reads it off the version on screen — the sheet's banner follows what
+  is being read, never the recipe as a whole.
+- **Carried onto the next iteration** (`addVersion`, from the version it iterates on), exactly like
+  the oven profile and the components. This is what makes versioning it safe: the cook wrote the
+  caution about a gesture rather than about one seasoning, and saying yes to a proposal must not
+  drop it. Nothing in the AI's answer can add, edit or remove one.
+- **Rewritten in place** (`updateWarnings(recipeId, versionNumber, warnings)`), full-replacement,
+  `[]` clears the banner. No version is created — pinning a caution on the plate is not cooking it
+  — but the version's `updatedAt` moves, and with it the recipe's date: it is an edit the cook
+  made, exactly like `updateTips`.
+- **A copied version keeps them** (`copyVersion`), for the same reason it keeps its tips and its
+  verdict: it is the same plate under another name.
 
 ## Iteration — the attempt travels in the request
 

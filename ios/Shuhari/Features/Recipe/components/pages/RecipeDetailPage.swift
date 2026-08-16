@@ -47,9 +47,9 @@ struct RecipeDetailPage: View {
 
     var body: some View {
         List {
-            // Recipe-level cautions open the sheet in BOTH modes — a version under
-            // focus is still the recipe they guard.
-            WarningsBanner(warnings: recipe.warnings)
+            // The cautions of the version being read: they are carried from one
+            // iteration to the next, so the banner follows what is on screen.
+            WarningsBanner(warnings: displayedVersion.warnings)
             header
             changeCard
 

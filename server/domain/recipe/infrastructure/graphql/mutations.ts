@@ -576,16 +576,16 @@ builder.mutationField('updateComponent', (t) =>
 
 builder.mutationField('updateWarnings', (t) =>
   t.field({
-    type: RecipeType,
+    type: VersionType,
     description: [
-      'Replace a recipe’s cautions with this complete list — what the banner atop its sheet ' +
-        'shows before anything else, e.g. `"The whisk must go in from the very start"`. ' +
-        'Recipe-level, so the cautions outlive every version; rewritten in place, no version is ' +
-        'created. Returns the updated recipe.',
+      'Replace one version’s cautions with this complete list — what the banner atop the recipe ' +
+        'sheet shows before anything else, e.g. `"The whisk must go in from the very start"`. ' +
+        'Rewritten in place: no version is created, and the content and outcome are left ' +
+        'untouched. The next iteration carries them over on its own. Returns the updated version.',
       '',
       '```graphql',
-      'updateWarnings(recipeId: "9f1c-a3b2", warnings: ["The whisk must go in from the very start"]) {',
-      '  id',
+      'updateWarnings(recipeId: "9f1c-a3b2", versionNumber: 2, warnings: ["The whisk must go in from the very start"]) {',
+      '  number',
       '  warnings',
       '}',
       '```',
@@ -594,7 +594,12 @@ builder.mutationField('updateWarnings', (t) =>
       recipeId: t.arg({
         type: 'RecipeId',
         required: true,
-        description: 'Which recipe to pin the cautions on',
+        description: 'Which recipe the version belongs to',
+      }),
+      versionNumber: t.arg({
+        type: 'VersionNumber',
+        required: true,
+        description: 'Which version’s cautions to replace, e.g. `2`',
       }),
       warnings: t.arg({
         type: ['Warning'],
@@ -602,11 +607,13 @@ builder.mutationField('updateWarnings', (t) =>
         description: 'The complete new cautions list (send `[]` to clear the banner)',
       }),
     },
-    resolve: async (_root, { recipeId, warnings }, { userId }) => {
-      const result = await RecipeCommand.updateWarnings(userId, recipeId, [...warnings])
+    resolve: async (_root, { recipeId, versionNumber, warnings }, { userId }) => {
+      const result = await RecipeCommand.updateWarnings(userId, recipeId, versionNumber, [
+        ...warnings,
+      ])
       return match(result)
         .with('not-found', domainError)
-        .with(P.not(P.string), (recipe) => recipe)
+        .with(P.not(P.string), (version) => version)
         .exhaustive()
     },
   }),

@@ -119,7 +119,7 @@ struct DebugGallery: View {
         case "warnings-edit":
             Color.clear
                 .sheet(isPresented: .constant(true)) {
-                    WarningsEditSheet(initialWarnings: Fixtures.risotto.warnings) { _ in }
+                    WarningsEditSheet(initialWarnings: Fixtures.risottoV2.warnings) { _ in }
                 }
         case "recipe-fresh":
             RecipeDetailGalleryScreen(recipe: Fixtures.freshImport)

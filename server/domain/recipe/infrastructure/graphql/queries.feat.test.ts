@@ -123,25 +123,26 @@ describe('recipe query', () => {
     seedRecipe(r1, { category: 'main', updatedAt: 1000 })
     seedVersion(r1, 1)
 
-    const legacy = await execute(`query { recipe(id: "${r1}") { warnings } }`)
+    const legacy = await execute(`query { recipe(id: "${r1}") { versions { warnings } } }`)
     expect(legacy.errors).toBeUndefined()
-    expect(legacy.data?.recipe).toMatchObject({ warnings: [] })
+    expect(legacy.data?.recipe).toMatchObject({ versions: [{ warnings: [] }] })
 
-    fake.seed('recipes', r2, {
-      id: r2,
+    seedRecipe(r2, { category: 'main', updatedAt: 1000 })
+    fake.seed('recipe-versions', `${r2}_1`, {
       userId,
-      type: 'dish',
-      category: 'main',
-      categoryRank: categoryRank('main'),
-      title: 'Sauce mousseline',
-      warnings: ['Mettre le fouet dès le début'],
-      lastVersionNumber: 1,
+      recipeId: r2 as RecipeId,
+      number: 1 as VersionNumber,
       createdAt: new Date(1000),
-      updatedAt: new Date(1000),
+      origin: { kind: 'import' },
+      content: { kind: 'dish', ingredients: [], steps: ['Cuire'] },
+      tips: [],
+      warnings: ['Mettre le fouet dès le début'],
     })
-    const pinned = await execute(`query { recipe(id: "${r2}") { warnings } }`)
+    const pinned = await execute(`query { recipe(id: "${r2}") { versions { warnings } } }`)
     expect(pinned.errors).toBeUndefined()
-    expect(pinned.data?.recipe).toMatchObject({ warnings: ['Mettre le fouet dès le début'] })
+    expect(pinned.data?.recipe).toMatchObject({
+      versions: [{ warnings: ['Mettre le fouet dès le début'] }],
+    })
   })
 
   test('returns null for a recipe that does not exist', async () => {
