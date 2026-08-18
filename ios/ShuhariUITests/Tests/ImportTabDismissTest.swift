@@ -1,6 +1,6 @@
 import XCTest
 
-/// Regression: closing the camera import cover with the X must return to the
+/// Regression: closing the import composer with the X must return to the
 /// previously selected category tab — not leave the tab bar stuck on the empty
 /// "Importer" entry. Runs against the `-gallery root` harness so it needs no
 /// server or signed-in user (the tab-selection logic is pure client state).
@@ -26,14 +26,14 @@ final class ImportTabDismissTest: XCTestCase {
         // Start on the cooking tab (the default one).
         XCTAssertTrue(app.tabBars.buttons["Cuisine"].isSelected, "Cuisine should be selected on launch")
 
-        // Open the camera import cover, then close it with the X.
+        // Open the import composer, then close it with the X.
         try app.tabBars.buttons["Importer"].tapOrFail()
-        try app.buttons["scan-close-button"].tapOrFail()
+        try app.buttons["import-close-button"].tapOrFail()
 
         // Back on the tab bar: the cooking tab must still be selected, and the
         // "Importer" entry must never appear selected (its content is empty).
         try tabBar.waitOrFail()
-        XCTAssertFalse(app.tabBars.buttons["Importer"].isSelected, "Importer must not stay selected after closing the cover")
-        XCTAssertTrue(app.tabBars.buttons["Cuisine"].isSelected, "Cuisine should be restored after closing the cover")
+        XCTAssertFalse(app.tabBars.buttons["Importer"].isSelected, "Importer must not stay selected after closing the composer")
+        XCTAssertTrue(app.tabBars.buttons["Cuisine"].isSelected, "Cuisine should be restored after closing the composer")
     }
 }

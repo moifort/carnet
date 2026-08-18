@@ -4,14 +4,6 @@ import XCTest
 struct ImportPage {
     let app: XCUIApplication
 
-    /// From the camera-first scan screen, open the text-entry sheet (the only
-    /// import path exercisable on the simulator — no camera, out-of-process picker).
-    @discardableResult
-    func openTextEntry() throws -> Self {
-        try app.buttons["import-text-button"].tapOrFail()
-        return self
-    }
-
     @discardableResult
     func typeRecipe(_ text: String) throws -> Self {
         let field = app.textViews["import-text-field"].exists ? app.textViews["import-text-field"] : app.textFields["import-text-field"]

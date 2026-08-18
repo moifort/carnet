@@ -4,7 +4,7 @@ import SwiftUI
 /// the two pages of a book plus "pour 4, au Chemex" to say what the page leaves
 /// out. Primitive-first: it holds photo previews and a text binding, and reports
 /// what the user wants to add through its closures; loading the library items,
-/// running the camera and calling the API all belong to `ImportScanView`.
+/// running the camera and calling the API all belong to `ImportComposerSheet`.
 struct ImportComposer: View {
     /// One attached photo, ready to show. `id` survives reordering and deletion.
     struct Photo: Identifiable, Equatable {
@@ -64,6 +64,7 @@ struct ImportComposer: View {
                     Button(action: onCancel) {
                         Image(systemName: "xmark")
                     }
+                    .accessibilityIdentifier("import-close-button")
                     .accessibilityLabel("Annuler")
                 }
                 ToolbarItem(placement: .confirmationAction) {

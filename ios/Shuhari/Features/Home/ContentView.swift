@@ -4,30 +4,29 @@ import SwiftUI
 /// Thermomix) and "Café" — plus an "Importer" entry pinned to the trailing side of
 /// the tab bar (`.search`/`.prominent` role — the only system affordance that keeps
 /// a tab separated and visible while the bar minimises). Selecting it opens the
-/// camera-first import full-screen; closing that cover restores the content tab, so
-/// the tab bar never lingers on the import entry's empty content. The one import
-/// serves both tabs: on success the new recipe is routed to the tab its detected
-/// type belongs to, which navigates to its recipe sheet. Closing the analysis is a
-/// step back, not an abandon: the cover reopens on the composer, refilled with the
-/// text and the photos that were sent.
+/// import composer as a sheet; closing that sheet restores the content tab, so the
+/// tab bar never lingers on the import entry's empty content. The one import serves
+/// both tabs: on success the new recipe is routed to the tab its detected type
+/// belongs to, which navigates to its recipe sheet. Closing the analysis is a step
+/// back, not an abandon: the composer reopens, refilled with the text and the
+/// photos that were sent.
 struct ContentView: View {
     enum RootTab: Hashable {
         case cooking, coffee, importEntry
     }
 
     @State private var selectedTab: RootTab = .cooking
-    /// The tab to restore when the import cover closes — where a cancelled import
+    /// The tab to restore when the import sheet closes — where a cancelled import
     /// puts the user back.
     @State private var lastContentTab: RootTab = .cooking
     @State private var showImport = false
-    /// Set when the camera hands off a picked photo / capture / text: it closes
-    /// the camera cover, then `onDismiss` presents the review sheet over the
-    /// content tab (so the camera is gone, not lingering behind the sheet).
+    /// Set when the composer hands off its photos / text: it closes the composer,
+    /// then `onDismiss` presents the review sheet over the content tab (so the
+    /// composer is gone, not lingering behind the sheet).
     @State private var pendingImport: ImportInput?
     @State private var reviewJob: ImportJob?
-    /// Set when the analysis is closed: the import cover reopens once the review
-    /// sheet is gone, on the composer this draft refills — or on the camera, when
-    /// the import never went through the composer (`nil` draft).
+    /// Set when the analysis is closed: the composer reopens once the review sheet
+    /// is gone, refilled by this draft.
     @State private var resumesImport = false
     @State private var resumedDraft: ImportDraft?
     /// The imported recipe, handed to whichever tab owns its type — the other tab
@@ -68,7 +67,7 @@ struct ContentView: View {
             Tab(value: RootTab.importEntry, role: importerTabRole) {
                 Color.clear
             } label: {
-                Label("Importer", systemImage: "camera")
+                Label("Importer", systemImage: "plus")
             }
             .accessibilityIdentifier("tab-import")
         }
@@ -80,11 +79,12 @@ struct ContentView: View {
                 lastContentTab = newValue
             }
         }
-        .fullScreenCover(isPresented: $showImport, onDismiss: onImportCoverDismiss) {
-            ImportScanView(flow: importFlow, draft: resumedDraft) { input in
+        .sheet(isPresented: $showImport, onDismiss: onImportSheetDismiss) {
+            ImportComposerSheet(flow: importFlow, draft: resumedDraft) { input in
                 pendingImport = input
                 showImport = false
             }
+            .presentationDetents([.large])
         }
         .sheet(item: $reviewJob, onDismiss: onReviewSheetDismiss) { job in
             ImportReviewSheet(
@@ -113,10 +113,10 @@ struct ContentView: View {
         }
     }
 
-    /// When the camera cover closes: restore the content tab the user came from,
-    /// then — if they picked a photo / captured / typed — present the review sheet
-    /// over it, so the camera is fully gone rather than lingering behind the sheet.
-    private func onImportCoverDismiss() {
+    /// When the composer closes: restore the content tab the user came from, then
+    /// — if something was handed off to analyse — present the review sheet over it,
+    /// so the composer is fully gone rather than lingering behind the sheet.
+    private func onImportSheetDismiss() {
         if selectedTab == .importEntry { selectedTab = lastContentTab }
         // A restored draft has been handed over: the next import starts blank.
         resumedDraft = nil
@@ -126,9 +126,9 @@ struct ContentView: View {
         }
     }
 
-    /// A closed analysis is not an abandoned import: reopen the cover on what was
-    /// typed, so the text and the photos can be fixed and sent again. Waiting for
-    /// the sheet to be gone avoids presenting the cover over a dismissing sheet.
+    /// A closed analysis is not an abandoned import: reopen the composer on what
+    /// was typed, so the text and the photos can be fixed and sent again. Waiting
+    /// for the sheet to be gone avoids presenting one over a dismissing one.
     /// A swipe-dismiss sets nothing and still abandons the import.
     private func onReviewSheetDismiss() {
         guard resumesImport else { return }

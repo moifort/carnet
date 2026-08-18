@@ -33,7 +33,7 @@ final class ScreenshotTest: XCTestCase {
         }
         _ = home
 
-        // 3. Import (camera-first screen)
+        // 3. Import (the composer sheet)
         _ = try tabBar.goToImport()
         saveScreenshot("import")
     }

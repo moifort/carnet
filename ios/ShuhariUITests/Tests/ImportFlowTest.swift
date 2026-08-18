@@ -8,7 +8,7 @@ final class ImportFlowTest: BaseUITest {
         let tabBar = TabBarPage(app: app)
         try tabBar.verify()
 
-        let importPage = try tabBar.goToImport().openTextEntry()
+        let importPage = try tabBar.goToImport()
         _ = try importPage.typeRecipe("Cacio e pepe : 200 g de spaghetti, 100 g de pecorino romano, 2 c. à café de poivre noir, un peu d'eau de cuisson.")
 
         let preview = try importPage.analyze().verify()

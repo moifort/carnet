@@ -290,7 +290,7 @@ struct DebugGallery: View {
                     PremiumSheet(store: subscription)
                 }
         case "import-resumed":
-            ImportScanView(draft: .gallery) { _ in }
+            ImportComposerSheet(draft: .gallery) { _ in }
         case "import-quota-exhausted":
             ImportReviewSheet(galleryPhase: .quotaExhausted)
         case "import-premium-required":
