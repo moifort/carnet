@@ -2,6 +2,27 @@
 
 Toutes les évolutions notables de Shuhari, la plus récente en premier.
 
+## 1.2 (2026.08.18)
+
+### New
+
+- Le four connecté : une version retient les réglages auxquels elle cuit, la fiche les affiche, et la cuisson se lance sur le four depuis la recette.
+- Les réglages du four se copient depuis le bandeau du four lui-même, ou se choisissent parmi ses programmes assistés.
+- Une recette peut être faite d'autres recettes : une ligne d'ingrédient renvoie à sa propre page, au poids où elle y entre, et se déplie sans quitter la fiche.
+- Les ingrédients, les étapes et les astuces d'une version se corrigent sur place, réglages Thermomix compris.
+- Une recette se redimensionne en ajustant l'une de ses quantités, toutes les autres suivant ; un café se redimensionne sur ses quatre.
+- Un changement déjà cuisiné s'inscrit comme une version à part entière, sans passer par l'IA.
+- Une version qui s'est éloignée de sa recette devient une recette à part entière.
+- Une version peut être mise en favori, et une mise en garde épinglée dessus.
+- Un essai se photographie sur le moment, au lieu d'être seulement choisi dans la bibliothèque.
+- Un café retient le profil sur lequel sa machine l'extrait.
+
+### Fixes
+
+- Fermer un écran d'IA ramène sur ce qui avait été saisi, au lieu de le perdre.
+- Choisir une autre version l'affiche sur place, au lieu d'empiler un écran par choix.
+- Les quantités importées ou proposées sont toujours chiffrées, jamais « à goût ».
+
 ## 1.1 (2026.08.08)
 
 ### New
