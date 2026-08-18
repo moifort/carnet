@@ -6,22 +6,11 @@ All notable changes to Shuhari, most recent first.
 
 ### New
 
-- The connected oven: a version records the settings it bakes at, the recipe sheet shows them, and the cooking starts on the oven from the recipe itself.
-- Oven settings are copied straight from the oven's own panel, or picked among its assisted programmes.
-- A recipe can be made of other recipes: an ingredient line links to its own page, at the weight it goes in, and unfolds without leaving the sheet.
-- A version's ingredients, steps and tips are corrected in place, Thermomix settings included.
-- A recipe is resized by stepping one of its quantities, every other one following; a coffee resizes on its four.
-- A change already cooked is written down as a version of its own, without asking the AI.
-- A version that drifted from its recipe becomes a recipe of its own.
-- A version can be hearted, and a caution pinned on it.
-- An attempt is photographed on the spot, instead of only being picked from the library.
-- A coffee records the profile its machine brews on.
-
-### Fixes
-
-- Closing an AI screen goes back to what was typed, instead of losing it.
-- Picking another version shows it in place, instead of stacking one screen per pick.
-- Imported and proposed quantities are always figures, never "to taste".
+- The connected oven: the cooking starts on the oven from the recipe, at the version's settings.
+- Recipes link to each other: a mushroom ravioli recipe points to the fresh pasta recipe.
+- Every field of a recipe can be edited.
+- Small stepper buttons change a quantity, and the recipe scales the others in proportion.
+- A new field records the profile a coffee was brewed on: Modern Arc, Dark Roast, Medium Roast…
 
 ## 1.1 (2026.08.08)
 

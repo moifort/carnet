@@ -35,6 +35,30 @@ it is what the product looks like.
 - Import d'un document depuis une photo, un lien ou un texte.
 ```
 
+## Plain words, and a concrete example
+
+The reader is a cook, a driver, a photographer — not someone who knows the product's vocabulary.
+A line is written the way one would say it out loud to a friend who owns the app: what was added,
+and where it shows. An example is worth more than a definition, and naming the field or the button
+is worth more than describing its behaviour.
+
+Nothing is left implicit or elegant at the cost of being understood: an image ("une version qui
+s'est éloignée de sa recette"), an abstraction ("les astuces se corrigent sur place") or a clever
+turn reads well and says nothing.
+
+```markdown
+<!-- Bad — abstract, and true only to whoever wrote the code -->
+- Une recette peut être faite d'autres recettes : une ligne d'ingrédient renvoie à sa propre page,
+  au poids où elle y entre, et se déplie sans quitter la fiche.
+- Une recette se redimensionne en ajustant l'une de ses quantités, toutes les autres suivant.
+
+<!-- Good — the same two features, said plainly, one with an example -->
+- Les recettes se lient entre elles : une recette de ravioles aux champignons renvoie à la recette
+  de pâte fraîche.
+- De petits boutons d'incrément changent une quantité, et la recette adapte les autres en
+  proportion.
+```
+
 ## No names, no internals
 
 Never name a person: a changelog credits the product, not its authors. Never name an internal
