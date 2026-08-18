@@ -6,11 +6,10 @@ Toutes les évolutions notables de Shuhari, la plus récente en premier.
 
 ### New
 
-- Le four connecté : la cuisson se lance sur le four depuis la recette, aux réglages de la version.
 - Les recettes se lient entre elles : une recette de ravioles aux champignons renvoie à la recette de pâte fraîche.
 - Tous les champs d'une recette peuvent être modifiés.
 - De petits boutons d'incrément changent une quantité, et la recette adapte les autres en proportion.
-- Un nouveau champ indique le profil utilisé pour un café : Modern Arc, Dark Roast, Medium Roast…
+- Un nouveau champ a été ajouté pour indiquer le profil utilisé pour un café : Modern Arc, Dark Roast, Medium Roast…
 
 ## 1.1 (2026.08.08)
 

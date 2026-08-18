@@ -6,11 +6,10 @@ All notable changes to Shuhari, most recent first.
 
 ### New
 
-- The connected oven: the cooking starts on the oven from the recipe, at the version's settings.
 - Recipes link to each other: a mushroom ravioli recipe points to the fresh pasta recipe.
 - Every field of a recipe can be edited.
 - Small stepper buttons change a quantity, and the recipe scales the others in proportion.
-- A new field records the profile a coffee was brewed on: Modern Arc, Dark Roast, Medium Roast…
+- A new field has been added to record the profile a coffee was brewed on: Modern Arc, Dark Roast, Medium Roast…
 
 ## 1.1 (2026.08.08)
 
