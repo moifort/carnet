@@ -204,15 +204,8 @@ export const coffeeParametersSchemaProperty = {
           nullable: true,
           description: 'Brand and model (e.g. "Niche Zero"); null when not stated',
         },
-        profile: {
-          type: 'string',
-          nullable: true,
-          description:
-            'The profile the machine runs, by the name it is saved under on it (e.g. "Sera ' +
-            'Modern Arc", "Dark roast"); null when the source names none',
-        },
       },
-      propertyOrdering: ['machine', 'grinder', 'profile'],
+      propertyOrdering: ['machine', 'grinder'],
     },
   },
   propertyOrdering: ['beans', 'water', 'extraction', 'milk', 'gear'],

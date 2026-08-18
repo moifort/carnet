@@ -406,6 +406,12 @@ The prompts, one module per flow under `server/system/ai/` (`import/*`, `proposa
     never seen the dish brown cannot judge one, and because getting it wrong cooks something else
     without saying so. The profile is carried forward to the proposed version **by the code**
     (`carriedOven`), so accepting a change of seasoning never silently unsets the oven.
+  - *Coffee* — **the machine profile is the oven of this world**: the preset the cook saved on
+    their machine ("Sera Modern Arc") never leaves for the model, never comes back from it, and is
+    written onto the proposed version **by the code** (`carriedProfile`). A preset is not a dial —
+    its pre-infusion, its pressure curve and its temperature live in the machine — so a model that
+    proposed one would be naming a button the cook may not have. The import does not read one
+    either: the app offers the last profile used, the way it offers the last machine.
   - *Coffee* — **exactly one variable per version**, from a closed list: the grind, the dose, the
     water amount (the ratio), the water temperature, the brew time, the yield or the milk. Never
     two. That is the whole point of the notebook here: with a single variable moved, the next

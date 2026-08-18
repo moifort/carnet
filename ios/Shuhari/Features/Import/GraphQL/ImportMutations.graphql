@@ -24,7 +24,6 @@ fragment CoffeeParametersFields on ImportCoffeeParameters {
   gear {
     machine
     grinder
-    profile
   }
 }
 

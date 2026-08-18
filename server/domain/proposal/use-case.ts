@@ -36,6 +36,13 @@ import type { AcceptedProposal, Proposal } from './types'
 const carriedOven = (content: VersionContent) =>
   content.kind === 'coffee' || !content.oven ? {} : { oven: content.oven }
 
+// The machine profile, carried the same way and for the same reason: it is a preset
+// the cook saved on their machine, not a dial the model may set. It never leaves for
+// Gemini (`contextParameters` keeps it back) and it is written straight from the
+// version being iterated on, so no answer of the model's can invent, move or drop it.
+const carriedProfile = (content: VersionContent & { kind: 'coffee' }) =>
+  content.gear.profile ? { profile: content.gear.profile } : {}
+
 const brandCookingProposal = (
   type: CookingRecipeType,
   current: VersionContent,
@@ -56,9 +63,17 @@ const brandCookingProposal = (
       })
 
 // The same, for a coffee: the whole parameter set the model answered with, one dial
-// moved. A proposal that returned none lands on the empty blocks rather than throwing.
-const brandCoffeeProposal = (proposal: CoffeeProposal): VersionContent =>
-  brandVersionContent({ kind: 'coffee', ...proposal.parameters })
+// moved, the machine profile put back by the code. A proposal that returned none
+// lands on the empty blocks rather than throwing.
+const brandCoffeeProposal = (
+  current: VersionContent & { kind: 'coffee' },
+  proposal: Pick<CoffeeProposal, 'parameters'>,
+): VersionContent =>
+  brandVersionContent({
+    kind: 'coffee',
+    ...proposal.parameters,
+    gear: { ...proposal.parameters.gear, ...carriedProfile(current) },
+  })
 
 // Rebuild the AI context ingredients from a stored version's content. A coffee has
 // none — its dose, its water and its milk are parameters, handed over separately.
@@ -76,12 +91,15 @@ const contextParameters = (
   content: VersionContent & { kind: 'coffee' },
 ): ImportCoffeeParameters => {
   const { roastedOn, ...beans } = content.beans
+  // The machine profile stays home: a preset the cook saved on their machine is not
+  // the model's to read, weigh or hand back — see `carriedProfile`.
+  const { profile: _keptBack, ...gear } = content.gear
   return {
     beans: { ...beans, ...(roastedOn ? { roastedOn: roastedOn.toISOString() } : {}) },
     water: content.water,
     extraction: content.extraction,
     ...(content.milk ? { milk: content.milk } : {}),
-    gear: content.gear,
+    gear,
   }
 }
 
@@ -127,7 +145,7 @@ const coffeeAnswer = async (
   return {
     changeSummary: proposal.changeSummary,
     rationale: proposal.rationale,
-    content: brandCoffeeProposal(proposal),
+    content: brandCoffeeProposal(content, proposal),
     tips: proposal.tips.map(Tip),
   }
 }
@@ -167,7 +185,7 @@ const coffeeChangeAnswer = async (
   })
   return {
     changeSummary: applied.changeSummary,
-    content: brandVersionContent({ kind: 'coffee', ...applied.parameters }),
+    content: brandCoffeeProposal(content, applied),
   }
 }
 

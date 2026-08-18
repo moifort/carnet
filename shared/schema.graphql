@@ -604,9 +604,6 @@ type ImportCoffeeExtraction {
 type ImportCoffeeGear {
   grinder: String
   machine: String
-
-  """The machine profile the source names — `null` when it names none"""
-  profile: String
 }
 
 """The milk as extracted by the AI (unvalidated preview)"""

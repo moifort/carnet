@@ -36,7 +36,9 @@ export type ImportCoffeeParameters = {
   water: { kind?: string; amount?: string; temperature?: string }
   extraction: { grind?: string; time?: string; yield?: string }
   milk?: { kind?: string; amount?: string; temperature?: string }
-  gear: { machine?: string; grinder?: string; profile?: string }
+  // No machine profile: the preset the cook saved on their machine never travels to
+  // the model, and the code puts it back on the version (`carriedProfile`).
+  gear: { machine?: string; grinder?: string }
 }
 
 // One extracted step: its text plus the Thermomix settings that go with it (`{}` on

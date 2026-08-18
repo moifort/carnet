@@ -7,6 +7,7 @@ import type {
   CoffeeDose,
   CoffeeGrind,
   CoffeeMachine,
+  CoffeeProfile,
   CoffeeTime,
   Ingredient,
   IngredientName,
@@ -126,7 +127,10 @@ const filledCoffeeContent = (): CoffeeContent => ({
   },
   water: {},
   extraction: { grind: 'Niveau 12' as CoffeeGrind, time: '28 s' as CoffeeTime },
-  gear: { machine: 'Rancilio Silvia' as CoffeeMachine },
+  gear: {
+    machine: 'Rancilio Silvia' as CoffeeMachine,
+    profile: 'Sera Modern Arc' as CoffeeProfile,
+  },
 })
 
 const recipeInput = (
@@ -344,11 +348,32 @@ describe('ProposalUseCase.fromAttempt', () => {
       beans: { name: 'Belleville — Guji', dose: '18 g', roastedOn: ROASTED_ON.toISOString() },
       water: {},
       extraction: { grind: 'Niveau 12', time: '28 s' },
+      // The machine profile is kept back: a preset the cook saved is not the
+      // model's to read.
       gear: { machine: 'Rancilio Silvia' },
     })
     // The coffee prompt is the only one that ran, and the method is fixed.
     expect(lastCookingContext).toBeUndefined()
     expect(lastCoffeeContext?.method).toBe('v60')
+  })
+
+  test('keeps the machine profile out of the model and puts it back on the version', async () => {
+    const coffee = await RecipeCommand.create(
+      userId,
+      recipeInput({ type: 'coffee', coffee: filledCoffeeContent() }),
+    )
+    if (typeof coffee === 'string') throw new Error('expected a recipe')
+    // The model answers without one, as it always will now — and would drop it.
+    coffeeProposal = { ...baseCoffeeProposal(), parameters: { ...baseCoffeeProposal().parameters } }
+
+    const proposal = await ProposalUseCase.fromAttempt(userId, coffee.id, V1, ATTEMPT)
+    if (typeof proposal === 'string') throw new Error('expected a proposal')
+
+    expect(lastCoffeeContext?.currentParameters.gear).not.toHaveProperty('profile')
+    expect(proposal.content).toMatchObject({
+      kind: 'coffee',
+      gear: { machine: 'Rancilio Silvia', profile: 'Sera Modern Arc' },
+    })
   })
 
   test('accepts a coffee proposal as the parameters of the next version', async () => {
@@ -366,7 +391,11 @@ describe('ProposalUseCase.fromAttempt', () => {
       beans: { name: 'Belleville — Guji' as CoffeeBeanName, dose: '18 g' as CoffeeDose },
       water: {},
       extraction: { grind: 'Niveau 10' as CoffeeGrind, time: '28 s' as CoffeeTime },
-      gear: { machine: 'Rancilio Silvia' as CoffeeMachine },
+      // The profile the model never saw, written back from the version iterated on.
+      gear: {
+        machine: 'Rancilio Silvia' as CoffeeMachine,
+        profile: 'Sera Modern Arc' as CoffeeProfile,
+      },
     })
   })
 })

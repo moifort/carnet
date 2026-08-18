@@ -168,10 +168,12 @@ enum ImportAPI {
             milk: coffee.milk.map {
                 CoffeeMilk(kind: $0.kind, amount: $0.amount, temperature: $0.temperature)
             },
+            // No profile: the model never names one. The preview offers the last
+            // one the cook used, like the machine and the grinder.
             gear: CoffeeGear(
                 machine: coffee.gear.machine,
                 grinder: coffee.gear.grinder,
-                profile: coffee.gear.profile
+                profile: nil
             )
         )
     }

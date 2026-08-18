@@ -156,10 +156,6 @@ const ImportCoffeeGearType = builder
     fields: (t) => ({
       machine: t.exposeString('machine', { nullable: true }),
       grinder: t.exposeString('grinder', { nullable: true }),
-      profile: t.exposeString('profile', {
-        nullable: true,
-        description: 'The machine profile the source names — `null` when it names none',
-      }),
     }),
   })
 
