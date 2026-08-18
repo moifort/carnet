@@ -17,14 +17,20 @@ already on the listing, so a release that does not change the interface needs no
    line and what stays in the git history is
    [changelog-best-practices.md](./changelog-best-practices.md). The French file is the one the
    pipeline reads.
-2. Rename `## Unreleased` to `## <version> (<YYYY.MM.DD>)` in **both** files. There is no CI
+2. **Paste the French section into the reply, and wait for its corrections.** The notes are
+   the only user-facing copy a release ships, they are read by every cook who taps "What's New",
+   and once Apple approves the version they can no longer be edited for it. The whole
+   `## <version>` block of `CHANGELOG.fr.md` goes in the answer itself, as a fenced markdown
+   block — not a flattened list, and never as the output of a `cat`, which the reader does not
+   see. The English file follows whatever the French becomes.
+3. Rename `## Unreleased` to `## <version> (<YYYY.MM.DD>)` in **both** files. There is no CI
    date stamp; versioning is manual, and the pipeline refuses to run while an `## Unreleased`
    section remains — the app would otherwise display "Unreleased" as a version title.
-3. Set `MARKETING_VERSION` in `ios/Shuhari.xcodeproj/project.pbxproj` to the same version. The
+4. Set `MARKETING_VERSION` in `ios/Shuhari.xcodeproj/project.pbxproj` to the same version. The
    pipeline refuses a tag that disagrees with it.
-4. Push `main`. The Deploy workflow rebuilds `server/system/changelog-content.ts` from
+5. Push `main`. The Deploy workflow rebuilds `server/system/changelog-content.ts` from
    `CHANGELOG.fr.md`; **without this the in-app changelog stays stale**.
-5. Tag and push. The tag is **annotated and carries the release notes**, so the version's
+6. Tag and push. The tag is **annotated and carries the release notes**, so the version's
    contents can be read from the tag itself without opening the changelog, and `ios-v` names the
    platform it releases — the workflow only listens to `ios-v*`:
    ```bash
