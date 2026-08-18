@@ -43,7 +43,8 @@ struct RecipeDetailPage: View {
     /// goes back to — landing on the stored quantities would drop what was asked for.
     var openedAt: Double = 1
 
-    /// Ephemeral quantity scaling of the ingredient list — lives only while the
+    /// Ephemeral quantity scaling — of the ingredient list on a dish, of the four
+    /// quantities a cup is brewed on for a coffee. It lives only while the
     /// sheet is open, the stored version is never rewritten. It holds on whichever
     /// version is on screen: a version waiting to be cooked is precisely the one a
     /// cook resizes, and the header says loudly enough (badge, tint, "Réinitialiser")
@@ -74,10 +75,14 @@ struct RecipeDetailPage: View {
             UsedBySection(items: usedBy, onOpen: { onOpenRelated?($0) })
 
             // A coffee is set by parameters, everything else by an ingredient list.
+            // Both resize on the same factor: a cup is a ratio of dose, water, yield
+            // and milk exactly as a dish is a ratio of its ingredients.
             if let parameters = displayedVersion.content.coffeeParameters {
                 CoffeeParametersSection(
                     parameters: parameters,
-                    restDays: displayedVersion.restDays
+                    restDays: displayedVersion.restDays,
+                    scale: $scaleFactor,
+                    resetsTo: openedAt
                 )
             } else {
                 IngredientsSection(

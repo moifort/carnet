@@ -281,8 +281,8 @@ struct RecipeDetailView: View {
     private func linkedItems(_ recipe: Recipe) -> [LinkedRecipesSection.Item] {
         recipe.components.map { linked in
             let resized = linked.ingredients
-                .first { IngredientScaling.isScalable($0.quantity) }
-                .map { "\($0.name) \(IngredientScaling.scaled($0.quantity, by: linked.scale))" }
+                .first { QuantityScaling.isScalable($0.quantity) }
+                .map { "\($0.name) \(QuantityScaling.scaled($0.quantity, by: linked.scale))" }
             return LinkedRecipesSection.Item(
                 id: linked.id,
                 title: linked.title,

@@ -173,12 +173,12 @@ struct LinkWeightForm: View {
         self.onConfirm = onConfirm
         self._scale = State(initialValue: initialScale)
         self._texts = State(
-            initialValue: ingredients.map { IngredientScaling.scaled($0.quantity, by: initialScale) }
+            initialValue: ingredients.map { QuantityScaling.scaled($0.quantity, by: initialScale) }
         )
     }
 
     private var scalableRows: Set<Int> {
-        Set(ingredients.indices.filter { IngredientScaling.isScalable(ingredients[$0].quantity) })
+        Set(ingredients.indices.filter { QuantityScaling.isScalable(ingredients[$0].quantity) })
     }
 
     var body: some View {
@@ -197,7 +197,7 @@ struct LinkWeightForm: View {
                     Text("Quantités utilisées ici")
                     Spacer()
                     if scale != 1 {
-                        Text(IngredientScaling.factorLabel(scale))
+                        Text(QuantityScaling.factorLabel(scale))
                             .monospacedDigit()
                             .foregroundStyle(Theme.Status.changed)
                         Button("Réinitialiser") { reset() }
@@ -271,7 +271,7 @@ struct LinkWeightForm: View {
     /// was, and rewriting the lines puts the refused one back to what it showed.
     private func commit(_ index: Int) {
         rescale(
-            to: IngredientScaling.factor(from: ingredients[index].quantity, to: texts[index]) ?? scale
+            to: QuantityScaling.factor(from: ingredients[index].quantity, to: texts[index]) ?? scale
         )
     }
 
@@ -281,7 +281,7 @@ struct LinkWeightForm: View {
         if let focused { commit(focused) }
         focused = nil
         guard
-            let next = IngredientScaling.factorAfterStep(
+            let next = QuantityScaling.factorAfterStep(
                 on: ingredients[index].quantity,
                 from: scale,
                 direction: direction
@@ -298,7 +298,7 @@ struct LinkWeightForm: View {
     /// The single way the weight moves: one factor, and every line rewritten from it.
     private func rescale(to next: Double) {
         scale = next
-        texts = ingredients.map { IngredientScaling.scaled($0.quantity, by: next) }
+        texts = ingredients.map { QuantityScaling.scaled($0.quantity, by: next) }
     }
 }
 

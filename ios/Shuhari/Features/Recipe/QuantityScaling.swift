@@ -1,11 +1,12 @@
 import Foundation
 
-/// Ephemeral proportional scaling of the recipe sheet's shopping list: step one
-/// ingredient's quantity and every other one follows the same factor. Pure string
-/// logic — quantities stay the display strings the AI wrote ("1,2 kg", "75 cl",
-/// "1 gousse"); the stored version is never rewritten (a version's content is
-/// immutable), the factor lives only while the sheet is open.
-enum IngredientScaling {
+/// Ephemeral proportional scaling of whatever a recipe sheet counts in quantities —
+/// a dish's shopping list, and a coffee's dose / water / yield / milk: step one of
+/// them and every other follows the same factor. Pure string logic — quantities stay
+/// the display strings the AI wrote ("1,2 kg", "75 cl", "1 gousse", "18 g"); the
+/// stored version is never rewritten (a version's content is immutable), the factor
+/// lives only while the sheet is open.
+enum QuantityScaling {
     private static let locale = Locale(identifier: "fr_FR")
 
     /// Whether a quantity can be scaled: it leads with a number. "Sel" or

@@ -41,14 +41,14 @@ struct IngredientListDraft: Equatable {
     /// The quantity of one row as the sheet shows it: the stored one carried by the
     /// factor.
     func displayed(at index: Int) -> String {
-        IngredientScaling.scaled(rows[index].quantity, by: factor)
+        QuantityScaling.scaled(rows[index].quantity, by: factor)
     }
 
     /// Step one row's quantity a tick up (+1) or down (−1). What moves is the whole
     /// list's factor: resizing a recipe by one of its ingredients is the gesture.
     mutating func step(at index: Int, direction: Int) {
         guard
-            let next = IngredientScaling.factorAfterStep(
+            let next = QuantityScaling.factorAfterStep(
                 on: rows[index].quantity,
                 from: factor,
                 direction: direction
@@ -76,7 +76,7 @@ struct IngredientListDraft: Equatable {
     mutating func bakeFactor() {
         guard factor != 1 else { return }
         for index in rows.indices {
-            rows[index].quantity = IngredientScaling.scaled(rows[index].quantity, by: factor)
+            rows[index].quantity = QuantityScaling.scaled(rows[index].quantity, by: factor)
         }
         factor = 1
     }

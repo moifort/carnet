@@ -27,7 +27,7 @@ struct IngredientsSection: View {
 
     /// Rows whose quantity leads with a number — the ones a stepper can move.
     private var scalableRows: Set<Int> {
-        Set(ingredients.indices.filter { IngredientScaling.isScalable(ingredients[$0].quantity) })
+        Set(ingredients.indices.filter { QuantityScaling.isScalable(ingredients[$0].quantity) })
     }
 
     var body: some View {
@@ -44,13 +44,13 @@ struct IngredientsSection: View {
 
     private var grid: some View {
         IngredientsGrid(
-            items: ingredients.map { ($0.name, IngredientScaling.scaled($0.quantity, by: scale)) },
+            items: ingredients.map { ($0.name, QuantityScaling.scaled($0.quantity, by: scale)) },
             modified: modified,
             steppable: scalableRows,
             scaledRows: scale == resetsTo ? [] : scalableRows,
             onStep: { index, direction in
                 guard
-                    let next = IngredientScaling.factorAfterStep(
+                    let next = QuantityScaling.factorAfterStep(
                         on: ingredients[index].quantity,
                         from: scale,
                         direction: direction
@@ -68,7 +68,7 @@ struct IngredientsSection: View {
             Text("Ingrédients")
             Spacer()
             if scale != resetsTo {
-                Text(IngredientScaling.factorLabel(scale))
+                Text(QuantityScaling.factorLabel(scale))
                     .monospacedDigit()
                     .foregroundStyle(Theme.Status.changed)
                 Button("Réinitialiser") {

@@ -403,10 +403,12 @@ grows one entry point per field, and the same gesture ends up reachable three wa
 The one thing the read sheet still moves is the **ephemeral resizing** of the quantities: a lens
 on what is stored, not a write. It holds on **every version the sheet shows** — the best-rated
 one, an attempt read back from the history, and a version still waiting to be cooked, which is
-the one a cook resizes most. Nothing is disguised by it: the `×0,75` badge, the tinted quantities
-and « Réinitialiser » all say the list is no longer what the version stores. The corollary is
-that `IngredientsGrid` wears the change dots inside the stepper's label — resizing an iteration
-never costs the marks saying what it changes.
+the one a cook resizes most — and on **both worlds**: a dish is a ratio of its ingredients, a cup
+a ratio of its dose, water, yield and milk ([resizing a cup](#resizing-a-cup)). One factor per
+sheet (`RecipeDetailPage.scaleFactor`), whichever section reads it. Nothing is disguised by it:
+the `×0,75` badge, the tinted quantities and « Réinitialiser » all say what is on screen is no
+longer what the version stores. The corollary is that `IngredientsGrid` wears the change dots
+inside the stepper's label — resizing an iteration never costs the marks saying what it changes.
 
 Three consequences worth holding on to:
 
@@ -454,10 +456,11 @@ Four things worth knowing before touching those files:
   notebook (`LibraryStore`, current recipe excluded), then `LinkWeightForm` on the picked recipe's
   own shopping list. The form is primitive-first and previews offline — `WeightStep` is what loads
   the recipe, the form knows nothing of the network.
-- **A weight is typed OR walked.** `IngredientScaling.factor(from:to:)` reads the quantity wanted on
+- **A weight is typed OR walked.** `QuantityScaling.factor(from:to:)` reads the quantity wanted on
   a line ("Farine 100 g"), `factorAfterStep` walks it with the −/+; both go through the same
   `rescale`, which rewrites every line from the single factor. The text field and the stepper are
-  siblings, never nested: a field inside a stepper's label fights it for the tap.
+  siblings, never nested: a field inside a stepper's label fights it for the tap. The coffee sheet
+  resizes on those exact two doors ([resizing a cup](#resizing-a-cup)).
 - **Correcting and unlinking are swipes** on a "Recettes liées" row — "Poids" reopens the weight
   step (`LinkRecipeSheet(editing:)`, which skips the list), "Délier" calls `unlinkComponent`.
 
@@ -495,8 +498,24 @@ The header capsule on a coffee says **how it is brewed** (ESPRESSO, V60, FRENCH 
 the recipe type: the type is given away by the tab the recipe lives in, the method is what
 identifies it. `RecipeHeaderBadges(methodLabel:methodIcon:)` — nil on anything else.
 
-A coffee also has **no portion slider**: `IngredientScaling` has no list to multiply. Doubling a
-dose is an edit of the parameters.
+### Resizing a cup
+
+A cup is a ratio, so it resizes like a shopping list — the same `QuantityScaling`, the same two
+doors (type the amount, or walk it with the −/+), the same badge and « Réinitialiser », and the
+same single factor, which `RecipeDetailPage` hands to whichever section is on screen.
+
+Three things are specific to the cup:
+
+- **Four quantities move, and they are named, not detected**: the dose, the water, the yield in the
+  cup and the milk (`CoffeeParametersSection.Quantity`). Everything else stays exactly as written —
+  and it has to be spelled out, because "93°C" and "28 s" lead with a number and would follow along
+  otherwise. A bigger cup is not a longer extraction, nor a hotter water.
+- **The badge lands on the first block that can be resized** — "Café" when a dose is filled in,
+  "Eau" on a V60 logged without one. A block nothing is filled in for is not rendered at all, so
+  hosting the reset on a fixed block would let it vanish while a factor is still on.
+- **A `scale` is what makes the section adjustable**, and it is optional: nil renders strictly what
+  is stored, which is what the import preview and the execution mode want — they read a cup, they
+  do not brew a bigger one.
 
 ### Correcting the note
 

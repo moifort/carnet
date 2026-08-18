@@ -36,7 +36,7 @@ struct IngredientsEditSection: View {
             Text("Ingrédients")
             if draft.factor != 1 {
                 Spacer()
-                Text(IngredientScaling.factorLabel(draft.factor))
+                Text(QuantityScaling.factorLabel(draft.factor))
                     .monospacedDigit()
                     .foregroundStyle(Theme.Status.changed)
                 Button("Réinitialiser") { draft.factor = 1 }
@@ -52,7 +52,7 @@ struct IngredientsEditSection: View {
     @ViewBuilder
     private func row(at index: Int) -> some View {
         let quantity = draft.displayed(at: index)
-        if IngredientScaling.isScalable(quantity) {
+        if QuantityScaling.isScalable(quantity) {
             Stepper {
                 fields(at: index, quantity: quantity)
             } onIncrement: {
