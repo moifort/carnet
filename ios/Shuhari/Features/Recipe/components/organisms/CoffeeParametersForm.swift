@@ -8,8 +8,6 @@ struct CoffeeParametersDraft: Sendable, Equatable {
     var beanName: String
     var country: String
     var producer: String
-    /// How far the roaster took the beans ("Torréfaction claire", "Medium roast").
-    var roast: String
     /// The roast date cannot be "left blank" by typing nothing — a picker always
     /// shows a date — so its presence gets its own flag.
     var roastedOn: Date
@@ -29,6 +27,8 @@ struct CoffeeParametersDraft: Sendable, Equatable {
     var milkTemperature: String
     var machine: String
     var grinder: String
+    /// The profile the machine runs, by the name it is saved under on it.
+    var profile: String
 
     /// - Parameters:
     ///   - parameters: what is already known — every unknown field starts blank.
@@ -39,7 +39,6 @@ struct CoffeeParametersDraft: Sendable, Equatable {
         beanName = parameters.beans.name ?? ""
         country = parameters.beans.country ?? ""
         producer = parameters.beans.producer ?? ""
-        roast = parameters.beans.roast ?? ""
         roastedOn = parameters.beans.roastedOn ?? Date()
         knowsRoastDate = parameters.beans.roastedOn != nil
         dose = parameters.beans.dose ?? ""
@@ -55,6 +54,7 @@ struct CoffeeParametersDraft: Sendable, Equatable {
         milkTemperature = parameters.milk?.temperature ?? ""
         machine = parameters.gear.machine ?? gear.machine ?? ""
         grinder = parameters.gear.grinder ?? gear.grinder ?? ""
+        profile = parameters.gear.profile ?? gear.profile ?? ""
     }
 
     /// A milk drink shows its milk block from the start — the cook will fill it in.
@@ -76,7 +76,6 @@ struct CoffeeParametersDraft: Sendable, Equatable {
                 name: trimmed(beanName),
                 country: trimmed(country),
                 producer: trimmed(producer),
-                roast: trimmed(roast),
                 roastedOn: knowsRoastDate ? roastedOn : nil,
                 dose: trimmed(dose)
             ),
@@ -97,7 +96,11 @@ struct CoffeeParametersDraft: Sendable, Equatable {
                     temperature: trimmed(milkTemperature)
                 )
                 : nil,
-            gear: CoffeeGear(machine: trimmed(machine), grinder: trimmed(grinder))
+            gear: CoffeeGear(
+                machine: trimmed(machine),
+                grinder: trimmed(grinder),
+                profile: trimmed(profile)
+            )
         )
     }
 
@@ -150,8 +153,6 @@ struct CoffeeParametersForm: View {
                 "Producteur", $draft.producer, vocabulary.producers, changedFrom?.beans.producer
             )
             .accessibilityIdentifier("coffee-producer-field")
-            suggesting("Profil", $draft.roast, vocabulary.roasts, changedFrom?.beans.roast)
-                .accessibilityIdentifier("coffee-roast-field")
             // A date read off the bag is a fact, not a question: it is shown as
             // itself, and only a coffee that arrived without one asks.
             if !roastDateWasRead {
@@ -219,6 +220,8 @@ struct CoffeeParametersForm: View {
         Section("Matériel") {
             suggesting("Machine", $draft.machine, vocabulary.machines, changedFrom?.gear.machine)
                 .accessibilityIdentifier("coffee-machine-field")
+            suggesting("Profil", $draft.profile, vocabulary.profiles, changedFrom?.gear.profile)
+                .accessibilityIdentifier("coffee-profile-field")
             suggesting("Moulin", $draft.grinder, vocabulary.grinders, changedFrom?.gear.grinder)
                 .accessibilityIdentifier("coffee-grinder-field")
         }
@@ -352,7 +355,7 @@ private struct CoffeeParametersFormPreview: View {
         draft: CoffeeParametersDraft(
             .empty,
             method: .espresso,
-            gear: CoffeeGear(machine: "Rancilio Silvia", grinder: "Niche Zero")
+            gear: CoffeeGear(machine: "Rancilio Silvia", grinder: "Niche Zero", profile: nil)
         )
     )
 }

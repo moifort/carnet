@@ -21,7 +21,7 @@ import {
   type CoffeeMilkAmount as CoffeeMilkAmountType,
   type CoffeeMilkKind as CoffeeMilkKindType,
   type CoffeeProducer as CoffeeProducerType,
-  type CoffeeRoast as CoffeeRoastType,
+  type CoffeeProfile as CoffeeProfileType,
   type CoffeeTemperature as CoffeeTemperatureType,
   type CoffeeTime as CoffeeTimeType,
   type CoffeeWaterKind as CoffeeWaterKindType,
@@ -187,11 +187,11 @@ const coffeeLabel = (value: unknown) =>
 export const CoffeeBeanName = (value: unknown) => make<CoffeeBeanNameType>()(coffeeLabel(value))
 export const CoffeeCountry = (value: unknown) => make<CoffeeCountryType>()(coffeeLabel(value))
 export const CoffeeProducer = (value: unknown) => make<CoffeeProducerType>()(coffeeLabel(value))
-export const CoffeeRoast = (value: unknown) => make<CoffeeRoastType>()(coffeeLabel(value))
 export const CoffeeWaterKind = (value: unknown) => make<CoffeeWaterKindType>()(coffeeLabel(value))
 export const CoffeeMilkKind = (value: unknown) => make<CoffeeMilkKindType>()(coffeeLabel(value))
 export const CoffeeMachine = (value: unknown) => make<CoffeeMachineType>()(coffeeLabel(value))
 export const CoffeeGrinder = (value: unknown) => make<CoffeeGrinderType>()(coffeeLabel(value))
+export const CoffeeProfile = (value: unknown) => make<CoffeeProfileType>()(coffeeLabel(value))
 
 // The single date of the coffee model — the boundaries hand it over as an ISO string
 // (GraphQL, Gemini) or already as a Date (Firestore).
@@ -256,7 +256,6 @@ const looseCoffeeParametersSchema = z.object({
       name: z.string().nullish(),
       country: z.string().nullish(),
       producer: z.string().nullish(),
-      roast: z.string().nullish(),
       roastedOn: z.union([z.string(), z.date()]).nullish(),
       dose: z.string().nullish(),
     })
@@ -282,7 +281,13 @@ const looseCoffeeParametersSchema = z.object({
       temperature: z.string().nullish(),
     })
     .nullish(),
-  gear: z.object({ machine: z.string().nullish(), grinder: z.string().nullish() }).nullish(),
+  gear: z
+    .object({
+      machine: z.string().nullish(),
+      grinder: z.string().nullish(),
+      profile: z.string().nullish(),
+    })
+    .nullish(),
 })
 
 // A coffee body is its parameters. `steps` is deliberately not declared: a client
@@ -362,7 +367,6 @@ const brandCoffeeParameters = (
       ...(raw.beans?.name ? { name: CoffeeBeanName(raw.beans.name) } : {}),
       ...(raw.beans?.country ? { country: CoffeeCountry(raw.beans.country) } : {}),
       ...(raw.beans?.producer ? { producer: CoffeeProducer(raw.beans.producer) } : {}),
-      ...(raw.beans?.roast ? { roast: CoffeeRoast(raw.beans.roast) } : {}),
       ...(raw.beans?.roastedOn ? { roastedOn: RoastDate(raw.beans.roastedOn) } : {}),
       ...(raw.beans?.dose ? { dose: CoffeeDose(raw.beans.dose) } : {}),
     },
@@ -384,6 +388,7 @@ const brandCoffeeParameters = (
     gear: {
       ...(raw.gear?.machine ? { machine: CoffeeMachine(raw.gear.machine) } : {}),
       ...(raw.gear?.grinder ? { grinder: CoffeeGrinder(raw.gear.grinder) } : {}),
+      ...(raw.gear?.profile ? { profile: CoffeeProfile(raw.gear.profile) } : {}),
     },
   })
 

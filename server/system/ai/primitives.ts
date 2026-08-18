@@ -107,7 +107,6 @@ const coffeeParametersSchema = z
         name: optionalClamped(RECIPE_MAX.coffeeLabel),
         country: optionalClamped(RECIPE_MAX.coffeeLabel),
         producer: optionalClamped(RECIPE_MAX.coffeeLabel),
-        roast: optionalClamped(RECIPE_MAX.coffeeLabel),
         roastedOn: optionalClamped(RECIPE_MAX.coffee),
         dose: optionalClamped(RECIPE_MAX.coffee),
       }),
@@ -137,6 +136,7 @@ const coffeeParametersSchema = z
       z.object({
         machine: optionalClamped(RECIPE_MAX.coffeeLabel),
         grinder: optionalClamped(RECIPE_MAX.coffeeLabel),
+        profile: optionalClamped(RECIPE_MAX.coffeeLabel),
       }),
     ),
   })

@@ -154,6 +154,10 @@ The `/admin/*` routes are gated by the admin bearer token (`middleware/auth.ts`,
 | 3 | `version-updated-at` | Backfills `updatedAt` on every version that predates the field, with its `createdAt` — nothing stored knows when an older version was last rewritten. |
 | 4 | `recipe-dated-by-its-best-version` | Rewrites each recipe's `updatedAt` as the date of the version it opens on (`lastWorkedOn`), the field the library orders and pages on. |
 | 5 | `coffee-roast-vocabulary` | Adds an empty `roasts` list to every coffee vocabulary stored before the roast profile existed. It derives nothing from the logged coffees: a profile nobody wrote down is not one to guess. |
+| 6 | `warnings-onto-the-version` | Moves the pinned cautions from the recipe onto each of its versions — a caution belongs to the attempt it was learnt on. |
+| 7 | `favorite-onto-the-version` | Moves the heart from the recipe onto the version wearing it; a recipe is a favourite as soon as one of its versions is. |
+| 8 | `components-onto-the-recipe` | Moves a link to another recipe off the ingredient LINE and onto the recipe, at weight `1`, and writes `componentIds` beside it so the link can be read backwards. |
+| 9 | `profile-onto-the-gear` | Moves the coffee “profile” off the beans and onto the gear, where it names the preset the machine runs. Nothing is carried over: the stored `beans.roast` goes, the vocabulary's `roasts` goes with it, and `profiles` starts empty — the values typed described a torrefaction, and promoting them would file a wrong answer under a right question. |
 
 ## Rules
 

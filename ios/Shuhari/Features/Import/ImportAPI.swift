@@ -152,7 +152,6 @@ enum ImportAPI {
                 name: coffee.beans.name,
                 country: coffee.beans.country,
                 producer: coffee.beans.producer,
-                roast: coffee.beans.roast,
                 roastedOn: coffee.beans.roastedOn.flatMap { GraphQLHelpers.parseISO8601($0) },
                 dose: coffee.beans.dose
             ),
@@ -169,7 +168,11 @@ enum ImportAPI {
             milk: coffee.milk.map {
                 CoffeeMilk(kind: $0.kind, amount: $0.amount, temperature: $0.temperature)
             },
-            gear: CoffeeGear(machine: coffee.gear.machine, grinder: coffee.gear.grinder)
+            gear: CoffeeGear(
+                machine: coffee.gear.machine,
+                grinder: coffee.gear.grinder,
+                profile: coffee.gear.profile
+            )
         )
     }
 

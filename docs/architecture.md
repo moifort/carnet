@@ -141,8 +141,8 @@ reads back as both meters at zero. `entitlements` (`entitlement` domain) holds o
 cook, keyed by `userId`, overwritten in place on every renewal; it also carries the
 `appAccountToken`, the one field queried rather than keyed (the App Store notifications name a
 cook only through it). `coffee-vocabularies` (`recipe` domain) holds one document per cook, keyed
-by `userId`: the free-text values already typed on a coffee — waters, machines, grinders, beans,
-roast profiles — that each field suggests. It is **denormalized on purpose**, written in the same
+by `userId`: the free-text values already typed on a coffee — waters, machines, machine profiles,
+grinders, beans — that each field suggests. It is **denormalized on purpose**, written in the same
 batch as the coffee version that taught it, so a suggestion list costs one keyed read instead of a
 scan that would grow with the library.
 

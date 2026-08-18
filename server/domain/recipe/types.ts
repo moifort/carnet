@@ -68,13 +68,13 @@ export type CoffeeYield = Brand<string, 'CoffeeYield'>
 export type CoffeeBeanName = Brand<string, 'CoffeeBeanName'>
 export type CoffeeCountry = Brand<string, 'CoffeeCountry'>
 export type CoffeeProducer = Brand<string, 'CoffeeProducer'>
-export type CoffeeRoast = Brand<string, 'CoffeeRoast'>
 export type CoffeeDose = Brand<string, 'CoffeeDose'>
 export type CoffeeWaterKind = Brand<string, 'CoffeeWaterKind'>
 export type CoffeeMilkKind = Brand<string, 'CoffeeMilkKind'>
 export type CoffeeMilkAmount = Brand<string, 'CoffeeMilkAmount'>
 export type CoffeeMachine = Brand<string, 'CoffeeMachine'>
 export type CoffeeGrinder = Brand<string, 'CoffeeGrinder'>
+export type CoffeeProfile = Brand<string, 'CoffeeProfile'>
 
 // The oven's heating functions — what the dial selects. Technical English symbols,
 // never a manufacturer's code: `system/electrolux/program.ts` is the only place that

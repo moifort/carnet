@@ -70,18 +70,15 @@ struct CoffeeBeans: Sendable, Hashable {
     let name: String?
     let country: String?
     let producer: String?
-    /// How far the roaster took them ("Torréfaction claire", "Medium roast").
-    let roast: String?
     let roastedOn: Date?
     let dose: String?
 
     var isEmpty: Bool {
-        name == nil && country == nil && producer == nil && roast == nil && roastedOn == nil
-            && dose == nil
+        name == nil && country == nil && producer == nil && roastedOn == nil && dose == nil
     }
 
     static let empty = CoffeeBeans(
-        name: nil, country: nil, producer: nil, roast: nil, roastedOn: nil, dose: nil
+        name: nil, country: nil, producer: nil, roastedOn: nil, dose: nil
     )
 }
 
@@ -126,10 +123,14 @@ struct CoffeeMilk: Sendable, Hashable {
 struct CoffeeGear: Sendable, Hashable {
     let machine: String?
     let grinder: String?
+    /// The profile the machine runs, by the name it is saved under on it ("Sera
+    /// Modern Arc"). The name stands for the pre-infusion, the pressure and the
+    /// temperature it holds — those live in the machine, not in the notebook.
+    let profile: String?
 
-    var isEmpty: Bool { machine == nil && grinder == nil }
+    var isEmpty: Bool { machine == nil && grinder == nil && profile == nil }
 
-    static let empty = CoffeeGear(machine: nil, grinder: nil)
+    static let empty = CoffeeGear(machine: nil, grinder: nil, profile: nil)
 }
 
 /// Everything a coffee version is set by, minus its gestures — the unit the edit
@@ -158,10 +159,10 @@ struct CoffeeVocabulary: Sendable, Hashable {
     var beanNames: [String] = []
     var countries: [String] = []
     var producers: [String] = []
-    var roasts: [String] = []
     var waterKinds: [String] = []
     var milkKinds: [String] = []
     var machines: [String] = []
+    var profiles: [String] = []
     var grinders: [String] = []
 
     static let empty = CoffeeVocabulary()

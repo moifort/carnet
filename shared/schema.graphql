@@ -104,11 +104,6 @@ type CoffeeBeans {
   producer: CoffeeProducer
 
   """
-  How far the roaster took the beans, e.g. `"Torréfaction claire"` (`null` if not set)
-  """
-  roast: CoffeeRoast
-
-  """
   When the beans were roasted, e.g. `"2026-06-12T00:00:00.000Z"`. See the version’s `restDays` for how long they rested before this cup. `null` if not set.
   """
   roastedOn: DateTime
@@ -127,9 +122,6 @@ input CoffeeBeansInput {
 
   """e.g. `"Coop. Hambela"`"""
   producer: CoffeeProducer
-
-  """e.g. `"Torréfaction claire"`"""
-  roast: CoffeeRoast
 
   """When the beans were roasted"""
   roastedOn: DateTime
@@ -210,7 +202,7 @@ input CoffeeExtractionInput {
 }
 
 """
-What brews it and what grinds it. Versioned along with the rest: a version stays reproducible on its own, and swapping grinders shows up in the lineage.
+What brews it, what grinds it, and the profile the machine runs. Versioned along with the rest: a version stays reproducible on its own, and swapping grinders shows up in the lineage.
 """
 type CoffeeGear {
   """Brand and model, e.g. `"Niche Zero"` (`null` if not set)"""
@@ -220,6 +212,11 @@ type CoffeeGear {
   Brand and model, e.g. `"Rancilio Silvia"` or `"Hario V60 02"` (`null` if not set)
   """
   machine: CoffeeMachine
+
+  """
+  The profile the machine runs, by the name it is saved under on it, e.g. `"Sera Modern Arc"` (`null` if not set)
+  """
+  profile: CoffeeProfile
 }
 
 """What brews it and what grinds it. Every field is optional."""
@@ -229,6 +226,9 @@ input CoffeeGearInput {
 
   """e.g. `"Rancilio Silvia"`"""
   machine: CoffeeMachine
+
+  """e.g. `"Sera Modern Arc"`"""
+  profile: CoffeeProfile
 }
 
 """
@@ -322,9 +322,9 @@ input CoffeeParametersInput {
 scalar CoffeeProducer
 
 """
-How far the roaster took the beans, as the bag words it, e.g. `"Torréfaction claire"` or `"Medium roast"`
+The profile the machine runs, by the name it is saved under, e.g. `"Sera Modern Arc"` or `"Dark roast"`. The name stands for the settings it holds — the pre-infusion, the pressure, the temperature — which live in the machine, not here.
 """
-scalar CoffeeRoast
+scalar CoffeeProfile
 
 """The water temperature of a brewing step, e.g. `"93°C"`"""
 scalar CoffeeTemperature
@@ -356,8 +356,8 @@ type CoffeeVocabulary {
   """Producers you have logged, e.g. `["Coop. Hambela"]`"""
   producers: [CoffeeProducer!]!
 
-  """Roast profiles you have logged, e.g. `["Torréfaction claire"]`"""
-  roasts: [CoffeeRoast!]!
+  """Machine profiles you brew on, e.g. `["Sera Modern Arc"]`"""
+  profiles: [CoffeeProfile!]!
 
   """Waters you have used, e.g. `["Robinet (dureté 3/5)"]`"""
   waterKinds: [CoffeeWaterKind!]!
@@ -587,9 +587,6 @@ type ImportCoffeeBeans {
   name: String
   producer: String
 
-  """The roast profile as the source words it — `null` when not stated"""
-  roast: String
-
   """
   The roast date as the source states it, ISO 8601 — `null` when not stated
   """
@@ -607,6 +604,9 @@ type ImportCoffeeExtraction {
 type ImportCoffeeGear {
   grinder: String
   machine: String
+
+  """The machine profile the source names — `null` when it names none"""
+  profile: String
 }
 
 """The milk as extracted by the AI (unvalidated preview)"""

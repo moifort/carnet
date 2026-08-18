@@ -5,7 +5,7 @@ import type {
   CoffeeDose,
   CoffeeGrind,
   CoffeeMachine,
-  CoffeeRoast,
+  CoffeeProfile,
   CoffeeTime,
   CoffeeWater,
   CoffeeWaterKind,
@@ -22,24 +22,23 @@ describe('VersionContent — a coffee is its parameters, nothing else', () => {
   test('brands a coffee body with no steps at all', () => {
     const content = VersionContent({
       kind: 'coffee',
-      beans: { name: 'Belleville — Guji', roast: 'Torréfaction claire', dose: '18 g' },
+      beans: { name: 'Belleville — Guji', dose: '18 g' },
       water: { kind: 'Robinet (dureté 3/5)', amount: '36 g' },
       extraction: { grind: 'Niveau 12', time: '28 s' },
-      gear: { machine: 'Rancilio Silvia' },
+      gear: { machine: 'Rancilio Silvia', profile: 'Sera Modern Arc' },
     })
     expect(content).toEqual({
       kind: 'coffee',
-      beans: {
-        name: 'Belleville — Guji' as CoffeeBeanName,
-        roast: 'Torréfaction claire' as CoffeeRoast,
-        dose: '18 g' as CoffeeDose,
-      },
+      beans: { name: 'Belleville — Guji' as CoffeeBeanName, dose: '18 g' as CoffeeDose },
       water: {
         kind: 'Robinet (dureté 3/5)' as CoffeeWaterKind,
         amount: '36 g' as CoffeeWater,
       },
       extraction: { grind: 'Niveau 12' as CoffeeGrind, time: '28 s' as CoffeeTime },
-      gear: { machine: 'Rancilio Silvia' as CoffeeMachine },
+      gear: {
+        machine: 'Rancilio Silvia' as CoffeeMachine,
+        profile: 'Sera Modern Arc' as CoffeeProfile,
+      },
     })
     expect('steps' in content).toBe(false)
   })

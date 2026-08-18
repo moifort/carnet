@@ -8,7 +8,7 @@ import type {
   CoffeeMilkAmount,
   CoffeeMilkKind,
   CoffeeProducer,
-  CoffeeRoast,
+  CoffeeProfile,
   CoffeeTemperature,
   CoffeeTime,
   CoffeeWater,
@@ -25,7 +25,6 @@ export type CoffeeBeans = {
   name?: CoffeeBeanName // "Belleville — Guji"
   country?: CoffeeCountry // "Éthiopie"
   producer?: CoffeeProducer // "Coop. Hambela"
-  roast?: CoffeeRoast // how far the roaster took it: "Torréfaction claire", "Medium roast"
   roastedOn?: Date
   dose?: CoffeeDose // "18 g"
 }
@@ -58,6 +57,12 @@ export type CoffeeMilk = {
 export type CoffeeGear = {
   machine?: CoffeeMachine // "Rancilio Silvia", "Hario V60 02", "Moccamaster KBG"
   grinder?: CoffeeGrinder // "Niche Zero"
+  // The profile the machine runs, by the name it is saved under — "Sera Modern Arc",
+  // "Dark roast". The name IS the setting: the pre-infusion, the pressure curve and
+  // the temperature it holds live in the machine, and copying them here would
+  // duplicate a truth the appliance owns. What the cup needs written down is which
+  // profile was pressed.
+  profile?: CoffeeProfile
 }
 
 // Everything a coffee version is set by, minus its gestures. Named apart from the

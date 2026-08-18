@@ -11,7 +11,7 @@ import {
   CoffeeMilkAmount,
   CoffeeMilkKind,
   CoffeeProducer,
-  CoffeeRoast,
+  CoffeeProfile,
   CoffeeTemperature,
   CoffeeTime,
   CoffeeWater,
@@ -244,14 +244,6 @@ builder.scalarType('CoffeeProducer', {
   parseValue: validatedParse('CoffeeProducer', CoffeeProducer),
 })
 
-builder.scalarType('CoffeeRoast', {
-  description:
-    'How far the roaster took the beans, as the bag words it, e.g. `"Torréfaction claire"` or ' +
-    '`"Medium roast"`',
-  serialize: (value) => value as string,
-  parseValue: validatedParse('CoffeeRoast', CoffeeRoast),
-})
-
 builder.scalarType('CoffeeDose', {
   description: 'The ground coffee that goes in, e.g. `"18 g"`',
   serialize: (value) => value as string,
@@ -284,6 +276,15 @@ builder.scalarType('CoffeeMachine', {
     '`"Moccamaster KBG"`',
   serialize: (value) => value as string,
   parseValue: validatedParse('CoffeeMachine', CoffeeMachine),
+})
+
+builder.scalarType('CoffeeProfile', {
+  description:
+    'The profile the machine runs, by the name it is saved under, e.g. `"Sera Modern Arc"` or ' +
+    '`"Dark roast"`. The name stands for the settings it holds — the pre-infusion, the pressure, ' +
+    'the temperature — which live in the machine, not here.',
+  serialize: (value) => value as string,
+  parseValue: validatedParse('CoffeeProfile', CoffeeProfile),
 })
 
 builder.scalarType('CoffeeGrinder', {

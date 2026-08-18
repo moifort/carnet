@@ -14,8 +14,6 @@ struct CoffeeParametersSection: View {
         var beanName: String?
         var country: String?
         var producer: String?
-        /// How far the roaster took the beans ("Torréfaction claire").
-        var roast: String?
         /// The roast date, already written out ("12 juin 2026").
         var roastLabel: String?
         /// How long the beans rested, already written out ("J+14").
@@ -32,6 +30,8 @@ struct CoffeeParametersSection: View {
         var milkTemperature: String?
         var machine: String?
         var grinder: String?
+        /// The profile the machine runs, by the name it is saved under on it.
+        var profile: String?
     }
 
     let item: Item
@@ -42,7 +42,6 @@ struct CoffeeParametersSection: View {
             ("Café", item.beanName),
             ("Pays", item.country),
             ("Producteur", item.producer),
-            ("Profil", item.roast),
             ("Torréfaction", roastValue),
             ("Dose", item.dose),
         ])
@@ -63,6 +62,7 @@ struct CoffeeParametersSection: View {
         ])
         block("Matériel", rows: [
             ("Machine", item.machine),
+            ("Profil", item.profile),
             ("Moulin", item.grinder),
         ])
     }
@@ -108,7 +108,6 @@ extension CoffeeParametersSection {
             beanName: parameters.beans.name,
             country: parameters.beans.country,
             producer: parameters.beans.producer,
-            roast: parameters.beans.roast,
             roastLabel: parameters.beans.roastedOn?
                 .formatted(.dateTime.day().month(.wide).year()),
             restLabel: restDays.map { "J+\($0)" },
@@ -123,7 +122,8 @@ extension CoffeeParametersSection {
             milkAmount: parameters.milk?.amount,
             milkTemperature: parameters.milk?.temperature,
             machine: parameters.gear.machine,
-            grinder: parameters.gear.grinder
+            grinder: parameters.gear.grinder,
+            profile: parameters.gear.profile
         )
         self.big = big
     }
@@ -135,7 +135,6 @@ extension CoffeeParametersSection {
             beanName: "Belleville — Guji",
             country: "Éthiopie",
             producer: "Coop. Hambela",
-            roast: "Torréfaction claire",
             roastLabel: "12 juin 2026",
             restLabel: "J+14",
             dose: "18 g",
@@ -146,7 +145,8 @@ extension CoffeeParametersSection {
             time: "28 s",
             cupYield: "36 g",
             machine: "Rancilio Silvia",
-            grinder: "Niche Zero"
+            grinder: "Niche Zero",
+            profile: "Sera Modern Arc"
         ))
     }
 }

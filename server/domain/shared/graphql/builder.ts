@@ -12,7 +12,7 @@ import type {
   CoffeeMilkAmount,
   CoffeeMilkKind,
   CoffeeProducer,
-  CoffeeRoast,
+  CoffeeProfile,
   CoffeeTemperature,
   CoffeeTime,
   CoffeeWater,
@@ -85,13 +85,13 @@ export const builder = new SchemaBuilder<{
     CoffeeBeanName: { Input: CoffeeBeanName; Output: CoffeeBeanName }
     CoffeeCountry: { Input: CoffeeCountry; Output: CoffeeCountry }
     CoffeeProducer: { Input: CoffeeProducer; Output: CoffeeProducer }
-    CoffeeRoast: { Input: CoffeeRoast; Output: CoffeeRoast }
     CoffeeDose: { Input: CoffeeDose; Output: CoffeeDose }
     CoffeeWaterKind: { Input: CoffeeWaterKind; Output: CoffeeWaterKind }
     CoffeeMilkKind: { Input: CoffeeMilkKind; Output: CoffeeMilkKind }
     CoffeeMilkAmount: { Input: CoffeeMilkAmount; Output: CoffeeMilkAmount }
     CoffeeMachine: { Input: CoffeeMachine; Output: CoffeeMachine }
     CoffeeGrinder: { Input: CoffeeGrinder; Output: CoffeeGrinder }
+    CoffeeProfile: { Input: CoffeeProfile; Output: CoffeeProfile }
     Remarks: { Input: Remarks; Output: Remarks }
   }
 }>({

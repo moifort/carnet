@@ -3,7 +3,6 @@ fragment CoffeeParametersFields on ImportCoffeeParameters {
     name
     country
     producer
-    roast
     roastedOn
     dose
   }
@@ -25,6 +24,7 @@ fragment CoffeeParametersFields on ImportCoffeeParameters {
   gear {
     machine
     grinder
+    profile
   }
 }
 

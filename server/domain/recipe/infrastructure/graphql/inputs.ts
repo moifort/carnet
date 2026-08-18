@@ -64,7 +64,6 @@ export const CoffeeBeansInput = builder.inputType('CoffeeBeansInput', {
     name: t.field({ type: 'CoffeeBeanName', description: 'e.g. `"Belleville — Guji"`' }),
     country: t.field({ type: 'CoffeeCountry', description: 'e.g. `"Éthiopie"`' }),
     producer: t.field({ type: 'CoffeeProducer', description: 'e.g. `"Coop. Hambela"`' }),
-    roast: t.field({ type: 'CoffeeRoast', description: 'e.g. `"Torréfaction claire"`' }),
     roastedOn: t.field({ type: 'DateTime', description: 'When the beans were roasted' }),
     dose: t.field({ type: 'CoffeeDose', description: 'e.g. `"18 g"`' }),
   }),
@@ -102,6 +101,7 @@ export const CoffeeGearInput = builder.inputType('CoffeeGearInput', {
   fields: (t) => ({
     machine: t.field({ type: 'CoffeeMachine', description: 'e.g. `"Rancilio Silvia"`' }),
     grinder: t.field({ type: 'CoffeeGrinder', description: 'e.g. `"Niche Zero"`' }),
+    profile: t.field({ type: 'CoffeeProfile', description: 'e.g. `"Sera Modern Arc"`' }),
   }),
 })
 

@@ -40,7 +40,11 @@ struct CoffeeImportPreviewPage: View {
             initialValue: CoffeeParametersDraft(
                 analysis.parameters,
                 method: analysis.method,
-                gear: CoffeeGear(machine: vocabulary.machines.first, grinder: vocabulary.grinders.first)
+                gear: CoffeeGear(
+                    machine: vocabulary.machines.first,
+                    grinder: vocabulary.grinders.first,
+                    profile: vocabulary.profiles.first
+                )
             )
         )
         _tipTexts = State(initialValue: analysis.tips)

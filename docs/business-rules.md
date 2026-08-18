@@ -15,10 +15,11 @@ the digest; this doc is the spec. The mechanics of building a domain live in
   `DishContent` = `ingredients` + plain-text `steps`; `ThermomixContent` = `ingredients` + nested
   `steps: ThermomixStep[]` where each `ThermomixStep = { text; settings }` (settings total — `{}`
   = a plain step). **`CoffeeContent` has neither an ingredient list nor steps**: a coffee is a set
-  of dials, described by `CoffeeParameters` alone — `beans` (name / country / producer / `roast`,
-  the profile as the bag words it, "Torréfaction claire" / `roastedOn` / dose), `water` (kind /
-  amount / temperature), `extraction` (grind / time / yield), an optional `milk`, and `gear`
-  (machine / grinder). The four blocks are total (`{}` = nothing filled in); `milk` is **absent**
+  of dials, described by `CoffeeParameters` alone — `beans` (name / country / producer /
+  `roastedOn` / dose), `water` (kind / amount / temperature), `extraction` (grind / time / yield),
+  an optional `milk`, and `gear` (machine / grinder / `profile`, the preset the machine runs, by
+  the name it is saved under on it — "Sera Modern Arc"; the name stands for the pre-infusion, the
+  pressure and the temperature it holds, which live in the machine, not in the notebook). The four blocks are total (`{}` = nothing filled in); `milk` is **absent**
   on a drink that has none, its absence being the information. `restDays` derives, at read time,
   how many full days the beans rested between `beans.roastedOn` and the version's `createdAt`:
   frozen by construction, absent without a roast date or with one in the future.
@@ -411,8 +412,8 @@ The prompts, one module per flow under `server/system/ai/` (`import/*`, `proposa
     tasting says what that variable did; move two and the attempt teaches nothing. When the
     remarks call for several changes, the model applies the one that most likely explains what was
     tasted and names in its `rationale` what it is holding back for the iteration after. The
-    **beans** (name, country, producer, roast profile, roast date), the **kind of water** and the
-    **gear** are off-limits: they are what the cook observed, not dials — the model sets an
+    **beans** (name, country, producer, roast date), the **kind of water** and the **gear**
+    (machine, grinder, machine profile) are off-limits: they are what the cook observed, not dials — the model sets an
     extraction, it does not recommend a purchase. The brewing method is never changed either — a
     V60 recipe stays a V60 (`CoffeeProposalContext.method` states it), and `currentParameters` is
     where the iteration starts from.

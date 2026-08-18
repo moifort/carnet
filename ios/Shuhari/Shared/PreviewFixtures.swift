@@ -377,14 +377,13 @@ enum Fixtures {
             name: "Belleville — Guji",
             country: "Éthiopie",
             producer: "Coop. Hambela",
-            roast: "Torréfaction claire",
             roastedOn: date.addingTimeInterval(-86_400 * 20),
             dose: "18 g"
         ),
         water: CoffeeWaterSpec(kind: "Volvic", amount: "300 g", temperature: "94°C"),
         extraction: CoffeeExtraction(grind: "moyenne", time: "3 min 15", cupYield: "300 g"),
         milk: nil,
-        gear: CoffeeGear(machine: "Hario V60 02", grinder: "Comandante C40")
+        gear: CoffeeGear(machine: "Hario V60 02", grinder: "Comandante C40", profile: nil)
     )
 
     static let v60V1 = RecipeVersion(
@@ -448,7 +447,6 @@ enum Fixtures {
             name: "Belleville — Sidamo",
             country: "Éthiopie",
             producer: "Coop. Hambela",
-            roast: "Torréfaction espresso",
             roastedOn: date.addingTimeInterval(-86_400 * 9),
             dose: "18 g"
         ),
@@ -459,7 +457,7 @@ enum Fixtures {
         ),
         extraction: CoffeeExtraction(grind: "Niveau 12", time: "28 s", cupYield: "36 g"),
         milk: nil,
-        gear: CoffeeGear(machine: "Rancilio Silvia", grinder: "Niche Zero")
+        gear: CoffeeGear(machine: "Rancilio Silvia", grinder: "Niche Zero", profile: "Sera Modern Arc")
     )
 
     static let espressoV1 = RecipeVersion(
@@ -492,10 +490,10 @@ enum Fixtures {
         beanNames: ["Belleville — Sidamo", "Belleville — Guji", "Cafés Lomi — Yirgacheffe"],
         countries: ["Éthiopie", "Colombie", "Brésil"],
         producers: ["Coop. Hambela", "Finca El Paraíso"],
-        roasts: ["Torréfaction claire", "Torréfaction espresso", "Medium roast"],
         waterKinds: ["Robinet (dureté 3/5)", "Volvic", "Volvic + minéralisation Lotus"],
         milkKinds: ["Entier", "Avoine Oatly"],
         machines: ["Rancilio Silvia", "Hario V60 02", "Moccamaster KBG"],
+        profiles: ["Sera Modern Arc", "Dark roast", "Filtre doux"],
         grinders: ["Niche Zero", "Comandante C40"]
     )
 
@@ -699,7 +697,7 @@ enum Fixtures {
         parameters: CoffeeParameters(
             beans: CoffeeBeans(
                 name: "Belleville — Guji", country: "Éthiopie", producer: nil,
-                roast: nil, roastedOn: nil, dose: "18 g"
+                roastedOn: nil, dose: "18 g"
             ),
             // Deduced from the dose at the method's ratio — the one thing the AI
             // may compute rather than read.
@@ -720,12 +718,12 @@ enum Fixtures {
         parameters: CoffeeParameters(
             beans: CoffeeBeans(
                 name: "Belleville — Guji", country: nil, producer: nil,
-                roast: nil, roastedOn: nil, dose: "18 g"
+                roastedOn: nil, dose: "18 g"
             ),
             water: CoffeeWaterSpec(kind: nil, amount: "36 g", temperature: nil),
             extraction: CoffeeExtraction(grind: "fine", time: "28 s", cupYield: "36 g"),
             milk: CoffeeMilk(kind: "Avoine Oatly", amount: "150 ml", temperature: "65°C"),
-            gear: CoffeeGear(machine: "Rancilio Silvia", grinder: nil)
+            gear: CoffeeGear(machine: "Rancilio Silvia", grinder: nil, profile: nil)
         ),
         tips: [],
         sourceLabel: nil

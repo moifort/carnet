@@ -533,19 +533,18 @@ describe('updateCoffeeParameters mutation', () => {
     await execute(`
       mutation {
         updateCoffeeParameters(recipeId: "${id}", versionNumber: 1, parameters: {
-          beans: { roast: "Torréfaction claire" }
           water: { kind: "Volvic + minéralisation Lotus" }
-          gear: { grinder: "Niche Zero" }
+          gear: { grinder: "Niche Zero", profile: "Sera Modern Arc" }
         }) { number }
       }
     `)
 
-    const result = await execute(`{ coffeeVocabulary { waterKinds grinders machines roasts } }`)
+    const result = await execute(`{ coffeeVocabulary { waterKinds grinders machines profiles } }`)
     expect(result.data?.coffeeVocabulary).toEqual({
       waterKinds: ['Volvic + minéralisation Lotus'],
       grinders: ['Niche Zero'],
       machines: ['Rancilio Silvia'],
-      roasts: ['Torréfaction claire'],
+      profiles: ['Sera Modern Arc'],
     })
   })
 

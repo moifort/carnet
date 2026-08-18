@@ -67,7 +67,6 @@ fragment VersionContentFields on VersionContent {
       name
       country
       producer
-      roast
       roastedOn
       dose
     }
@@ -89,6 +88,7 @@ fragment VersionContentFields on VersionContent {
     gear {
       machine
       grinder
+      profile
     }
   }
 }

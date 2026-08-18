@@ -4,7 +4,7 @@ import type {
   CoffeeBeanName,
   CoffeeMachine,
   CoffeeMilkKind,
-  CoffeeRoast,
+  CoffeeProfile,
   CoffeeTime,
   CoffeeWaterKind,
 } from '~/domain/recipe/types'
@@ -25,16 +25,16 @@ describe('learnedVocabulary', () => {
     const learned = learnedVocabulary(
       emptyVocabulary(userId),
       params({
-        beans: {
-          name: 'Belleville — Guji' as CoffeeBeanName,
-          roast: 'Torréfaction claire' as CoffeeRoast,
-        },
+        beans: { name: 'Belleville — Guji' as CoffeeBeanName },
         water: { kind: 'Robinet (dureté 3/5)' as CoffeeWaterKind },
-        gear: { machine: 'Rancilio Silvia' as CoffeeMachine },
+        gear: {
+          machine: 'Rancilio Silvia' as CoffeeMachine,
+          profile: 'Sera Modern Arc' as CoffeeProfile,
+        },
       }),
     )
     expect(learned.beanNames).toEqual(['Belleville — Guji' as CoffeeBeanName])
-    expect(learned.roasts).toEqual(['Torréfaction claire' as CoffeeRoast])
+    expect(learned.profiles).toEqual(['Sera Modern Arc' as CoffeeProfile])
     expect(learned.waterKinds).toEqual(['Robinet (dureté 3/5)' as CoffeeWaterKind])
     expect(learned.machines).toEqual(['Rancilio Silvia' as CoffeeMachine])
     expect(learned.grinders).toEqual([])

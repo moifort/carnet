@@ -246,13 +246,6 @@ export const CoffeeBeansType = builder.objectRef<CoffeeBeans>('CoffeeBeans').imp
       description: 'Farm, washing station or co-op, e.g. `"Coop. Hambela"` (`null` if not set)',
       resolve: ({ producer }) => producer ?? null,
     }),
-    roast: t.field({
-      type: 'CoffeeRoast',
-      nullable: true,
-      description:
-        'How far the roaster took the beans, e.g. `"Torréfaction claire"` (`null` if not set)',
-      resolve: ({ roast }) => roast ?? null,
-    }),
     roastedOn: t.field({
       type: 'DateTime',
       nullable: true,
@@ -353,8 +346,8 @@ export const CoffeeMilkType = builder.objectRef<CoffeeMilk>('CoffeeMilk').implem
 
 export const CoffeeGearType = builder.objectRef<CoffeeGear>('CoffeeGear').implement({
   description:
-    'What brews it and what grinds it. Versioned along with the rest: a version stays ' +
-    'reproducible on its own, and swapping grinders shows up in the lineage.',
+    'What brews it, what grinds it, and the profile the machine runs. Versioned along with the ' +
+    'rest: a version stays reproducible on its own, and swapping grinders shows up in the lineage.',
   fields: (t) => ({
     machine: t.field({
       type: 'CoffeeMachine',
@@ -368,6 +361,14 @@ export const CoffeeGearType = builder.objectRef<CoffeeGear>('CoffeeGear').implem
       nullable: true,
       description: 'Brand and model, e.g. `"Niche Zero"` (`null` if not set)',
       resolve: ({ grinder }) => grinder ?? null,
+    }),
+    profile: t.field({
+      type: 'CoffeeProfile',
+      nullable: true,
+      description:
+        'The profile the machine runs, by the name it is saved under on it, e.g. ' +
+        '`"Sera Modern Arc"` (`null` if not set)',
+      resolve: ({ profile }) => profile ?? null,
     }),
   }),
 })
@@ -767,11 +768,6 @@ export const CoffeeVocabularyType = builder
         description: 'Producers you have logged, e.g. `["Coop. Hambela"]`',
         resolve: ({ producers }) => producers,
       }),
-      roasts: t.field({
-        type: ['CoffeeRoast'],
-        description: 'Roast profiles you have logged, e.g. `["Torréfaction claire"]`',
-        resolve: ({ roasts }) => roasts,
-      }),
       waterKinds: t.field({
         type: ['CoffeeWaterKind'],
         description: 'Waters you have used, e.g. `["Robinet (dureté 3/5)"]`',
@@ -781,6 +777,11 @@ export const CoffeeVocabularyType = builder
         type: ['CoffeeMilkKind'],
         description: 'Milks you have used, e.g. `["Avoine Oatly"]`',
         resolve: ({ milkKinds }) => milkKinds,
+      }),
+      profiles: t.field({
+        type: ['CoffeeProfile'],
+        description: 'Machine profiles you brew on, e.g. `["Sera Modern Arc"]`',
+        resolve: ({ profiles }) => profiles,
       }),
       machines: t.field({
         type: ['CoffeeMachine'],

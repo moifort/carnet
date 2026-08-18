@@ -173,7 +173,6 @@ enum GraphQLHelpers {
             dose: graphQLNullable(beans.dose),
             name: graphQLNullable(beans.name),
             producer: graphQLNullable(beans.producer),
-            roast: graphQLNullable(beans.roast),
             roastedOn: beans.roastedOn.map { .some(formatISO8601($0)) } ?? .null
         )
     }
@@ -207,7 +206,8 @@ enum GraphQLHelpers {
     private static func gearInput(_ gear: CoffeeGear) -> ShuhariGraphQL.CoffeeGearInput {
         ShuhariGraphQL.CoffeeGearInput(
             grinder: graphQLNullable(gear.grinder),
-            machine: graphQLNullable(gear.machine)
+            machine: graphQLNullable(gear.machine),
+            profile: graphQLNullable(gear.profile)
         )
     }
 }
